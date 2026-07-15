@@ -1,5 +1,10 @@
+import { ROUND_SECONDS } from '../game/constants'
+import { clearsPerMinute, getPerformanceLabel } from '../game/scoring'
+import type { GameState, GameStatistics } from '../game/types'
 import { OverlayDialog } from './OverlayDialog'
-type ResultDialogProps = { score: number; highScore: number; remaining: number; onRestart: () => void; onHome: () => void }
-export function ResultDialog({ score, highScore, remaining, onRestart, onHome }: ResultDialogProps) {
-  return <OverlayDialog label="本局結算"><p className="eyebrow">時間到</p><h2>今日收成</h2><strong className="result-score">{score}</strong><p>最高收成：{highScore}</p><p>果園還有 {remaining} 顆等待下一輪。</p><div className="dialog-actions"><button type="button" className="primary-button" autoFocus onClick={onRestart}>再玩一次 <span aria-hidden="true">↻</span></button><button type="button" className="text-button" onClick={onHome}>回到首頁</button></div></OverlayDialog>
+type ResultDialogProps = { game: GameState; statistics: GameStatistics; onRestart: () => void; onHome: () => void }
+export function ResultDialog({ game, statistics, onRestart, onHome }: ResultDialogProps) {
+  const cleared = game.score
+  const record = game.score >= statistics.highScore && game.score > 0
+  return <OverlayDialog label="本局結算"><p className="eyebrow">{record ? 'NEW PERSONAL BEST' : getPerformanceLabel(game.score)}</p><h2>本局完成！</h2><strong className="result-score">{game.score}</strong><p>最高分 {statistics.highScore}{record ? ' · 刷新紀錄！' : ''}</p><dl className="result-stats"><div><dt>消除水果</dt><dd>{cleared}</dd></div><div><dt>最高 Combo</dt><dd>{game.bestCombo}</dd></div><div><dt>成功操作</dt><dd>{game.successfulMoves}</dd></div><div><dt>無效操作</dt><dd>{game.invalidMoves}</dd></div><div><dt>每分鐘消除</dt><dd>{clearsPerMinute(cleared, ROUND_SECONDS - game.secondsLeft)}</dd></div></dl><div className="dialog-actions"><button type="button" className="primary-button" onClick={onRestart}>再玩一次 <span aria-hidden="true">→</span></button><button type="button" className="text-button" onClick={onHome}>回到首頁</button></div></OverlayDialog>
 }

@@ -1,36 +1,44 @@
-# 果粒十格 Orchard Ten
+# Orchard Ten
 
-一款原創的數字果園益智遊戲。拖曳滑鼠或手指框出連續矩形，當框內水果數字總和剛好是 **10**，它們就會被收成並計分。每局 120 秒，目標是在倒數結束前收成最多水果。
+一款限时数字水果益智游戏：拖曳一个矩形，框选总和恰好为 **10** 的水果以消除得分。它以轻量、适合手机操作的单页体验为目标。
 
-本專案僅受「矩形框選湊數」玩法啟發；名稱、圖示、視覺設計、CSS 水果、動畫與合成音效皆為原創，未使用任何第三方遊戲素材。
+![Orchard Ten start screen](public/hero.png)
+
+## 玩法
+
+1. 按住鼠标或手指并拖曳，框出一个矩形。
+2. 矩形内所有未消除水果的数字总和为 10 时，水果会消除，每颗获得 1 分。
+3. 在短时间内连续成功可累积 Combo；无效框选或 Combo 时间结束会中断连击。
+4. 每局有 3 次提示。没有可行组合时，可重新排列剩余水果，不会重置分数或时间。
 
 ## 功能
 
-- 10 × 17 隨機棋盤、170 顆 1–9 的水果；初始總和為 10 的倍數，且保證至少一個有效解。
-- 滑鼠、觸控與 Pointer Events 矩形框選；即時高亮與 `n / 10` 總和提示。
-- 合法選取消除水果並依顆數加分；空格不下落、不補新水果。
-- 開始、暫停、重新開始、結算與 120 秒倒數；最後 10 秒溫和提醒。
-- localStorage 儲存最高分、音效開關、淡色低刺激模式。
-- CSS 收成／失敗動畫、Web Audio 合成收成音；`prefers-reduced-motion` 自動降低動畫。
-- 響應式版面，手機不產生水平捲軸；棋盤可使用方向鍵 + Enter／空白鍵選取，Esc 取消。
+- 鼠标、触摸与键盘棋盘操作
+- 即时显示总和、所选水果数、差额与成功／超额状态
+- 组合技、提示、无解重排、成功/无效音效与可关闭动画
+- 一次性新手教学、玩法说明、About、Footer 与清楚的来源揭露
+- 本机保存最高分、最近分数、游玩次数、累计消除、Combo、平均分数与设置
+- 低刺激模式、`prefers-reduced-motion` 支持、对话框焦点管理、Escape 关闭与移动安全区布局
 
-## 技術與結構
+## 技术结构
+
+- React 19 + TypeScript + Vite
+- Reducer 管理游戏状态；`src/game/` 内将棋盘、选择、有效移动、计分、存储和声音逻辑分离
+- Vitest 覆盖核心选择、Combo、提示、重排与本地存储容错
+- 纯 CSS 构建响应式视觉与动画，避免使用参考网站的素材
 
 ```text
 src/
-  components/       # 畫面元件：棋盤、對話框、HUD、設定
+  components/       # 画面、对话框、Footer 与交互组件
   game/
-    boardGenerator.ts       # 產生可解且可被 10 整除的盤面
-    selectionCalculator.ts  # 矩形正規化、格子取得與加總
-    gameReducer.ts          # 可預測的遊戲狀態轉換
-    storage.ts              # 最高分 localStorage 邊界
-    soundManager.ts         # Web Audio 合成音效
-    gameLogic.test.ts       # 核心邏輯單元測試
+    constants.ts        # 可调整规则集中处
+    gameReducer.ts      # 回合、计时、Combo、提示与重排 action
+    validMoveFinder.ts  # 有效矩形与安全重排
+    storage.ts          # 有版本的本地设置与统计服务
+    scoring.ts          # 结算与表现评语
 ```
 
-採用 React 19、TypeScript、Vite、一般 CSS（含全域 Design Tokens）與 Vitest。不需要後端、付費 API 或遊戲引擎。
-
-## 安裝與啟動
+## 安装与开发
 
 需要 Node.js 20.19+ 或 22.12+。
 
@@ -39,9 +47,9 @@ npm install
 npm run dev
 ```
 
-開啟終端輸出的本機網址（預設為 `http://localhost:5173`）。
+开发服务器默认运行在 `http://localhost:5173`。
 
-## 驗證命令
+## 验证
 
 ```bash
 npm run test
@@ -49,23 +57,18 @@ npm run lint
 npm run build
 ```
 
-目前單元測試覆蓋：矩形格子擷取、加總、合法／不合法消除、計分、防重複計分、時間結束鎖定、重開重置、可解盤面、最高分保存，共 10 項。
-
-## 核心演算法
-
-`generateBoard()` 先放入隨機數字，再以兩個 1–9 數字調整總和至 10 的倍數，最後固定放入相鄰的 `1 + 9`，因此不需要昂貴的重試生成也能保證開局可解。
-
-拖曳時先將起訖格做 min/max 正規化，逐行逐列產出矩形格子並加總。放開時 reducer 只有在狀態為 `playing` 且加總等於 10 時才建立新的棋盤陣列、將選取值改為 `null`，並以實際非空格數量增加分數。
-
 ## 部署
 
-`npm run build` 會輸出靜態網站至 `dist/`，可直接部署：
+执行 `npm run build` 后，部署 `dist/` 到任意静态托管服务，例如 Vercel、Netlify 或 GitHub Pages。若使用 GitHub Pages，请在 `vite.config.ts` 中配置仓库对应的 `base` 路径。
 
-- Vercel / Netlify：匯入儲存庫，建置指令填 `npm run build`，輸出資料夾填 `dist`。
-- GitHub Pages：將 `dist/` 發布為靜態網站；若部署於子路徑，請在 `vite.config.ts` 加入相應 `base`。
+## 已知限制与后续方向
 
-## 已知限制
+- 棋盘键盘操作使用方向键与 Enter 选择矩形端点；拖曳仍是最直接的操作方式。
+- 数据仅保存于当前浏览器的 localStorage，不会跨设备同步。
+- 后续可加入每日挑战、更多棋盘主题与可选的云端排行榜。
 
-- 音效由瀏覽器 Web Audio 即時合成；部分行動瀏覽器會在首次使用者互動後才允許播放，這符合其自動播放政策。
-- 現階段不儲存進行中的棋盤，只保存最高分。
-- 單鍵盤操作以棋盤焦點為入口：方向鍵移動游標，Enter／空白鍵先後設定矩形兩端；並未讓 170 個格子各自成為 Tab 停駐點，避免過長的 Tab 序列。
+## Credits / 参考来源
+
+Core gameplay inspired by [Fruit Box](https://en.gamesaien.com/game/fruit_box/).
+
+This is an independent, unofficial implementation and is not affiliated with or endorsed by the original website or its developers.

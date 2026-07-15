@@ -6,20 +6,21 @@ type FruitCellProps = {
   index: number
   highlighted?: boolean
   clearing?: boolean
+  animationsEnabled?: boolean
 }
 
-export function FruitCell({ value, index, highlighted = false, clearing = false }: FruitCellProps) {
+export function FruitCell({ value, index, highlighted = false, clearing = false, animationsEnabled = true }: FruitCellProps) {
   const previous = useRef<CellValue>(value)
   const [leaving, setLeaving] = useState(false)
   useEffect(() => {
     if (value === null && previous.current !== null) {
-      setLeaving(true)
+      setLeaving(animationsEnabled)
       const timer = window.setTimeout(() => setLeaving(false), 240)
       return () => window.clearTimeout(timer)
     }
     previous.current = value
     return undefined
-  }, [value])
+  }, [animationsEnabled, value])
   const displayValue = value ?? (leaving ? previous.current : null)
   if (displayValue === null) return <div className="fruit-cell is-empty" aria-hidden="true" />
   const theme = index % 9
