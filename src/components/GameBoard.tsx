@@ -26,6 +26,11 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
     const point = pointFromEvent(event)
     if (!point) return
     event.currentTarget.setPointerCapture(event.pointerId)
+    // Pointer input starts a new independent selection. Clear any pending
+    // keyboard rectangle so its start point cannot remain visually or
+    // logically active after a mouse/touch selection.
+    setKeyboardStart(null)
+    setKeyboardPoint(point)
     setSelection({ start: point, end: point }); setIsDragging(true)
   }
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
