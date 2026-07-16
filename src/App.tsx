@@ -3,7 +3,10 @@ import { AboutDialog } from './components/AboutDialog'
 import { Footer } from './components/Footer'
 import { GameScreen } from './components/GameScreen'
 import { HowToPlayDialog } from './components/HowToPlayDialog'
+import { IosInstallDialog } from './components/IosInstallDialog'
+import { NetworkStatusToast } from './components/NetworkStatusToast'
 import { PauseDialog } from './components/PauseDialog'
+import { PwaUpdateDialog } from './components/PwaUpdateDialog'
 import { ResultDialog } from './components/ResultDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { StartScreen } from './components/StartScreen'
@@ -12,6 +15,9 @@ import { ROUND_SECONDS } from './game/constants'
 import { createGameState, gameReducer } from './game/gameReducer'
 import { clearsPerMinute } from './game/scoring'
 import { clearGameData, readGameData, recordFinishedRound, saveGameData } from './game/storage'
+import { useInstallPrompt } from './hooks/useInstallPrompt'
+import { useNetworkStatus } from './hooks/useNetworkStatus'
+import { usePwaUpdate } from './hooks/usePwaUpdate'
 import type { GameSettings, StoredGameData } from './game/types'
 import './index.css'
 
@@ -20,6 +26,10 @@ function App() {
   const [game, dispatch] = useReducer(gameReducer, undefined, () => createGameState())
   const [data, setData] = useState<StoredGameData>(readGameData)
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
+  const [deferUpdate, setDeferUpdate] = useState(false)
+  const install = useInstallPrompt()
+  const networkNotice = useNetworkStatus()
+  const pwaUpdate = usePwaUpdate()
   const updateData = (next: StoredGameData) => { setData(next); saveGameData(next) }
   const updateSettings = (settings: GameSettings) => updateData({ ...data, settings })
   useEffect(() => {
@@ -35,6 +45,24 @@ function App() {
   const openGameSettings = () => { dispatch({ type: 'pause', now: Date.now() }); setActiveDialog('settings') }
   const lowStimulusClass = data.settings.lowStimulus ? ' low-stimulation' : ''
   const animationClass = data.settings.animationsEnabled ? '' : ' animations-off'
-  return <main className={`app-shell${lowStimulusClass}${animationClass}`}><section className="game-card">{game.status === 'start' && <StartScreen onStart={startGame} settings={data.settings} statistics={data.statistics} onOpenSettings={() => setActiveDialog('settings')} onHowToPlay={() => setActiveDialog('how-to')} onAbout={() => setActiveDialog('about')} />}{game.status !== 'start' && <GameScreen game={game} dispatch={dispatch} settings={data.settings} tutorialOpen={activeDialog === 'tutorial'} onOpenSettings={openGameSettings} />}{game.status === 'paused' && activeDialog !== 'settings' && <PauseDialog onResume={() => dispatch({ type: 'resume', now: Date.now() })} onRestart={() => dispatch({ type: 'restart' })} onHome={() => dispatch({ type: 'home' })} />}{game.status === 'finished' && <ResultDialog game={game} statistics={data.statistics} onRestart={() => dispatch({ type: 'restart' })} onHome={() => dispatch({ type: 'home' })} />}</section>{game.status !== 'playing' && <Footer onAbout={() => setActiveDialog('about')} onHowToPlay={() => setActiveDialog('how-to')} />}{activeDialog === 'about' && <AboutDialog onClose={() => setActiveDialog(null)} />}{activeDialog === 'how-to' && <HowToPlayDialog onClose={() => setActiveDialog(null)} />}{activeDialog === 'tutorial' && <TutorialDialog onComplete={completeTutorial} onSkip={completeTutorial} />}{activeDialog === 'settings' && <SettingsDialog settings={data.settings} onChange={updateSettings} onTutorial={() => setActiveDialog('tutorial')} onAbout={() => setActiveDialog('about')} onClearStatistics={clearStatistics} onClose={() => setActiveDialog(null)} />}</main>
+  const isGameActive = game.status === 'playing' || game.status === 'paused'
+  const installProps = { canInstall: install.canInstall, isInstalled: install.isInstalled, ios: install.ios, onInstall: install.install, onIosInstructions: install.openIosInstructions }
+  const showUpdate = pwaUpdate.updateAvailable && !deferUpdate
+  return <main className={`app-shell${lowStimulusClass}${animationClass}`}>
+    <section className="game-card">
+      {game.status === 'start' && <StartScreen onStart={startGame} settings={data.settings} statistics={data.statistics} onOpenSettings={() => setActiveDialog('settings')} onHowToPlay={() => setActiveDialog('how-to')} onAbout={() => setActiveDialog('about')} install={installProps} />}
+      {game.status !== 'start' && <GameScreen game={game} dispatch={dispatch} settings={data.settings} tutorialOpen={activeDialog === 'tutorial'} onOpenSettings={openGameSettings} networkNotice={networkNotice} />}
+      {game.status === 'paused' && activeDialog !== 'settings' && <PauseDialog onResume={() => dispatch({ type: 'resume', now: Date.now() })} onRestart={() => dispatch({ type: 'restart' })} onHome={() => dispatch({ type: 'home' })} />}
+      {game.status === 'finished' && <ResultDialog game={game} statistics={data.statistics} onRestart={() => dispatch({ type: 'restart' })} onHome={() => dispatch({ type: 'home' })} />}
+    </section>
+    {game.status !== 'playing' && <Footer onAbout={() => setActiveDialog('about')} onHowToPlay={() => setActiveDialog('how-to')} />}
+    {activeDialog === 'about' && <AboutDialog onClose={() => setActiveDialog(null)} />}
+    {activeDialog === 'how-to' && <HowToPlayDialog onClose={() => setActiveDialog(null)} />}
+    {activeDialog === 'tutorial' && <TutorialDialog onComplete={completeTutorial} onSkip={completeTutorial} />}
+    {activeDialog === 'settings' && <SettingsDialog settings={data.settings} onChange={updateSettings} onTutorial={() => setActiveDialog('tutorial')} onAbout={() => setActiveDialog('about')} onClearStatistics={clearStatistics} onClose={() => setActiveDialog(null)} />}
+    {install.showIosInstructions && <IosInstallDialog onClose={install.closeIosInstructions} />}
+    {game.status !== 'playing' && <NetworkStatusToast notice={networkNotice} />}
+    <PwaUpdateDialog visible={showUpdate} isGameActive={isGameActive} onUpdate={pwaUpdate.applyUpdate} onLater={() => setDeferUpdate(true)} />
+  </main>
 }
 export default App

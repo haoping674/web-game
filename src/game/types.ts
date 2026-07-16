@@ -36,7 +36,7 @@ export type GameStatistics = {
 }
 
 export type StoredGameData = {
-  version: 2
+  version: number
   settings: GameSettings
   statistics: GameStatistics
   tutorialSeen: boolean

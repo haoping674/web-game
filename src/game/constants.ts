@@ -6,6 +6,7 @@ export const ROUND_SECONDS = 120
 
 export const GAME_VERSION = '2.0.0'
 export const STORAGE_KEY = 'orchard-ten-v2'
+export const STORAGE_SCHEMA_VERSION = 3
 export const COMBO_WINDOW_MS = 4_000
 export const HINT_LIMIT = 3
 export const HINT_DURATION_MS = 1_600
