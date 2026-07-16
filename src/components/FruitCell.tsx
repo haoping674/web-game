@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { CellValue } from '../game/types'
 
 type FruitCellProps = {
@@ -7,9 +7,10 @@ type FruitCellProps = {
   highlighted?: boolean
   clearing?: boolean
   animationsEnabled?: boolean
+  style?: CSSProperties
 }
 
-export function FruitCell({ value, index, highlighted = false, clearing = false, animationsEnabled = true }: FruitCellProps) {
+export function FruitCell({ value, index, highlighted = false, clearing = false, animationsEnabled = true, style }: FruitCellProps) {
   const previous = useRef<CellValue>(value)
   const [leaving, setLeaving] = useState(false)
   useEffect(() => {
@@ -22,10 +23,10 @@ export function FruitCell({ value, index, highlighted = false, clearing = false,
     return undefined
   }, [animationsEnabled, value])
   const displayValue = value ?? (leaving ? previous.current : null)
-  if (displayValue === null) return <div className="fruit-cell is-empty" aria-hidden="true" />
+  if (displayValue === null) return <div className="fruit-cell is-empty" style={style} aria-hidden="true" />
   const theme = index % 9
   return (
-    <div className={`fruit-cell fruit-theme-${theme}${highlighted ? ' is-highlighted' : ''}${clearing || leaving ? ' is-clearing' : ''}`}>
+    <div className={`fruit-cell fruit-theme-${theme}${highlighted ? ' is-highlighted' : ''}${clearing || leaving ? ' is-clearing' : ''}`} style={style}>
       <span className="fruit-leaf" aria-hidden="true" />
       <span className="fruit-value">{displayValue}</span>
     </div>
