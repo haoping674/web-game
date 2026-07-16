@@ -9,30 +9,58 @@ export type GameAction =
   | { type: 'tick'; now: number }
   | { type: 'use-hint' }
   | { type: 'reshuffle' }
-  | { type: 'start' }
+  | { type: 'start'; now: number }
   | { type: 'pause'; now: number }
   | { type: 'resume'; now: number }
-  | { type: 'restart' }
+  | { type: 'restart'; now: number }
   | { type: 'home' }
 
-export function createGameState(status: GameState['status'] = 'start'): GameState {
-  return { board: generateBoard(), score: 0, secondsLeft: ROUND_SECONDS, status, combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0 }
+export function createGameState(status: GameState['status'] = 'start', now = Date.now()): GameState {
+  return { board: generateBoard(), score: 0, secondsLeft: ROUND_SECONDS, nextTickAt: status === 'playing' ? now + 1_000 : null, status, combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0 }
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'select': return applySelection(state, action.rect, action.now)
-    case 'tick': return state.status === 'playing'
-      ? { ...state, combo: state.comboDeadline !== null && action.now > state.comboDeadline ? 0 : state.combo, comboDeadline: state.comboDeadline !== null && action.now > state.comboDeadline ? null : state.comboDeadline, secondsLeft: Math.max(0, state.secondsLeft - 1), status: state.secondsLeft <= 1 ? 'finished' : 'playing' }
-      : state
+    case 'tick': return advancePlayingTime(state, action.now)
     case 'use-hint': return state.status === 'playing' && state.hintsUsed < HINT_LIMIT ? { ...state, hintsUsed: state.hintsUsed + 1 } : state
     case 'reshuffle': return state.status === 'playing' ? { ...state, board: reshuffleRemaining(state.board) } : state
-    case 'start': return createGameState('playing')
-    case 'pause': return state.status === 'playing' ? { ...state, status: 'paused', comboDeadline: state.comboDeadline === null ? null : state.comboDeadline - action.now } : state
-    case 'resume': return state.status === 'paused' ? { ...state, status: 'playing', comboDeadline: state.comboDeadline === null ? null : action.now + state.comboDeadline } : state
-    case 'restart': return createGameState('playing')
+    case 'start': return createGameState('playing', action.now)
+    case 'pause': return pausePlayingTime(state, action.now)
+    case 'resume': return state.status === 'paused' ? { ...state, status: 'playing', nextTickAt: state.nextTickAt === null ? null : action.now + state.nextTickAt, comboDeadline: state.comboDeadline === null ? null : action.now + state.comboDeadline } : state
+    case 'restart': return createGameState('playing', action.now)
     case 'home': return createGameState('start')
     default: return assertNever(action)
+  }
+}
+
+function advancePlayingTime(state: GameState, now: number): GameState {
+  if (state.status !== 'playing') return state
+  const comboExpired = state.comboDeadline !== null && now > state.comboDeadline
+  if (state.nextTickAt === null || now < state.nextTickAt) {
+    return comboExpired ? { ...state, combo: 0, comboDeadline: null } : state
+  }
+  const elapsedTicks = Math.floor((now - state.nextTickAt) / 1_000) + 1
+  const secondsLeft = Math.max(0, state.secondsLeft - elapsedTicks)
+  return {
+    ...state,
+    secondsLeft,
+    nextTickAt: secondsLeft === 0 ? null : state.nextTickAt + elapsedTicks * 1_000,
+    status: secondsLeft === 0 ? 'finished' : 'playing',
+    combo: comboExpired ? 0 : state.combo,
+    comboDeadline: comboExpired ? null : state.comboDeadline,
+  }
+}
+
+function pausePlayingTime(state: GameState, now: number): GameState {
+  if (state.status !== 'playing') return state
+  const advanced = advancePlayingTime(state, now)
+  if (advanced.status !== 'playing') return advanced
+  return {
+    ...advanced,
+    status: 'paused',
+    nextTickAt: advanced.nextTickAt === null ? null : Math.max(0, advanced.nextTickAt - now),
+    comboDeadline: advanced.comboDeadline === null ? null : Math.max(0, advanced.comboDeadline - now),
   }
 }
 

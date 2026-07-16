@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BOARD_COLUMNS, BOARD_ROWS, TARGET_SUM } from '../game/constants'
 import { getRectangleCells, isPointInRect, normalizeRect, sumSelection } from '../game/selectionCalculator'
 import type { CellValue, GridPoint, GridRect } from '../game/types'
@@ -30,6 +30,8 @@ function usePortraitBoard() {
 export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null, animationsEnabled = true }: GameBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<number | null>(null)
+  const invalidTimerRef = useRef<number | null>(null)
+  const activePointerIdRef = useRef<number | null>(null)
   const pendingPoint = useRef<GridPoint | null>(null)
   const isPortrait = usePortraitBoard()
   const [selection, setSelection] = useState<GridRect | null>(null)
@@ -38,6 +40,43 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
   const [invalidRect, setInvalidRect] = useState<GridRect | null>(null)
   const [keyboardPoint, setKeyboardPoint] = useState<GridPoint>({ row: 0, column: 0 })
   const [keyboardStart, setKeyboardStart] = useState<GridPoint | null>(null)
+
+  const cancelFrame = useCallback(() => {
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current)
+    frameRef.current = null
+    pendingPoint.current = null
+  }, [])
+
+  const releaseActivePointer = useCallback(() => {
+    const boardElement = boardRef.current
+    const pointerId = activePointerIdRef.current
+    if (boardElement && pointerId !== null && typeof boardElement.hasPointerCapture === 'function' && boardElement.hasPointerCapture(pointerId)) {
+      boardElement.releasePointerCapture(pointerId)
+    }
+    activePointerIdRef.current = null
+  }, [])
+
+  const cancelActiveSelection = useCallback(() => {
+    cancelFrame()
+    releaseActivePointer()
+    if (invalidTimerRef.current !== null) window.clearTimeout(invalidTimerRef.current)
+    invalidTimerRef.current = null
+    setSelection(null)
+    setIsDragging(false)
+    setInvalid(false)
+    setInvalidRect(null)
+    setKeyboardStart(null)
+  }, [cancelFrame, releaseActivePointer])
+
+  useEffect(() => {
+    if (disabled) cancelActiveSelection()
+  }, [cancelActiveSelection, disabled])
+
+  useEffect(() => () => {
+    cancelFrame()
+    releaseActivePointer()
+    if (invalidTimerRef.current !== null) window.clearTimeout(invalidTimerRef.current)
+  }, [cancelFrame, releaseActivePointer])
 
   const pointFromEvent = (event: React.PointerEvent<HTMLDivElement>): GridPoint | null => {
     const bounds = boardRef.current?.getBoundingClientRect()
@@ -53,7 +92,8 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
     if (disabled) return
     const point = pointFromEvent(event)
     if (!point) return
-    event.currentTarget.setPointerCapture(event.pointerId)
+    if (typeof event.currentTarget.setPointerCapture === 'function') event.currentTarget.setPointerCapture(event.pointerId)
+    activePointerIdRef.current = event.pointerId
     setKeyboardStart(null)
     setKeyboardPoint(point)
     setSelection({ start: point, end: point })
@@ -61,7 +101,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging) return
+    if (disabled || !isDragging) return
     pendingPoint.current = pointFromEvent(event)
     if (frameRef.current !== null) return
     frameRef.current = window.requestAnimationFrame(() => {
@@ -72,20 +112,23 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
   }
 
   const finishSelection = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging || !selection) return
-    if (frameRef.current !== null) {
-      window.cancelAnimationFrame(frameRef.current)
-      frameRef.current = null
+    if (disabled) {
+      cancelActiveSelection()
+      return
     }
-    event.currentTarget.releasePointerCapture(event.pointerId)
+    if (!isDragging || !selection) return
+    cancelFrame()
+    releaseActivePointer()
     const completed = normalizeRect({ ...selection, end: pointFromEvent(event) ?? selection.end })
     const sum = sumSelection(board, completed)
     if (sum !== TARGET_SUM) {
+      if (invalidTimerRef.current !== null) window.clearTimeout(invalidTimerRef.current)
       setInvalid(true)
       setInvalidRect(completed)
-      window.setTimeout(() => {
+      invalidTimerRef.current = window.setTimeout(() => {
         setInvalid(false)
         setInvalidRect(null)
+        invalidTimerRef.current = null
       }, 260)
     }
     onSelectionEnd?.(completed, sum)
@@ -154,7 +197,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={finishSelection}
-        onPointerCancel={finishSelection}
+        onPointerCancel={cancelActiveSelection}
       >
         {board.flatMap((row, rowIndex) => row.map((value, columnIndex) => (
           <FruitCell

@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useCallback, useEffect, useReducer, useState } from 'react'
 import { AboutDialog } from './components/AboutDialog'
 import { Footer } from './components/Footer'
 import { GameScreen } from './components/GameScreen'
@@ -18,6 +18,7 @@ import { clearGameData, readGameData, recordFinishedRound, saveGameData } from '
 import { useInstallPrompt } from './hooks/useInstallPrompt'
 import { useNetworkStatus } from './hooks/useNetworkStatus'
 import { usePwaUpdate } from './hooks/usePwaUpdate'
+import { usePageVisibilityPause } from './hooks/usePageVisibilityPause'
 import type { GameSettings, StoredGameData } from './game/types'
 import './index.css'
 
@@ -26,6 +27,7 @@ function App() {
   const [game, dispatch] = useReducer(gameReducer, undefined, () => createGameState())
   const [data, setData] = useState<StoredGameData>(readGameData)
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
+  const [resumeAfterTutorial, setResumeAfterTutorial] = useState(false)
   const [deferUpdate, setDeferUpdate] = useState(false)
   const install = useInstallPrompt()
   const networkNotice = useNetworkStatus()
@@ -39,10 +41,28 @@ function App() {
     // Only run on the state transition into "finished"; data is intentionally read once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.status])
-  const completeTutorial = () => { updateData({ ...data, tutorialSeen: true }); setActiveDialog(null) }
-  const startGame = () => { dispatch({ type: 'start' }); if (!data.tutorialSeen) setActiveDialog('tutorial') }
+  const pauseGame = useCallback(() => dispatch({ type: 'pause', now: Date.now() }), [])
+  const resumeGame = useCallback(() => dispatch({ type: 'resume', now: Date.now() }), [])
+  const restartGame = useCallback(() => dispatch({ type: 'restart', now: Date.now() }), [])
+  const homeGame = useCallback(() => dispatch({ type: 'home' }), [])
+  usePageVisibilityPause({ isPlaying: game.status === 'playing', onPause: pauseGame })
+  const completeTutorial = () => {
+    updateData({ ...data, tutorialSeen: true })
+    setActiveDialog(null)
+    if (resumeAfterTutorial) resumeGame()
+    setResumeAfterTutorial(false)
+  }
+  const startGame = () => {
+    const now = Date.now()
+    dispatch({ type: 'start', now })
+    if (!data.tutorialSeen) {
+      dispatch({ type: 'pause', now })
+      setResumeAfterTutorial(true)
+      setActiveDialog('tutorial')
+    }
+  }
   const clearStatistics = () => { if (window.confirm('確定要清除所有本機遊戲紀錄與設定嗎？')) { const cleared = clearGameData(); updateData(cleared); setActiveDialog(null) } }
-  const openGameSettings = () => { dispatch({ type: 'pause', now: Date.now() }); setActiveDialog('settings') }
+  const openGameSettings = () => { pauseGame(); setActiveDialog('settings') }
   const lowStimulusClass = data.settings.lowStimulus ? ' low-stimulation' : ''
   const animationClass = data.settings.animationsEnabled ? '' : ' animations-off'
   const isGameActive = game.status === 'playing' || game.status === 'paused'
@@ -51,9 +71,9 @@ function App() {
   return <main className={`app-shell${lowStimulusClass}${animationClass}`}>
     <section className="game-card">
       {game.status === 'start' && <StartScreen onStart={startGame} settings={data.settings} statistics={data.statistics} onOpenSettings={() => setActiveDialog('settings')} onHowToPlay={() => setActiveDialog('how-to')} onAbout={() => setActiveDialog('about')} install={installProps} />}
-      {game.status !== 'start' && <GameScreen game={game} dispatch={dispatch} settings={data.settings} tutorialOpen={activeDialog === 'tutorial'} onOpenSettings={openGameSettings} networkNotice={networkNotice} />}
-      {game.status === 'paused' && activeDialog !== 'settings' && <PauseDialog onResume={() => dispatch({ type: 'resume', now: Date.now() })} onRestart={() => dispatch({ type: 'restart' })} onHome={() => dispatch({ type: 'home' })} />}
-      {game.status === 'finished' && <ResultDialog game={game} statistics={data.statistics} onRestart={() => dispatch({ type: 'restart' })} onHome={() => dispatch({ type: 'home' })} />}
+      {game.status !== 'start' && <GameScreen game={game} dispatch={dispatch} settings={data.settings} tutorialOpen={activeDialog === 'tutorial'} onPause={pauseGame} onRestart={restartGame} onOpenSettings={openGameSettings} networkNotice={networkNotice} />}
+      {game.status === 'paused' && activeDialog !== 'settings' && activeDialog !== 'tutorial' && <PauseDialog onResume={resumeGame} onRestart={restartGame} onHome={homeGame} />}
+      {game.status === 'finished' && <ResultDialog game={game} statistics={data.statistics} onRestart={restartGame} onHome={homeGame} />}
     </section>
     {game.status !== 'playing' && <Footer onAbout={() => setActiveDialog('about')} onHowToPlay={() => setActiveDialog('how-to')} />}
     {activeDialog === 'about' && <AboutDialog onClose={() => setActiveDialog(null)} />}

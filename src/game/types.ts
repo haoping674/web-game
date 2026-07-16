@@ -8,6 +8,7 @@ export type GameState = {
   board: CellValue[][]
   score: number
   secondsLeft: number
+  nextTickAt: number | null
   status: GameStatus
   combo: number
   bestCombo: number
