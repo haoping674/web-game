@@ -9,10 +9,18 @@ export function usePageVisibilityPause({ isPlaying, onPause }: PageVisibilityPau
   useEffect(() => {
     if (!isPlaying) return undefined
 
-    const pauseWhenHidden = () => {
-      if (document.visibilityState === 'hidden') onPause()
+    let pauseRequested = false
+
+    const requestPause = () => {
+      if (pauseRequested) return
+      pauseRequested = true
+      onPause()
     }
-    const pauseOnPageHide = () => onPause()
+
+    const pauseWhenHidden = () => {
+      if (document.visibilityState === 'hidden') requestPause()
+    }
+    const pauseOnPageHide = () => requestPause()
 
     document.addEventListener('visibilitychange', pauseWhenHidden)
     window.addEventListener('pagehide', pauseOnPageHide)

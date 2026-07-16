@@ -84,7 +84,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
     <section className="play-screen" inert={paused} aria-hidden={paused}>
       <header className="play-topbar">
         <div className="brand-lockup"><span className="brand-mark" aria-hidden="true">✦</span><span>Orchard Ten</span></div>
-        <div><button type="button" className="text-button compact" onClick={onOpenSettings}>設定</button><button type="button" className="text-button compact" onClick={onRestart}>重新開始</button></div>
+        <div><button type="button" className="text-button compact" disabled={paused} onClick={onOpenSettings}>設定</button><button type="button" className="text-button compact" disabled={paused} onClick={onRestart}>重新開始</button></div>
       </header>
       <section className="hud" aria-label="遊戲資訊">
         <div><span>分數</span><strong>{String(game.score).padStart(3, '0')}</strong></div>

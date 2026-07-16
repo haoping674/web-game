@@ -34,6 +34,9 @@ describe('paused board privacy', () => {
     expect(screen.queryByRole('button', { name: /提示/ })).toBeNull()
     expect(container.querySelector('.play-screen')).toHaveAttribute('inert')
     expect(container.querySelector('.play-screen')).toHaveAttribute('aria-hidden', 'true')
+    for (const control of container.querySelectorAll<HTMLButtonElement>('.play-topbar button, .icon-button')) {
+      expect(control).toBeDisabled()
+    }
   })
 
   it('restores the unchanged board only after play resumes', () => {

@@ -35,4 +35,14 @@ describe('usePageVisibilityPause', () => {
     fireEvent(window, new PageTransitionEvent('pagehide', { persisted: true }))
     expect(onPause).toHaveBeenCalledOnce()
   })
+
+  it('coalesces visibilitychange and pagehide into one pause request', () => {
+    setVisibility('visible')
+    const onPause = vi.fn()
+    render(<Harness isPlaying onPause={onPause} />)
+    setVisibility('hidden')
+    fireEvent(document, new Event('visibilitychange'))
+    fireEvent(window, new PageTransitionEvent('pagehide'))
+    expect(onPause).toHaveBeenCalledOnce()
+  })
 })

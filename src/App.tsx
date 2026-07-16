@@ -16,6 +16,7 @@ import { createGameState, gameReducer } from './game/gameReducer'
 import { clearsPerMinute } from './game/scoring'
 import { clearGameData, readGameData, recordFinishedRound, saveGameData } from './game/storage'
 import { useInstallPrompt } from './hooks/useInstallPrompt'
+import { useGamePauseShortcut } from './hooks/useGamePauseShortcut'
 import { useNetworkStatus } from './hooks/useNetworkStatus'
 import { usePwaUpdate } from './hooks/usePwaUpdate'
 import { usePageVisibilityPause } from './hooks/usePageVisibilityPause'
@@ -45,6 +46,7 @@ function App() {
   const resumeGame = useCallback(() => dispatch({ type: 'resume', now: Date.now() }), [])
   const restartGame = useCallback(() => dispatch({ type: 'restart', now: Date.now() }), [])
   const homeGame = useCallback(() => dispatch({ type: 'home' }), [])
+  useGamePauseShortcut({ isPlaying: game.status === 'playing', onPause: pauseGame })
   usePageVisibilityPause({ isPlaying: game.status === 'playing', onPause: pauseGame })
   const completeTutorial = () => {
     updateData({ ...data, tutorialSeen: true })
