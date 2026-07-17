@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { ComboTier } from '../game/comboTier'
 import type { CellValue } from '../game/types'
 
@@ -15,17 +15,45 @@ type FruitCellProps = {
 
 export function FruitCell({ value, index, highlighted = false, clearEffectId, clearTier = 'base', clearDurationMs = 240, animationsEnabled = true, style }: FruitCellProps) {
   const previous = useRef<CellValue>(value)
-  const [leaving, setLeaving] = useState(false)
-  useEffect(() => {
-    if (value === null && previous.current !== null) {
-      setLeaving(animationsEnabled)
-      const timer = window.setTimeout(() => setLeaving(false), clearDurationMs)
-      return () => window.clearTimeout(timer)
+  const departureTimer = useRef<number | null>(null)
+  const [departingValue, setDepartingValue] = useState<CellValue>(null)
+
+  useLayoutEffect(() => {
+    if (value !== null) {
+      previous.current = value
+      if (departureTimer.current !== null) window.clearTimeout(departureTimer.current)
+      departureTimer.current = null
+      setDepartingValue(null)
+      return
     }
-    previous.current = value
-    return undefined
+
+    if (!animationsEnabled) {
+      previous.current = null
+      if (departureTimer.current !== null) window.clearTimeout(departureTimer.current)
+      departureTimer.current = null
+      setDepartingValue(null)
+      return
+    }
+
+    if (clearEffectId === undefined || previous.current === null) return
+    const nextDepartingValue = previous.current
+    // Consume the old value immediately. Later Combo effects must never be
+    // able to replay a fruit that has already completed its clear animation.
+    previous.current = null
+    if (departureTimer.current !== null) window.clearTimeout(departureTimer.current)
+    setDepartingValue(nextDepartingValue)
+    departureTimer.current = window.setTimeout(() => {
+      departureTimer.current = null
+      setDepartingValue(null)
+    }, clearDurationMs)
   }, [animationsEnabled, clearDurationMs, clearEffectId, value])
-  const displayValue = value ?? (leaving ? previous.current : null)
+
+  useEffect(() => () => {
+    if (departureTimer.current !== null) window.clearTimeout(departureTimer.current)
+  }, [])
+
+  const leaving = value === null && departingValue !== null
+  const displayValue = value ?? departingValue
   if (displayValue === null) return <div className="fruit-cell is-empty" style={style} aria-hidden="true" />
   const theme = index % 9
   const clearClass = leaving ? ` is-clearing tier-${clearTier}` : ''
