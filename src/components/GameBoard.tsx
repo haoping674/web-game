@@ -5,6 +5,7 @@ import { getRectangleCells, isPointInRect, normalizeRect, sumSelection } from '.
 import type { CellValue, GridPoint, GridRect } from '../game/types'
 import { FruitCell } from './FruitCell'
 import { ParticleLayer } from './ParticleLayer'
+import { FlowStateOverlay } from './FlowStateOverlay'
 
 type GameBoardProps = {
   board: CellValue[][]
@@ -13,6 +14,7 @@ type GameBoardProps = {
   hint?: GridRect | null
   clearEffect?: ComboClearEffect | null
   effectLevel?: EffectLevel
+  combo?: number
 }
 
 type BoardPoint = { point: GridPoint; inside: boolean }
@@ -32,7 +34,7 @@ function usePortraitBoard() {
   return isPortrait
 }
 
-export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null, clearEffect = null, effectLevel = 'full' }: GameBoardProps) {
+export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null, clearEffect = null, effectLevel = 'full', combo = 0 }: GameBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<number | null>(null)
   const invalidTimerRef = useRef<number | null>(null)
@@ -257,7 +259,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
   } : null
 
   return (
-    <div className={`board-frame${multiPointerBlocked ? ' is-multi-pointer' : ''}`}>
+    <div className={`board-frame${multiPointerBlocked ? ' is-multi-pointer' : ''}${combo >= 10 ? ' is-fruit-flow' : ''}`}>
       <div
         ref={boardRef}
         className={`game-board${isPortrait ? ' is-portrait' : ''}`}
@@ -299,6 +301,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
         </> : null}
         {!keyboardStart && !isDragging ? <div className="keyboard-cursor" style={cursorStyle} aria-hidden="true" /> : null}
         <ParticleLayer effect={effectPosition} level={effectLevel} />
+        <FlowStateOverlay active={combo >= 10} reduced={effectLevel !== 'full'} />
       </div>
     </div>
   )

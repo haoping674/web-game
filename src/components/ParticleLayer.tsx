@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { ComboClearEffect, EffectLevel } from '../game/comboEffects'
-import { getDeviceEffectScale, MAX_PARTICLES } from '../game/effectPerformance'
+import { getDeviceEffectScale, MAX_ACTIVE_BURSTS, MAX_PARTICLES } from '../game/effectPerformance'
 
 type EffectPosition = { x: number; y: number }
 type PositionedEffect = ComboClearEffect & EffectPosition & { particleCount: number }
 type ParticleLayerProps = { effect: (ComboClearEffect & EffectPosition) | null; level: EffectLevel }
 
-const baseParticleCount = { base: 6, rising: 10, charged: 16, legendary: 22 } as const
+const baseParticleCount = { base: 6, rising: 10, charged: 16, legendary: 20, orchard: 22 } as const
 
 function particleStyle(index: number, count: number): CSSProperties {
   const angle = (index / Math.max(1, count)) * Math.PI * 2 + (index % 3) * 0.14
@@ -38,7 +38,7 @@ export function ParticleLayer({ effect, level }: ParticleLayerProps) {
     const next = { ...effect, particleCount }
     setBursts((current) => {
       if (current.some(({ id }) => id === effect.id)) return current
-      const retained = current.slice(-2)
+      const retained = current.slice(-(MAX_ACTIVE_BURSTS - 1))
       while (retained.reduce((sum, burst) => sum + burst.particleCount, 0) + particleCount > MAX_PARTICLES && retained.length > 0) retained.shift()
       return [...retained, next]
     })
@@ -63,7 +63,8 @@ export function ParticleLayer({ effect, level }: ParticleLayerProps) {
       {level !== 'minimal' && burst.tier !== 'base' ? <span className="combo-ring" /> : null}
       {Array.from({ length: burst.particleCount }, (_, index) => <i key={index} style={particleStyle(index, burst.particleCount)} />)}
       <b className="score-pop">+{burst.points}</b>
-      {level !== 'minimal' && burst.tier === 'legendary' ? <span className="board-burst" /> : null}
+      {level !== 'minimal' ? <em className="rating-pop">{burst.rating}</em> : null}
+      {level !== 'minimal' && (burst.tier === 'legendary' || burst.tier === 'orchard') ? <span className="board-burst" /> : null}
     </div>)}
   </div>
 }

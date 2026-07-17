@@ -1,7 +1,7 @@
 import { getComboTier, isComboMilestone } from './comboTier'
 
 type AudioContextConstructor = new () => AudioContext
-type ActiveVoice = { gain: GainNode; oscillators: OscillatorNode[] }
+type ActiveVoice = { gain: GainNode; oscillators: OscillatorNode[]; timer: number | null }
 type SoundOptions = { enabled: boolean; volume: number; combo: number; lowStimulus: boolean }
 export type ComboSoundProfile = {
   frequencies: readonly number[]
@@ -26,6 +26,8 @@ const HIGH_TIER_PATTERNS = [
 ] as const satisfies readonly HighTierPattern[]
 const activeVoices = new Set<ActiveVoice>()
 let context: AudioContext | null = null
+let compressor: DynamicsCompressorNode | null = null
+let flowVoice: ActiveVoice | null = null
 let visibilityListenerInstalled = false
 
 const semitone = (base: number, steps: number) => base * 2 ** (steps / 12)
@@ -44,7 +46,7 @@ export function getComboSoundProfile(combo: number, lowStimulus = false): ComboS
     const upper = normalizedCombo >= 20 ? 12 : normalizedCombo >= 10 ? 9 : 7
     return { frequencies: [root, semitone(root, 4), semitone(root, upper)], offsets: [0, 0.055, 0.13], duration: 0.3, waveform: 'triangle', milestone: true }
   }
-  if (tier === 'legendary') {
+  if (tier === 'legendary' || tier === 'orchard') {
     const pattern = HIGH_TIER_PATTERNS[Math.max(0, normalizedCombo - 13) % HIGH_TIER_PATTERNS.length]!
     return { frequencies: pattern.intervals.map((interval) => semitone(root, interval)), offsets: pattern.offsets, duration: pattern.duration, waveform: 'triangle', milestone: false }
   }
@@ -63,17 +65,19 @@ function getAudioContextConstructor(): AudioContextConstructor | null {
   return window.AudioContext ?? safariWindow.webkitAudioContext ?? null
 }
 
-function fadeVoice(voice: ActiveVoice): void {
+function fadeVoice(voice: ActiveVoice, fadeSeconds = 0.045): void {
   if (!context) return
   const now = context.currentTime
   try {
+    if (voice.timer !== null) window.clearTimeout(voice.timer)
     voice.gain.gain.cancelScheduledValues(now)
-    voice.gain.gain.setTargetAtTime(0.0001, now, 0.012)
+    voice.gain.gain.setTargetAtTime(0.0001, now, Math.max(0.012, fadeSeconds / 4))
     voice.oscillators.forEach((oscillator) => {
-      try { oscillator.stop(now + 0.045) } catch { /* already stopped */ }
+      try { oscillator.stop(now + fadeSeconds + 0.03) } catch { /* already stopped */ }
     })
   } catch { /* audio may have been detached by the browser */ }
   activeVoices.delete(voice)
+  if (flowVoice === voice) flowVoice = null
 }
 
 function trimVoices(incomingOscillators: number): void {
@@ -91,7 +95,7 @@ function installVisibilityHandling(): void {
   document.addEventListener('visibilitychange', () => {
     if (!context) return
     if (document.visibilityState === 'hidden') {
-      activeVoices.forEach(fadeVoice)
+      stopComboAudio()
       void context.suspend().catch(() => undefined)
     }
   })
@@ -102,6 +106,15 @@ function ensureContext(): AudioContext | null {
     const AudioContextClass = getAudioContextConstructor()
     if (!AudioContextClass) return null
     context ??= new AudioContextClass()
+    if (!compressor) {
+      compressor = context.createDynamicsCompressor()
+      compressor.threshold.setValueAtTime(-18, context.currentTime)
+      compressor.knee.setValueAtTime(16, context.currentTime)
+      compressor.ratio.setValueAtTime(10, context.currentTime)
+      compressor.attack.setValueAtTime(0.004, context.currentTime)
+      compressor.release.setValueAtTime(0.12, context.currentTime)
+      compressor.connect(context.destination)
+    }
     installVisibilityHandling()
     if (context.state === 'suspended' && document.visibilityState !== 'hidden') void context.resume().catch(() => undefined)
     return context
@@ -119,7 +132,7 @@ function playProfile(profile: ComboSoundProfile, volume: number): void {
   const oscillators: OscillatorNode[] = []
   const peak = Math.max(0.0001, Math.min(1, volume) * (profile.milestone ? 0.09 : 0.065))
   gain.gain.setValueAtTime(0.0001, now)
-  gain.connect(audioContext.destination)
+  gain.connect(compressor ?? audioContext.destination)
 
   profile.frequencies.forEach((frequency, index) => {
     const oscillator = audioContext.createOscillator()
@@ -135,14 +148,49 @@ function playProfile(profile: ComboSoundProfile, volume: number): void {
   const lastOffset = Math.max(...profile.offsets)
   gain.gain.exponentialRampToValueAtTime(peak, now + 0.012)
   gain.gain.setTargetAtTime(0.0001, now + lastOffset + profile.duration * 0.45, 0.045)
-  const voice = { gain, oscillators }
+  const voice: ActiveVoice = { gain, oscillators, timer: null }
   activeVoices.add(voice)
-  window.setTimeout(() => activeVoices.delete(voice), (lastOffset + profile.duration + 0.08) * 1_000)
+  voice.timer = window.setTimeout(() => {
+    activeVoices.delete(voice)
+    try { gain.disconnect() } catch { /* detached by the browser */ }
+  }, (lastOffset + profile.duration + 0.08) * 1_000)
+}
+
+function startFlowLayer(volume: number): void {
+  if (flowVoice || typeof document === 'undefined' || document.visibilityState === 'hidden') return
+  const audioContext = ensureContext()
+  if (!audioContext) return
+  const gain = audioContext.createGain()
+  const oscillators = [audioContext.createOscillator(), audioContext.createOscillator()]
+  gain.gain.setValueAtTime(0.0001, audioContext.currentTime)
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, Math.min(1, volume) * 0.018), audioContext.currentTime + 0.16)
+  oscillators[0]!.type = 'sine'
+  oscillators[1]!.type = 'triangle'
+  oscillators[0]!.frequency.setValueAtTime(130.81, audioContext.currentTime)
+  oscillators[1]!.frequency.setValueAtTime(196, audioContext.currentTime)
+  oscillators.forEach((oscillator) => { oscillator.connect(gain); oscillator.start() })
+  gain.connect(compressor ?? audioContext.destination)
+  flowVoice = { gain, oscillators, timer: null }
+  activeVoices.add(flowVoice)
 }
 
 export function playComboSound({ enabled, volume, combo, lowStimulus }: SoundOptions): void {
   if (!enabled || typeof window === 'undefined') return
-  try { playProfile(getComboSoundProfile(combo, lowStimulus), volume) } catch { /* audio feedback must never break play */ }
+  try {
+    playProfile(getComboSoundProfile(combo, lowStimulus), volume)
+    if (combo >= 10 && !lowStimulus) startFlowLayer(volume)
+  } catch { /* audio feedback must never break play */ }
+}
+
+export function playComboBreakSound(enabled: boolean, volume = 0.45): void {
+  if (!enabled || typeof window === 'undefined') return
+  try {
+    playProfile({ frequencies: [293.66, 220], offsets: [0, 0.06], duration: 0.14, waveform: 'sine', milestone: false }, volume * 0.38)
+  } catch { /* audio feedback must never break play */ }
+}
+
+export function stopComboAudio(): void {
+  for (const voice of activeVoices) fadeVoice(voice, voice === flowVoice ? 0.45 : 0.045)
 }
 
 export function playInvalidSound(enabled: boolean, volume = 0.45): void {

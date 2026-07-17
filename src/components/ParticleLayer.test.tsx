@@ -10,6 +10,8 @@ const effect = (id: number, tier: ComboClearEffect['tier'] = 'legendary'): Combo
   rect: { start: { row: 0, column: 0 }, end: { row: 0, column: 1 } },
   combo: 12,
   tier,
+  rating: 'Fruit Flow',
+  milestone: false,
   points: 2,
   durationMs: 400,
   particleScale: 1,

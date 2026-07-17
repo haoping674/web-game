@@ -1,4 +1,4 @@
-import type { ComboTier } from './comboTier'
+import type { ComboRating, ComboTier } from './comboTier'
 import type { GridRect } from './types'
 import type { ModeComboConfig } from './comboConfig'
 import type { GameSettings } from './types'
@@ -10,6 +10,8 @@ export type ComboClearEffect = {
   rect: GridRect
   combo: number
   tier: ComboTier
+  rating: ComboRating
+  milestone: boolean
   points: number
   durationMs: number
   particleScale: number
@@ -29,6 +31,8 @@ export function createComboClearEffect(
   points: number,
   config: ModeComboConfig,
   tier: ComboTier,
+  rating: ComboRating,
+  milestone: boolean,
 ): ComboClearEffect {
-  return { id, rect, combo, tier, points, durationMs: config.clearAnimationMs, particleScale: config.particleScale, burstScale: config.burstScale }
+  return { id, rect, combo, tier, rating, milestone, points, durationMs: config.clearAnimationMs, particleScale: config.particleScale, burstScale: config.burstScale }
 }

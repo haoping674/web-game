@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getComboWindowMs } from './comboConfig'
 import { resolveEffectLevel } from './comboEffects'
 import { getNextGameWakeDelay } from './comboTimer'
-import { getComboTier, getComboTitle, isComboMilestone } from './comboTier'
+import { getComboRating, getComboTier, getComboTitle, isComboMilestone } from './comboTier'
 import { defaultSettings } from './storage'
 import { getComboSoundProfile } from './soundManager'
 
@@ -30,14 +30,18 @@ describe('mode Combo configuration', () => {
 
 describe('Combo feedback tiers', () => {
   it('maps every boundary to the correct tier and title', () => {
-    expect([0, 2, 3, 5, 6, 9, 10].map(getComboTier)).toEqual(['base', 'base', 'rising', 'rising', 'charged', 'charged', 'legendary'])
+    expect([0, 2, 3, 5, 6, 9, 10, 20].map(getComboTier)).toEqual(['base', 'base', 'rising', 'rising', 'charged', 'charged', 'legendary', 'orchard'])
     expect(getComboTitle(9)).toBeNull()
-    expect(getComboTitle(10)).toBe('十果流星')
-    expect(getComboTitle(20)).toBe('果園星潮')
+    expect(getComboTitle(10)).toBe('Fruit Flow')
+    expect(getComboTitle(20)).toBe('Fruit Flow')
+    expect(getComboRating({ combo: 1, remainingRatio: 0, validSuccess: true })).toBe('Fresh')
+    expect(getComboRating({ combo: 3, remainingRatio: 0.72, validSuccess: true })).toBe('Juicy')
+    expect(getComboRating({ combo: 7, remainingRatio: 0.6, validSuccess: true })).toBe('Brilliant')
+    expect(getComboRating({ combo: 10, remainingRatio: 0.1, validSuccess: true })).toBe('Fruit Flow')
   })
 
   it('uses special layered sounds only at 5, 10 and 20, with a capped high-tier cycle', () => {
-    expect([5, 10, 20].every(isComboMilestone)).toBe(true)
+    expect([5, 10, 15, 20].every(isComboMilestone)).toBe(true)
     expect(getComboSoundProfile(10).milestone).toBe(true)
     expect(getComboSoundProfile(11).frequencies).toHaveLength(3)
     expect(getComboSoundProfile(13).frequencies).toEqual(getComboSoundProfile(17).frequencies)

@@ -1,4 +1,5 @@
 export const MAX_PARTICLES = 36
+export const MAX_ACTIVE_BURSTS = 3
 
 type DeviceCapabilities = { hardwareConcurrency?: number; deviceMemory?: number }
 

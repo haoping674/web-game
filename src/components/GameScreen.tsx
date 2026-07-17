@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getComboConfig } from '../game/comboConfig'
+import { getComboConfig, getComboWindowMs } from '../game/comboConfig'
 import { createComboClearEffect, resolveEffectLevel, type ComboClearEffect } from '../game/comboEffects'
 import { getNextGameWakeDelay } from '../game/comboTimer'
-import { getComboTier, getComboTitle } from '../game/comboTier'
+import { getComboRating, getComboTier, getComboTitle, isComboMilestone } from '../game/comboTier'
 import { HINT_DURATION_MS, TARGET_SUM } from '../game/constants'
 import type { GameAction } from '../game/gameReducer'
 import { getModeHintLimit, PLAYABLE_MODE_DETAILS } from '../game/modes'
 import { getRectangleCells } from '../game/selectionCalculator'
-import { playComboSound, playInvalidSound, triggerHaptic } from '../game/soundManager'
+import { playComboBreakSound, playComboSound, playInvalidSound, stopComboAudio, triggerHaptic } from '../game/soundManager'
 import type { GameSettings, GameState, GridRect } from '../game/types'
 import { findValidMove, selectHintMove } from '../game/validMoveFinder'
 import type { NetworkNotice } from '../hooks/useNetworkStatus'
@@ -48,6 +48,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   const [clearEffect, setClearEffect] = useState<ComboClearEffect | null>(null)
   const [gestureHintVisible, setGestureHintVisible] = useState(false)
   const effectId = useRef(0)
+  const previousCombo = useRef(game.combo)
   const gestureHintHandled = useRef(false)
   const autoReshuffledBoard = useRef<GameState['board'] | null>(null)
   const paused = game.status === 'paused'
@@ -59,6 +60,17 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   const effectLevel = resolveEffectLevel(settings, prefersReducedMotion)
   const validMove = useMemo(() => game.status === 'playing' ? findValidMove(game.board) : null, [game.board, game.status])
   const remainingFruit = useMemo(() => game.board.flat().filter((value) => value !== null).length, [game.board])
+
+  useEffect(() => {
+    if (previousCombo.current > 0 && game.combo === 0 && game.status === 'playing') {
+      playComboBreakSound(settings.soundEnabled, settings.volume)
+      setClearEffect(null)
+    }
+    previousCombo.current = game.combo
+    if (game.status !== 'playing') stopComboAudio()
+  }, [game.combo, game.status, settings.soundEnabled, settings.volume])
+
+  useEffect(() => () => stopComboAudio(), [])
 
   useEffect(() => {
     if (!interactive) return undefined
@@ -114,9 +126,12 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       const now = Date.now()
       const combo = game.comboDeadline !== null && now <= game.comboDeadline ? game.combo + 1 : 1
       const tier = getComboTier(combo)
+      const previousDuration = getComboWindowMs(game.mode, Math.max(1, game.combo))
+      const remainingRatio = game.comboDeadline === null ? 0 : Math.max(0, game.comboDeadline - now) / previousDuration
+      const rating = getComboRating({ combo, remainingRatio, validSuccess: true })
       const points = getRectangleCells(rect).filter(({ row, column }) => game.board[row]?.[column] !== null).length
       effectId.current += 1
-      setClearEffect(createComboClearEffect(effectId.current, rect, combo, points, comboModeConfig, tier))
+      setClearEffect(createComboClearEffect(effectId.current, rect, combo, points, comboModeConfig, tier, rating, isComboMilestone(combo)))
       playComboSound({ enabled: settings.soundEnabled, volume: settings.volume, combo, lowStimulus: settings.lowStimulus })
       triggerHaptic(settings.hapticsEnabled, combo, settings.lowStimulus)
       const title = getComboTitle(combo)
@@ -157,7 +172,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
         <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || !validMove || game.hintsUsed >= hintLimit} onClick={useHint}>提示 {hintLimit - game.hintsUsed}/{hintLimit}</button><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
         <NetworkStatusToast notice={networkNotice} inline />
         {gestureHintVisible ? <p className="mobile-gesture-hint" role="status">棋盤內單指框選，雙指可移動畫面。</p> : null}
-        <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} />
+        <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} combo={game.combo} />
         <p className="selection-status" aria-live="polite">{message}</p>
         {settings.showSelectionHelp && <p className="shortcut-tip">拖曳可框選；鍵盤可用方向鍵移動，按 Enter 設定矩形兩端。</p>}
       </> : paused ? <>
