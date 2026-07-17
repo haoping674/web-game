@@ -6,7 +6,7 @@ type EffectPosition = { x: number; y: number }
 type PositionedEffect = ComboClearEffect & EffectPosition & { particleCount: number }
 type ParticleLayerProps = { effect: (ComboClearEffect & EffectPosition) | null; level: EffectLevel }
 
-const baseParticleCount = { base: 0, rising: 7, charged: 12, legendary: 18 } as const
+const baseParticleCount = { base: 6, rising: 10, charged: 16, legendary: 22 } as const
 
 function particleStyle(index: number, count: number): CSSProperties {
   const angle = (index / Math.max(1, count)) * Math.PI * 2 + (index % 3) * 0.14
@@ -21,6 +21,7 @@ function particleStyle(index: number, count: number): CSSProperties {
 export function ParticleLayer({ effect, level }: ParticleLayerProps) {
   const [bursts, setBursts] = useState<PositionedEffect[]>([])
   const timers = useRef(new Map<number, number>())
+  const lastHandledEffectId = useRef<number | null>(null)
 
   useEffect(() => () => {
     timers.current.forEach((timer) => window.clearTimeout(timer))
@@ -28,7 +29,9 @@ export function ParticleLayer({ effect, level }: ParticleLayerProps) {
   }, [])
 
   useEffect(() => {
-    if (!effect || level === 'off') return undefined
+    if (!effect || lastHandledEffectId.current === effect.id) return undefined
+    lastHandledEffectId.current = effect.id
+    if (level === 'off') return undefined
     const intensityScale = level === 'full' ? effect.particleScale : level === 'reduced' ? effect.particleScale * 0.48 : 0
     const scale = intensityScale * getDeviceEffectScale()
     const particleCount = Math.min(MAX_PARTICLES, Math.round(baseParticleCount[effect.tier] * scale))
@@ -56,7 +59,8 @@ export function ParticleLayer({ effect, level }: ParticleLayerProps) {
       key={burst.id}
       style={{ left: `${burst.x}%`, top: `${burst.y}%`, '--burst-scale': burst.burstScale, '--burst-duration': `${burst.durationMs}ms` } as CSSProperties}
     >
-      {level !== 'minimal' && (burst.tier === 'charged' || burst.tier === 'legendary') ? <span className="combo-ring" /> : null}
+      {level !== 'minimal' ? <span className="harvest-core" /> : null}
+      {level !== 'minimal' && burst.tier !== 'base' ? <span className="combo-ring" /> : null}
       {Array.from({ length: burst.particleCount }, (_, index) => <i key={index} style={particleStyle(index, burst.particleCount)} />)}
       <b className="score-pop">+{burst.points}</b>
       {level !== 'minimal' && burst.tier === 'legendary' ? <span className="board-burst" /> : null}

@@ -40,8 +40,15 @@ describe('Combo feedback tiers', () => {
     expect([5, 10, 20].every(isComboMilestone)).toBe(true)
     expect(getComboSoundProfile(10).milestone).toBe(true)
     expect(getComboSoundProfile(11).frequencies).toHaveLength(3)
-    expect(getComboSoundProfile(15).frequencies).toEqual(getComboSoundProfile(11).frequencies)
+    expect(getComboSoundProfile(13).frequencies).toEqual(getComboSoundProfile(17).frequencies)
+    expect(getComboSoundProfile(14).frequencies).not.toEqual(getComboSoundProfile(13).frequencies)
     expect(getComboSoundProfile(20).frequencies).not.toHaveLength(0)
+  })
+
+  it('never drops the root pitch while a Combo rises', () => {
+    const roots = Array.from({ length: 32 }, (_, index) => getComboSoundProfile(index + 1).frequencies[0]!)
+    expect(roots.every((root, index) => index === 0 || root >= roots[index - 1]!)).toBe(true)
+    expect(Math.max(...roots)).toBeCloseTo(1_046.5, 1)
   })
 
   it('reduces motion and low-stimulus feedback to the minimal tier', () => {

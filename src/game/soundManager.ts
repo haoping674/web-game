@@ -11,7 +11,19 @@ export type ComboSoundProfile = {
   milestone: boolean
 }
 
+type HighTierPattern = {
+  intervals: readonly number[]
+  offsets: readonly number[]
+  duration: number
+}
+
 const MAX_ACTIVE_OSCILLATORS = 8
+const HIGH_TIER_PATTERNS = [
+  { intervals: [0, 4, 7], offsets: [0, 0.04, 0.08], duration: 0.2 },
+  { intervals: [0, 7, 12], offsets: [0, 0.035, 0.09], duration: 0.21 },
+  { intervals: [0, 3, 7, 12], offsets: [0, 0.03, 0.065, 0.11], duration: 0.22 },
+  { intervals: [0, 4, 9, 12], offsets: [0, 0.045, 0.075, 0.12], duration: 0.22 },
+] as const satisfies readonly HighTierPattern[]
 const activeVoices = new Set<ActiveVoice>()
 let context: AudioContext | null = null
 let visibilityListenerInstalled = false
@@ -21,15 +33,22 @@ const semitone = (base: number, steps: number) => base * 2 ** (steps / 12)
 export function getComboSoundProfile(combo: number, lowStimulus = false): ComboSoundProfile {
   if (lowStimulus) return { frequencies: [523.25, 659.25], offsets: [0, 0.045], duration: 0.16, waveform: 'sine', milestone: false }
 
-  const tier = getComboTier(combo)
-  const milestone = isComboMilestone(combo)
-  const cappedStep = combo >= 10 ? [7, 9, 11, 12][(combo - 10) % 4]! : Math.min(combo - 1, 6)
+  const normalizedCombo = Math.max(0, Math.floor(combo))
+  const tier = getComboTier(normalizedCombo)
+  const milestone = isComboMilestone(normalizedCombo)
+  const cappedStep = normalizedCombo >= 10
+    ? Math.min(12, 7 + (normalizedCombo - 10) * 2)
+    : Math.min(normalizedCombo - 1, 6)
   const root = semitone(523.25, Math.max(0, cappedStep))
   if (milestone) {
-    const upper = combo >= 20 ? 12 : combo >= 10 ? 9 : 7
+    const upper = normalizedCombo >= 20 ? 12 : normalizedCombo >= 10 ? 9 : 7
     return { frequencies: [root, semitone(root, 4), semitone(root, upper)], offsets: [0, 0.055, 0.13], duration: 0.3, waveform: 'triangle', milestone: true }
   }
-  if (tier === 'charged' || tier === 'legendary') {
+  if (tier === 'legendary') {
+    const pattern = HIGH_TIER_PATTERNS[Math.max(0, normalizedCombo - 13) % HIGH_TIER_PATTERNS.length]!
+    return { frequencies: pattern.intervals.map((interval) => semitone(root, interval)), offsets: pattern.offsets, duration: pattern.duration, waveform: 'triangle', milestone: false }
+  }
+  if (tier === 'charged') {
     return { frequencies: [root, semitone(root, 4), semitone(root, 7)], offsets: [0, 0.04, 0.08], duration: 0.2, waveform: 'triangle', milestone: false }
   }
   if (tier === 'rising') {
