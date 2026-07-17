@@ -29,7 +29,7 @@ const concentratedBoard: CellValue[][] = [
 ]
 
 function playingState(board: CellValue[][]): GameState {
-  return { board, score: 0, clearedFruitCount: 0, secondsLeft: 120, nextTickAt: 1_000, status: 'playing', combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
+  return { mode: 'classic', board, score: 0, clearedFruitCount: 0, secondsLeft: 120, nextTickAt: 1_000, status: 'playing', combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
 }
 
 describe('board analysis and quality', () => {

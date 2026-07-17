@@ -51,6 +51,8 @@ Legacy 的固定尾端 `1 + 9` 使 1 與 9 明顯過量；Balanced Classic 的 1
 
 Quick 的第一組解與小型解較多；Hard 的有效解較少、平均矩形較大，但所有 300 個樣本仍有解。所有模式都不使用 Combo 分數倍率。
 
+Classic、Quick、Hard 已接入正式遊戲流程，玩家可在首頁選擇且統計彼此獨立；Zen 暫時只作為平衡研究設定。
+
 ## 最終規則
 
 - 棋盤：最多 24 次受約束候選生成，再使用隨機多區保底；每次回傳品質 metadata。
@@ -67,9 +69,9 @@ Quick 的第一組解與小型解較多；Hard 的有效解較少、平均矩形
 
 ## 驗證
 
-- `npm run test`：13 個測試檔、75 個測試通過；含兩組獨立的 1,000 棋盤回歸。
+- `npm run test`：14 個測試檔、81 個測試通過；含兩組獨立的 1,000 棋盤回歸。
 - `npm run lint`：通過。
 - `npm run build`：TypeScript 與 Vite production build 通過。
-- Headless Chrome：桌面 1440×1000 與手機 390×844 的開始、教學、棋盤與提示皆通過，並確認沒有主動重排控制項；無 console、page 或 request error。
+- Headless Chrome：Classic、Quick、Hard 的模式選擇、時間、提示、棋盤與無主動重排控制項皆通過；涵蓋桌面 1440×1000 與手機 390×844，無 console、page 或 request error。
 
 完整原始資料請見同目錄的 `baseline-legacy.*`、`balanced-classic.*`、`balanced-quick.*`、`balanced-zen.*`、`balanced-hard.*`。

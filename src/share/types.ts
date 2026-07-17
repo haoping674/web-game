@@ -1,4 +1,6 @@
-export type ShareMode = 'classic' | 'daily'
+import type { PlayableMode } from '../game/modes'
+
+export type ShareMode = PlayableMode | 'daily'
 
 export type ShareResult = {
   mode: ShareMode

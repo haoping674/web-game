@@ -11,6 +11,11 @@ describe('share text', () => {
     expect(text).toContain('最高 Combo 8')
   })
 
+  it('labels quick and hard results independently', () => {
+    expect(createShareText({ ...classic, mode: 'quick' })).toContain('快速模式')
+    expect(createShareText({ ...classic, mode: 'hard' })).toContain('困難模式')
+  })
+
   it('includes a daily challenge identifier only for daily results', () => {
     expect(createShareText({ ...classic, mode: 'daily', dailyChallengeId: '20260716' })).toContain('每日挑戰 #20260716')
     expect(createShareText(classic)).not.toContain('每日挑戰')

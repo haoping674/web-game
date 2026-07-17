@@ -11,8 +11,8 @@ import { ResultDialog } from './components/ResultDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { StartScreen } from './components/StartScreen'
 import { TutorialDialog } from './components/TutorialDialog'
-import { ROUND_SECONDS } from './game/constants'
 import { createGameState, gameReducer } from './game/gameReducer'
+import { getModeRoundSeconds } from './game/modes'
 import { clearsPerMinute } from './game/scoring'
 import { clearGameData, readGameData, recordFinishedRound, saveGameData } from './game/storage'
 import { useInstallPrompt } from './hooks/useInstallPrompt'
@@ -37,11 +37,13 @@ function App() {
   const updateSettings = (settings: GameSettings) => updateData({ ...data, settings })
   useEffect(() => {
     if (game.status !== 'finished') return
-    const clearedPerMinute = clearsPerMinute(game.clearedFruitCount, ROUND_SECONDS - game.secondsLeft)
-    updateData(recordFinishedRound(data, game.score, game.clearedFruitCount, game.bestCombo, clearedPerMinute))
-    // Only run on the state transition into "finished"; data is intentionally read once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.status])
+    const clearedPerMinute = clearsPerMinute(game.clearedFruitCount, getModeRoundSeconds(game.mode) - game.secondsLeft)
+    setData((current) => {
+      const next = recordFinishedRound(current, game.mode, game.score, game.clearedFruitCount, game.bestCombo, clearedPerMinute)
+      saveGameData(next)
+      return next
+    })
+  }, [game.bestCombo, game.clearedFruitCount, game.mode, game.score, game.secondsLeft, game.status])
   const pauseGame = useCallback(() => dispatch({ type: 'pause', now: Date.now() }), [])
   const resumeGame = useCallback(() => dispatch({ type: 'resume', now: Date.now() }), [])
   const restartGame = useCallback(() => dispatch({ type: 'restart', now: Date.now() }), [])
@@ -72,10 +74,10 @@ function App() {
   const showUpdate = pwaUpdate.updateAvailable && !deferUpdate
   return <main className={`app-shell${lowStimulusClass}${animationClass}`}>
     <section className="game-card">
-      {game.status === 'start' && <StartScreen onStart={startGame} settings={data.settings} statistics={data.statistics} onOpenSettings={() => setActiveDialog('settings')} onHowToPlay={() => setActiveDialog('how-to')} onAbout={() => setActiveDialog('about')} install={installProps} />}
+      {game.status === 'start' && <StartScreen selectedMode={game.mode} onModeChange={(mode) => dispatch({ type: 'set-mode', mode })} onStart={startGame} settings={data.settings} statistics={data.statisticsByMode[game.mode]} onOpenSettings={() => setActiveDialog('settings')} onHowToPlay={() => setActiveDialog('how-to')} onAbout={() => setActiveDialog('about')} install={installProps} />}
       {game.status !== 'start' && <GameScreen game={game} dispatch={dispatch} settings={data.settings} tutorialOpen={activeDialog === 'tutorial'} onPause={pauseGame} onRestart={restartGame} onOpenSettings={openGameSettings} networkNotice={networkNotice} />}
       {game.status === 'paused' && activeDialog !== 'settings' && activeDialog !== 'tutorial' && <PauseDialog onResume={resumeGame} onRestart={restartGame} onHome={homeGame} />}
-      {game.status === 'finished' && <ResultDialog game={game} statistics={data.statistics} onRestart={restartGame} onHome={homeGame} />}
+      {game.status === 'finished' && <ResultDialog game={game} statistics={data.statisticsByMode[game.mode]} onRestart={restartGame} onHome={homeGame} />}
     </section>
     {game.status !== 'playing' && <Footer onAbout={() => setActiveDialog('about')} onHowToPlay={() => setActiveDialog('how-to')} />}
     {activeDialog === 'about' && <AboutDialog onClose={() => setActiveDialog(null)} />}

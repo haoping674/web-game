@@ -1,3 +1,5 @@
+import type { PlayableMode } from './modes'
+
 export type CellValue = number | null
 
 export type GridPoint = { row: number; column: number }
@@ -5,6 +7,7 @@ export type GridRect = { start: GridPoint; end: GridPoint }
 export type GameStatus = 'start' | 'playing' | 'paused' | 'finished'
 
 export type GameState = {
+  mode: PlayableMode
   board: CellValue[][]
   score: number
   clearedFruitCount: number
@@ -41,6 +44,6 @@ export type GameStatistics = {
 export type StoredGameData = {
   version: number
   settings: GameSettings
-  statistics: GameStatistics
+  statisticsByMode: Record<PlayableMode, GameStatistics>
   tutorialSeen: boolean
 }

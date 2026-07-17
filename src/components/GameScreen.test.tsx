@@ -9,7 +9,7 @@ import { GameScreen } from './GameScreen'
 
 const settings: GameSettings = { soundEnabled: false, volume: 0.5, animationsEnabled: true, lowStimulus: false, showSelectionHelp: true }
 const board = [[1, 9], [null, 2]]
-const playingGame: GameState = { board, score: 12, clearedFruitCount: 12, secondsLeft: 42, nextTickAt: Date.now() + 1_000, status: 'playing', combo: 2, bestCombo: 3, comboDeadline: Date.now() + 2_000, successfulMoves: 1, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
+const playingGame: GameState = { mode: 'classic', board, score: 12, clearedFruitCount: 12, secondsLeft: 42, nextTickAt: Date.now() + 1_000, status: 'playing', combo: 2, bestCombo: 3, comboDeadline: Date.now() + 2_000, successfulMoves: 1, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -88,5 +88,13 @@ describe('automatic no-move recovery', () => {
     await Promise.resolve()
     expect(dispatch.mock.calls.some(([action]) => action.type === 'reshuffle')).toBe(false)
     expect(screen.getByText('剩餘水果不足以組成矩形')).toBeInTheDocument()
+  })
+})
+
+describe('playable mode HUD', () => {
+  it('shows the active mode and its hint allowance', () => {
+    render(gameScreen({ ...playingGame, mode: 'hard', secondsLeft: 90 }))
+    expect(screen.getByText('困難 · HARD')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '提示 1/1' })).toBeInTheDocument()
   })
 })

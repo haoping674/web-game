@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { COMBO_WINDOW_MS, HINT_DURATION_MS, HINT_LIMIT, SCORE_MILESTONES, TARGET_SUM } from '../game/constants'
+import { COMBO_WINDOW_MS, HINT_DURATION_MS, SCORE_MILESTONES, TARGET_SUM } from '../game/constants'
 import type { GameAction } from '../game/gameReducer'
+import { getModeHintLimit, PLAYABLE_MODE_DETAILS } from '../game/modes'
 import { playHarvestSound, playInvalidSound } from '../game/soundManager'
 import type { GameSettings, GameState, GridRect } from '../game/types'
 import { findValidMove, selectHintMove } from '../game/validMoveFinder'
@@ -27,6 +28,8 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   const autoReshuffledBoard = useRef<GameState['board'] | null>(null)
   const paused = game.status === 'paused'
   const interactive = game.status === 'playing' && !tutorialOpen
+  const hintLimit = getModeHintLimit(game.mode)
+  const modeDetails = PLAYABLE_MODE_DETAILS[game.mode]
   const validMove = useMemo(() => game.status === 'playing' ? findValidMove(game.board) : null, [game.board, game.status])
   const remainingFruit = useMemo(() => game.board.flat().filter((value) => value !== null).length, [game.board])
   const comboRemaining = game.comboDeadline === null
@@ -87,7 +90,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   return (
     <section className="play-screen" inert={paused} aria-hidden={paused}>
       <header className="play-topbar">
-        <div className="brand-lockup"><span className="brand-mark" aria-hidden="true">✦</span><span>Orchard Ten</span></div>
+        <div className="play-identity"><div className="brand-lockup"><span className="brand-mark" aria-hidden="true">✦</span><span>Orchard Ten</span></div><span className={`mode-chip mode-${game.mode}`}>{modeDetails.label} · {modeDetails.englishLabel}</span></div>
         <div><button type="button" className="text-button compact" disabled={paused} onClick={onOpenSettings}>設定</button><button type="button" className="text-button compact" disabled={paused} onClick={onRestart}>重新開始</button></div>
       </header>
       <section className="hud" aria-label="遊戲資訊">
@@ -97,7 +100,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
         <button type="button" className="icon-button" aria-label="暫停遊戲" disabled={!interactive} onClick={onPause}>Ⅱ</button>
       </section>
       {game.status === 'playing' ? <>
-        <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || !validMove || game.hintsUsed >= HINT_LIMIT} onClick={useHint}>提示 {HINT_LIMIT - game.hintsUsed}/{HINT_LIMIT}</button><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
+        <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || !validMove || game.hintsUsed >= hintLimit} onClick={useHint}>提示 {hintLimit - game.hintsUsed}/{hintLimit}</button><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
         <NetworkStatusToast notice={networkNotice} inline />
         <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} animationsEnabled={settings.animationsEnabled} />
         <p className="selection-status" aria-live="polite">{message}</p>

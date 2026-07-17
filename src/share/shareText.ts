@@ -1,7 +1,7 @@
 import type { ShareResult } from './types'
 
 export const GAME_NAME = 'Orchard Ten'
-export const SHARE_INVITATION = '你也來挑戰看看！'
+export const SHARE_INVITATION = '你能消除幾顆水果？'
 
 export function formatShareDate(date: Date): string {
   const year = date.getFullYear()
@@ -11,13 +11,19 @@ export function formatShareDate(date: Date): string {
 }
 
 export function shareModeLabel(mode: ShareResult['mode']): string {
-  return mode === 'daily' ? '每日挑戰' : '經典模式'
+  switch (mode) {
+    case 'classic': return '經典模式'
+    case 'quick': return '快速模式'
+    case 'hard': return '困難模式'
+    case 'daily': return '每日挑戰'
+    default: return assertNever(mode)
+  }
 }
 
 export function createShareText(result: ShareResult): string {
   const lines = result.mode === 'daily'
     ? [
-        `我完成了「${GAME_NAME}」每日挑戰 #${result.dailyChallengeId ?? formatShareDate(result.playedAt).replaceAll('-', '')}！`,
+        `我在「${GAME_NAME}」完成每日挑戰 #${result.dailyChallengeId ?? formatShareDate(result.playedAt).replaceAll('-', '')}！`,
         `分數：${result.score}`,
         `消除 ${result.clearedFruitCount} 顆水果，最高 Combo：${result.maxCombo}。`,
       ]
@@ -31,4 +37,8 @@ export function createShareText(result: ShareResult): string {
 
 export function createShareTitle(result: ShareResult): string {
   return `${GAME_NAME}｜${shareModeLabel(result.mode)} ${result.score} 分`
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unknown share mode: ${String(value)}`)
 }

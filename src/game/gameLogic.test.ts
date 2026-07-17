@@ -8,7 +8,7 @@ import { findValidMove, reshuffleRemaining } from './validMoveFinder'
 import type { CellValue, GameState } from './types'
 
 const board: CellValue[][] = [[1, 2, 3], [4, 5, 6], [5, 8, 9]]
-const state = (overrides: Partial<GameState> = {}): GameState => ({ board, score: 0, clearedFruitCount: 0, secondsLeft: ROUND_SECONDS, nextTickAt: 1_000, status: 'playing', combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0, ...overrides })
+const state = (overrides: Partial<GameState> = {}): GameState => ({ mode: 'classic', board, score: 0, clearedFruitCount: 0, secondsLeft: ROUND_SECONDS, nextTickAt: 1_000, status: 'playing', combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0, ...overrides })
 const successRect = { start: { row: 0, column: 0 }, end: { row: 2, column: 0 } }
 const storage = () => {
   const memory = new Map<string, string>()
@@ -39,8 +39,20 @@ describe('moves, combo and hints', () => {
 })
 
 describe('resilient local game data', () => {
-  it('accumulates statistics and calculates a safe average source', () => { const next = recordFinishedRound(defaultStoredGameData, 12, 12, 4, 6); expect(next.statistics).toMatchObject({ highScore: 12, lastScore: 12, gamesPlayed: 1, totalCleared: 12, highestCombo: 4, totalScore: 12, bestClearsPerMinute: 6 }) })
-  it('recovers from corrupt and older data', () => { const memory = storage(); memory.setItem('orchard-ten-v2', 'not-json'); expect(readGameData(memory)).toEqual(defaultStoredGameData); memory.setItem('orchard-ten-v2', JSON.stringify({ settings: { soundEnabled: false }, statistics: { highScore: 8 } })); expect(readGameData(memory).statistics.highScore).toBe(8) })
+  it('accumulates statistics independently by mode', () => { const next = recordFinishedRound(defaultStoredGameData, 'quick', 12, 12, 4, 6); expect(next.statisticsByMode.quick).toMatchObject({ highScore: 12, lastScore: 12, gamesPlayed: 1, totalCleared: 12, highestCombo: 4, totalScore: 12, bestClearsPerMinute: 6 }); expect(next.statisticsByMode.classic.gamesPlayed).toBe(0) })
+  it('recovers from corrupt and older data', () => { const memory = storage(); memory.setItem('orchard-ten-v2', 'not-json'); expect(readGameData(memory)).toEqual(defaultStoredGameData); memory.setItem('orchard-ten-v2', JSON.stringify({ settings: { soundEnabled: false }, statistics: { highScore: 8 } })); expect(readGameData(memory).statisticsByMode.classic.highScore).toBe(8) })
   it('persists tutorial/settings and clears safely', () => { const memory = storage(); const saved = saveGameData({ ...defaultStoredGameData, tutorialSeen: true, settings: { ...defaultStoredGameData.settings, volume: 0.2 } }, memory); expect(readGameData(memory)).toEqual(saved); expect(clearGameData(memory)).toEqual(defaultStoredGameData); expect(readGameData(memory)).toEqual(defaultStoredGameData) })
   it('creates a fresh state with configured game duration', () => expect(createGameState().secondsLeft).toBe(ROUND_SECONDS))
+  it('starts and restarts the selected timed mode', () => {
+    const selected = gameReducer(createGameState('start', 0), { type: 'set-mode', mode: 'hard' })
+    const started = gameReducer(selected, { type: 'start', now: 100 })
+    expect(started).toMatchObject({ mode: 'hard', secondsLeft: 90, status: 'playing', nextTickAt: 1_100 })
+    expect(gameReducer(started, { type: 'restart', now: 500 })).toMatchObject({ mode: 'hard', secondsLeft: 90, status: 'playing' })
+  })
+  it('uses each mode hint allowance at runtime', () => {
+    const hard = state({ mode: 'hard', board: [[1, 9]] })
+    const once = gameReducer(hard, { type: 'use-hint' })
+    expect(once.hintsUsed).toBe(1)
+    expect(gameReducer(once, { type: 'use-hint' })).toBe(once)
+  })
 })

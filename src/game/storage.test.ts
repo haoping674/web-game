@@ -19,8 +19,9 @@ describe('readGameData migration', () => {
     const data = readGameData(createStorage(JSON.stringify({ version: 1, settings: { volume: 9 }, statistics: { highScore: 42 } })))
     expect(data.version).toBe(STORAGE_SCHEMA_VERSION)
     expect(data.settings).toEqual({ ...defaultSettings, volume: 1 })
-    expect(data.statistics.highScore).toBe(42)
-    expect(data.statistics.gamesPlayed).toBe(0)
+    expect(data.statisticsByMode.classic.highScore).toBe(42)
+    expect(data.statisticsByMode.classic.gamesPlayed).toBe(0)
+    expect(data.statisticsByMode.quick.highScore).toBe(0)
   })
 
   it('falls back safely when local JSON is corrupted', () => {
