@@ -50,6 +50,20 @@ describe('paused board privacy', () => {
 })
 
 describe('selection cancellation', () => {
+  it('supports a vertical single-touch selection', () => {
+    const verticalBoard = Array.from({ length: 10 }, () => Array<null | number>(17).fill(null))
+    verticalBoard[0]![0] = 4
+    verticalBoard[1]![0] = 6
+    const onSelectionEnd = vi.fn()
+    const { container } = render(<GameBoard board={verticalBoard} onSelectionEnd={onSelectionEnd} />)
+    const grid = within(container).getByRole('grid')
+    vi.spyOn(grid, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 170, bottom: 100, width: 170, height: 100, toJSON: () => ({}) })
+    fireEvent.pointerDown(grid, { pointerId: 3, pointerType: 'touch', clientX: 5, clientY: 5 })
+    fireEvent.pointerMove(grid, { pointerId: 3, pointerType: 'touch', clientX: 5, clientY: 15 })
+    fireEvent.pointerUp(grid, { pointerId: 3, pointerType: 'touch', clientX: 5, clientY: 15 })
+    expect(onSelectionEnd).toHaveBeenCalledWith({ start: { row: 0, column: 0 }, end: { row: 1, column: 0 } }, 10)
+  })
+
   it('does not submit a drag that is disabled before pointerup', () => {
     const onSelectionEnd = vi.fn()
     const { container, rerender } = render(<GameBoard board={board} onSelectionEnd={onSelectionEnd} />)
