@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { GameAction } from '../game/gameReducer'
 import type { GameSettings, GameState } from '../game/types'
@@ -9,7 +9,7 @@ import { GameScreen } from './GameScreen'
 
 const settings: GameSettings = { soundEnabled: false, volume: 0.5, animationsEnabled: true, lowStimulus: false, showSelectionHelp: true }
 const board = [[1, 9], [null, 2]]
-const playingGame: GameState = { board, score: 12, secondsLeft: 42, nextTickAt: Date.now() + 1_000, status: 'playing', combo: 2, bestCombo: 3, comboDeadline: Date.now() + 2_000, successfulMoves: 1, invalidMoves: 0, hintsUsed: 0 }
+const playingGame: GameState = { board, score: 12, clearedFruitCount: 12, secondsLeft: 42, nextTickAt: Date.now() + 1_000, status: 'playing', combo: 2, bestCombo: 3, comboDeadline: Date.now() + 2_000, successfulMoves: 1, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -69,5 +69,24 @@ describe('selection cancellation', () => {
     fireEvent.pointerDown(grid, { pointerId: 2, clientX: 10, clientY: 10 })
     fireEvent.pointerCancel(grid, { pointerId: 2 })
     expect(onSelectionEnd).not.toHaveBeenCalled()
+  })
+})
+
+describe('automatic no-move recovery', () => {
+  it('dispatches one free system reshuffle and hides the manual reshuffle control', async () => {
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    render(gameScreen({ ...playingGame, board: [[4, 4]] }, dispatch))
+    await waitFor(() => expect(dispatch).toHaveBeenCalledWith({ type: 'reshuffle' }))
+    expect(dispatch.mock.calls.filter(([action]) => action.type === 'reshuffle')).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: /免費重排|無法重排/ })).toBeNull()
+    expect(screen.getByText('偵測到無解，正在自動重排')).toBeInTheDocument()
+  })
+
+  it('does not auto-refresh a board with fewer than two remaining fruit', async () => {
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    render(gameScreen({ ...playingGame, board: [[4, null]] }, dispatch))
+    await Promise.resolve()
+    expect(dispatch.mock.calls.some(([action]) => action.type === 'reshuffle')).toBe(false)
+    expect(screen.getByText('剩餘水果不足以組成矩形')).toBeInTheDocument()
   })
 })

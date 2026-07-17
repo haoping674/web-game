@@ -1,15 +1,17 @@
-export const BOARD_ROWS = 10
-export const BOARD_COLUMNS = 17
+import { balanceConfig, getModeConfig } from './balanceConfig'
+
+export const BOARD_ROWS = balanceConfig.rows
+export const BOARD_COLUMNS = balanceConfig.columns
 export const BOARD_SIZE = BOARD_ROWS * BOARD_COLUMNS
-export const TARGET_SUM = 10
-export const ROUND_SECONDS = 120
+export const TARGET_SUM = balanceConfig.targetSum
+export const ROUND_SECONDS = getModeConfig('classic').roundSeconds ?? 120
 
 export const GAME_VERSION = '2.0.0'
 export const STORAGE_KEY = 'orchard-ten-v2'
 export const STORAGE_SCHEMA_VERSION = 3
-export const COMBO_WINDOW_MS = 4_000
-export const HINT_LIMIT = 3
-export const HINT_DURATION_MS = 1_600
+export const COMBO_WINDOW_MS = balanceConfig.combo.windowMs
+export const HINT_LIMIT = getModeConfig('classic').hintLimit
+export const HINT_DURATION_MS = balanceConfig.hint.durationMs
 export const CLEAR_ANIMATION_MS = 240
 export const SCORE_MILESTONES = [3, 5, 10] as const
 export const PERFORMANCE_TIERS = [

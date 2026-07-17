@@ -8,7 +8,7 @@ vi.mock('../share/useShareResult', () => ({
   useShareResult: () => ({ copy: vi.fn(), download: vi.fn(), hasSystemShare: false, isGenerating: false, preparePreview: vi.fn(), previewUrl: null, status: null, systemShare: vi.fn() }),
 }))
 
-const game: GameState = { board: [], score: 12, secondsLeft: 0, nextTickAt: null, status: 'finished', combo: 0, bestCombo: 3, comboDeadline: null, successfulMoves: 4, invalidMoves: 1, hintsUsed: 0 }
+const game: GameState = { board: [], score: 12, clearedFruitCount: 12, secondsLeft: 0, nextTickAt: null, status: 'finished', combo: 0, bestCombo: 3, comboDeadline: null, successfulMoves: 4, invalidMoves: 1, hintsUsed: 0, systemReshuffles: 0 }
 const statistics: GameStatistics = { highScore: 12, lastScore: 12, gamesPlayed: 1, totalCleared: 12, highestCombo: 3, totalScore: 12, bestClearsPerMinute: 6 }
 
 describe('result sharing dialog', () => {

@@ -8,7 +8,7 @@ import { findValidMove, reshuffleRemaining } from './validMoveFinder'
 import type { CellValue, GameState } from './types'
 
 const board: CellValue[][] = [[1, 2, 3], [4, 5, 6], [5, 8, 9]]
-const state = (overrides: Partial<GameState> = {}): GameState => ({ board, score: 0, secondsLeft: ROUND_SECONDS, nextTickAt: overrides.nextTickAt === undefined ? 1_000 : overrides.nextTickAt, status: 'playing', combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, ...overrides })
+const state = (overrides: Partial<GameState> = {}): GameState => ({ board, score: 0, clearedFruitCount: 0, secondsLeft: ROUND_SECONDS, nextTickAt: 1_000, status: 'playing', combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0, ...overrides })
 const successRect = { start: { row: 0, column: 0 }, end: { row: 2, column: 0 } }
 const storage = () => {
   const memory = new Map<string, string>()
@@ -19,6 +19,10 @@ describe('selection and board logic', () => {
   it('returns all points in a normalized rectangle', () => expect(getRectangleCells({ start: { row: 1, column: 2 }, end: { row: 0, column: 1 } })).toEqual([{ row: 0, column: 1 }, { row: 0, column: 2 }, { row: 1, column: 1 }, { row: 1, column: 2 }]))
   it('sums a selected rectangle and clears only an exact 10', () => { expect(sumSelection(board, { start: { row: 0, column: 0 }, end: { row: 1, column: 1 } })).toBe(12); expect(gameReducer(state(), { type: 'select', rect: successRect, now: 0 }).board.map((row) => row[0])).toEqual([null, null, null]) })
   it('does not score a repeated or invalid selection', () => { const once = gameReducer(state(), { type: 'select', rect: successRect, now: 0 }); expect(gameReducer(once, { type: 'select', rect: successRect, now: 1 }).score).toBe(3); expect(gameReducer(state(), { type: 'select', rect: { start: { row: 0, column: 0 }, end: { row: 0, column: 1 } }, now: 0 }).score).toBe(0) })
+  it('allows a valid selection to span cleared cells and scores only removed fruit', () => {
+    const crossed = gameReducer(state({ board: [[3, null, 7]] }), { type: 'select', rect: { start: { row: 0, column: 0 }, end: { row: 0, column: 2 } }, now: 0 })
+    expect(crossed).toMatchObject({ board: [[null, null, null]], score: 2, clearedFruitCount: 2 })
+  })
   it('generates a complete board with a known valid move', () => { const generated = generateBoard(() => 0.5); expect(generated).toHaveLength(BOARD_ROWS); expect(generated[0]).toHaveLength(BOARD_COLUMNS); expect(findValidMove(generated)).not.toBeNull() })
 })
 

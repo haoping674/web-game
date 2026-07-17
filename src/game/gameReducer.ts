@@ -1,7 +1,8 @@
 import { generateBoard } from './boardGenerator'
-import { COMBO_WINDOW_MS, HINT_LIMIT, ROUND_SECONDS, TARGET_SUM } from './constants'
-import { getRectangleCells, sumSelection } from './selectionCalculator'
-import { reshuffleRemaining } from './validMoveFinder'
+import { COMBO_WINDOW_MS, HINT_LIMIT, ROUND_SECONDS } from './constants'
+import { getRectangleCells } from './selectionCalculator'
+import { calculateMoveScore } from './scoring'
+import { findValidMove, isValidMove, reshuffleRemaining } from './validMoveFinder'
 import type { GameState, GridRect } from './types'
 
 export type GameAction =
@@ -16,15 +17,15 @@ export type GameAction =
   | { type: 'home' }
 
 export function createGameState(status: GameState['status'] = 'start', now = Date.now()): GameState {
-  return { board: generateBoard(), score: 0, secondsLeft: ROUND_SECONDS, nextTickAt: status === 'playing' ? now + 1_000 : null, status, combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0 }
+  return { board: generateBoard(), score: 0, clearedFruitCount: 0, secondsLeft: ROUND_SECONDS, nextTickAt: status === 'playing' ? now + 1_000 : null, status, combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'select': return applySelection(state, action.rect, action.now)
     case 'tick': return advancePlayingTime(state, action.now)
-    case 'use-hint': return state.status === 'playing' && state.hintsUsed < HINT_LIMIT ? { ...state, hintsUsed: state.hintsUsed + 1 } : state
-    case 'reshuffle': return state.status === 'playing' ? { ...state, board: reshuffleRemaining(state.board) } : state
+    case 'use-hint': return state.status === 'playing' && state.hintsUsed < HINT_LIMIT && findValidMove(state.board) ? { ...state, hintsUsed: state.hintsUsed + 1 } : state
+    case 'reshuffle': return applyReshuffle(state)
     case 'start': return createGameState('playing', action.now)
     case 'pause': return pausePlayingTime(state, action.now)
     case 'resume': return state.status === 'paused' ? { ...state, status: 'playing', nextTickAt: state.nextTickAt === null ? null : action.now + state.nextTickAt, comboDeadline: state.comboDeadline === null ? null : action.now + state.comboDeadline } : state
@@ -66,13 +67,22 @@ function pausePlayingTime(state: GameState, now: number): GameState {
 
 function applySelection(state: GameState, rect: GridRect, now: number): GameState {
   if (state.status !== 'playing') return state
-  if (sumSelection(state.board, rect) !== TARGET_SUM) return { ...state, combo: 0, comboDeadline: null, invalidMoves: state.invalidMoves + 1 }
+  if (!isValidMove(state.board, rect)) return { ...state, combo: 0, comboDeadline: null, invalidMoves: state.invalidMoves + 1 }
   const selected = getRectangleCells(rect).filter(({ row, column }) => state.board[row]?.[column] !== null)
   if (selected.length === 0) return { ...state, combo: 0, comboDeadline: null, invalidMoves: state.invalidMoves + 1 }
   const board = state.board.map((row) => [...row])
   selected.forEach(({ row, column }) => { board[row]![column] = null })
   const combo = state.comboDeadline !== null && now <= state.comboDeadline ? state.combo + 1 : 1
-  return { ...state, board, score: state.score + selected.length, combo, bestCombo: Math.max(state.bestCombo, combo), comboDeadline: now + COMBO_WINDOW_MS, successfulMoves: state.successfulMoves + 1 }
+  const moveScore = calculateMoveScore({ fruitCount: selected.length, rectangleArea: getRectangleCells(rect).length, combo })
+  return { ...state, board, score: state.score + moveScore.total, clearedFruitCount: state.clearedFruitCount + selected.length, combo, bestCombo: Math.max(state.bestCombo, combo), comboDeadline: now + COMBO_WINDOW_MS, successfulMoves: state.successfulMoves + 1 }
+}
+
+function applyReshuffle(state: GameState): GameState {
+  if (state.status !== 'playing') return state
+  if (findValidMove(state.board) !== null) return state
+  const remainingFruit = state.board.flat().filter((value) => value !== null).length
+  if (remainingFruit < 2) return state
+  return { ...state, board: reshuffleRemaining(state.board), systemReshuffles: state.systemReshuffles + 1 }
 }
 
 function assertNever(value: never): never { throw new Error(`Unknown action: ${JSON.stringify(value)}`) }

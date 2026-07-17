@@ -43,6 +43,20 @@ npm run build
 npm run preview
 ```
 
+### 平衡分析工具
+
+平衡工具只在本機／開發環境執行，不會上傳棋盤或玩家資料。所有報告使用可重現 seed，並可輸出逐棋盤 JSON 與 CSV：
+
+```bash
+# 凍結版舊生成器：1,000 棋盤基準與 3 種玩家模型
+npm run balance:baseline
+
+# 新生成器；可調整 sample、players、seed、mode
+npm run balance:report -- --sample 1000 --players 300 --seed 20260716 --mode classic
+```
+
+`mode` 支援 `classic`、`quick`、`zen`、`hard`。輸出位於 `reports/balance/`，包含品質、難度、解分布、數字頻率、中後期快照、玩家模型、Combo 規則比較及逐棋盤資料。玩家模型只用於版本間的固定參考，不等同真人行為。
+
 PWA 必須以 production build 驗證，因為開發伺服器預設不註冊 Service Worker：
 
 ```bash

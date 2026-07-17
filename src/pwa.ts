@@ -1,9 +1,8 @@
-import { registerSW } from 'virtual:pwa-register'
-
 type PwaSnapshot = { updateAvailable: boolean; offlineReady: boolean }
 
 let snapshot: PwaSnapshot = { updateAvailable: false, offlineReady: false }
 let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | undefined
+let initializationStarted = false
 const subscribers = new Set<() => void>()
 
 function emit(next: Partial<PwaSnapshot>): void {
@@ -12,13 +11,16 @@ function emit(next: Partial<PwaSnapshot>): void {
 }
 
 export function initializePwa(): void {
-  if (!('serviceWorker' in navigator) || updateServiceWorker) return
-  updateServiceWorker = registerSW({
-    immediate: true,
-    onNeedRefresh: () => emit({ updateAvailable: true }),
-    onOfflineReady: () => emit({ offlineReady: true }),
-    onRegisterError: (error) => console.warn('PWA service worker registration failed', error),
-  })
+  if (import.meta.env.DEV || !('serviceWorker' in navigator) || initializationStarted) return
+  initializationStarted = true
+  void import('./pwaRegisterProduction').then(({ registerProductionServiceWorker }) => {
+    updateServiceWorker = registerProductionServiceWorker({
+      immediate: true,
+      onNeedRefresh: () => emit({ updateAvailable: true }),
+      onOfflineReady: () => emit({ offlineReady: true }),
+      onRegisterError: (error) => console.warn('PWA service worker registration failed', error),
+    })
+  }).catch((error: unknown) => console.warn('PWA registration module failed to load', error))
 }
 
 export function getPwaSnapshot(): PwaSnapshot { return snapshot }

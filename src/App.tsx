@@ -37,8 +37,8 @@ function App() {
   const updateSettings = (settings: GameSettings) => updateData({ ...data, settings })
   useEffect(() => {
     if (game.status !== 'finished') return
-    const clearedPerMinute = clearsPerMinute(game.score, ROUND_SECONDS - game.secondsLeft)
-    updateData(recordFinishedRound(data, game.score, game.score, game.bestCombo, clearedPerMinute))
+    const clearedPerMinute = clearsPerMinute(game.clearedFruitCount, ROUND_SECONDS - game.secondsLeft)
+    updateData(recordFinishedRound(data, game.score, game.clearedFruitCount, game.bestCombo, clearedPerMinute))
     // Only run on the state transition into "finished"; data is intentionally read once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.status])

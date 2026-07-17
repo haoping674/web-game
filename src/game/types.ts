@@ -7,6 +7,7 @@ export type GameStatus = 'start' | 'playing' | 'paused' | 'finished'
 export type GameState = {
   board: CellValue[][]
   score: number
+  clearedFruitCount: number
   secondsLeft: number
   nextTickAt: number | null
   status: GameStatus
@@ -16,6 +17,7 @@ export type GameState = {
   successfulMoves: number
   invalidMoves: number
   hintsUsed: number
+  systemReshuffles: number
 }
 
 export type GameSettings = {

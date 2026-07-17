@@ -7,7 +7,7 @@ import { OverlayDialog } from './OverlayDialog'
 import { ShareResultDialog } from './ShareResultDialog'
 type ResultDialogProps = { game: GameState; statistics: GameStatistics; onRestart: () => void; onHome: () => void }
 export function ResultDialog({ game, statistics, onRestart, onHome }: ResultDialogProps) {
-  const cleared = game.score
+  const cleared = game.clearedFruitCount
   const record = game.score >= statistics.highScore && game.score > 0
   const [shareOpen, setShareOpen] = useState(false)
   const shareButtonRef = useRef<HTMLButtonElement>(null)

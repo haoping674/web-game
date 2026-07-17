@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { COMBO_WINDOW_MS, HINT_DURATION_MS, HINT_LIMIT, SCORE_MILESTONES, TARGET_SUM } from '../game/constants'
 import type { GameAction } from '../game/gameReducer'
 import { playHarvestSound, playInvalidSound } from '../game/soundManager'
 import type { GameSettings, GameState, GridRect } from '../game/types'
-import { findValidMove } from '../game/validMoveFinder'
+import { findValidMove, selectHintMove } from '../game/validMoveFinder'
 import type { NetworkNotice } from '../hooks/useNetworkStatus'
 import { GameBoard } from './GameBoard'
 import { NetworkStatusToast } from './NetworkStatusToast'
@@ -24,9 +24,11 @@ type GameScreenProps = {
 export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, onRestart, onOpenSettings, networkNotice }: GameScreenProps) {
   const [message, setMessage] = useState('拖曳框選水果，讓總和剛好是 10。')
   const [hint, setHint] = useState<GridRect | null>(null)
+  const autoReshuffledBoard = useRef<GameState['board'] | null>(null)
   const paused = game.status === 'paused'
   const interactive = game.status === 'playing' && !tutorialOpen
   const validMove = useMemo(() => game.status === 'playing' ? findValidMove(game.board) : null, [game.board, game.status])
+  const remainingFruit = useMemo(() => game.board.flat().filter((value) => value !== null).length, [game.board])
   const comboRemaining = game.comboDeadline === null
     ? 0
     : Math.max(0, game.status === 'paused' ? game.comboDeadline : game.comboDeadline - Date.now())
@@ -48,12 +50,20 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
     return () => window.clearTimeout(timer)
   }, [hint, interactive])
 
+  useEffect(() => {
+    if (!interactive || validMove || remainingFruit < 2 || autoReshuffledBoard.current === game.board) return
+    autoReshuffledBoard.current = game.board
+    setHint(null)
+    setMessage('棋盤已無可行組合，系統正在免費自動重排。')
+    dispatch({ type: 'reshuffle' })
+  }, [dispatch, game.board, interactive, remainingFruit, validMove])
+
   const handleSelection = (rect: GridRect, sum: number) => {
     if (!interactive) return
     const success = sum === TARGET_SUM
     if (success) {
       playHarvestSound(settings.soundEnabled, settings.volume)
-      setMessage('成功消除！分數與 Combo 都在成長。')
+      setMessage('成功消除！分數依消除水果數增加，Combo 繼續累積。')
     } else {
       playInvalidSound(settings.soundEnabled, settings.volume)
       setMessage(sum > TARGET_SUM ? `總和 ${sum}，超過 ${sum - TARGET_SUM}；Combo 已中斷。` : `總和 ${sum}，還差 ${TARGET_SUM - sum}；再試一次。`)
@@ -64,18 +74,12 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   const useHint = () => {
     if (!interactive) return
     if (!validMove) {
-      setMessage('目前沒有可消除組合。可以重新排列剩餘水果。')
+      setMessage('目前沒有可消除組合，系統正在自動重排。')
       return
     }
-    setHint(validMove)
+    setHint(selectHintMove(game.board))
     dispatch({ type: 'use-hint' })
     setMessage('提示已顯示，試著框選發亮的區域。')
-  }
-
-  const reshuffle = () => {
-    if (!interactive) return
-    dispatch({ type: 'reshuffle' })
-    setMessage('已重新排列未消除的水果。')
   }
 
   const comboLevel = SCORE_MILESTONES.includes(game.combo as typeof SCORE_MILESTONES[number]) ? ' is-milestone' : ''
@@ -93,7 +97,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
         <button type="button" className="icon-button" aria-label="暫停遊戲" disabled={!interactive} onClick={onPause}>Ⅱ</button>
       </section>
       {game.status === 'playing' ? <>
-        <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || game.hintsUsed >= HINT_LIMIT} onClick={useHint}>提示 {HINT_LIMIT - game.hintsUsed}/{HINT_LIMIT}</button>{!validMove && <button type="button" className="quiet-button" disabled={!interactive} onClick={reshuffle}>重新排列</button>}<span>{validMove ? '找到可行組合' : '暫時沒有可行組合'}</span></div>
+        <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || !validMove || game.hintsUsed >= HINT_LIMIT} onClick={useHint}>提示 {HINT_LIMIT - game.hintsUsed}/{HINT_LIMIT}</button><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
         <NetworkStatusToast notice={networkNotice} inline />
         <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} animationsEnabled={settings.animationsEnabled} />
         <p className="selection-status" aria-live="polite">{message}</p>
