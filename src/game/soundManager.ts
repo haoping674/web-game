@@ -44,7 +44,7 @@ export function getComboSoundProfile(combo: number, lowStimulus = false): ComboS
   const root = semitone(523.25, Math.max(0, cappedStep))
   if (milestone) {
     const upper = normalizedCombo >= 20 ? 12 : normalizedCombo >= 10 ? 9 : 7
-    return { frequencies: [root, semitone(root, 4), semitone(root, upper)], offsets: [0, 0.055, 0.13], duration: 0.3, waveform: 'triangle', milestone: true }
+    return { frequencies: [root, semitone(root, 4), semitone(root, upper)], offsets: [0, 0.045, 0.1], duration: 0.22, waveform: 'triangle', milestone: true }
   }
   if (tier === 'legendary' || tier === 'orchard') {
     const pattern = HIGH_TIER_PATTERNS[Math.max(0, normalizedCombo - 13) % HIGH_TIER_PATTERNS.length]!

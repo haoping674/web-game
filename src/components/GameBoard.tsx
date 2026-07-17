@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { BOARD_COLUMNS, BOARD_ROWS, TARGET_SUM } from '../game/constants'
 import type { ComboClearEffect, EffectLevel } from '../game/comboEffects'
 import { getRectangleCells, isPointInRect, normalizeRect, sumSelection } from '../game/selectionCalculator'
+import { calculateExplosionGeometry } from '../game/explosion'
 import type { CellValue, GridPoint, GridRect } from '../game/types'
 import { FruitCell } from './FruitCell'
 import { ParticleLayer } from './ParticleLayer'
@@ -250,12 +251,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
 
   const effectPosition = clearEffect ? {
     ...clearEffect,
-    x: isPortrait
-      ? ((clearEffect.rect.start.row + clearEffect.rect.end.row + 1) / (BOARD_ROWS * 2)) * 100
-      : ((clearEffect.rect.start.column + clearEffect.rect.end.column + 1) / (BOARD_COLUMNS * 2)) * 100,
-    y: isPortrait
-      ? ((clearEffect.rect.start.column + clearEffect.rect.end.column + 1) / (BOARD_COLUMNS * 2)) * 100
-      : ((clearEffect.rect.start.row + clearEffect.rect.end.row + 1) / (BOARD_ROWS * 2)) * 100,
+    ...calculateExplosionGeometry(clearEffect.rect, clearEffect.cells, BOARD_ROWS, BOARD_COLUMNS, isPortrait),
   } : null
 
   return (

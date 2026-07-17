@@ -129,9 +129,10 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       const previousDuration = getComboWindowMs(game.mode, Math.max(1, game.combo))
       const remainingRatio = game.comboDeadline === null ? 0 : Math.max(0, game.comboDeadline - now) / previousDuration
       const rating = getComboRating({ combo, remainingRatio, validSuccess: true })
-      const points = getRectangleCells(rect).filter(({ row, column }) => game.board[row]?.[column] !== null).length
+      const clearedCells = getRectangleCells(rect).filter(({ row, column }) => game.board[row]?.[column] !== null)
+      const points = clearedCells.length
       effectId.current += 1
-      setClearEffect(createComboClearEffect(effectId.current, rect, combo, points, comboModeConfig, tier, rating, isComboMilestone(combo)))
+      setClearEffect(createComboClearEffect(effectId.current, rect, clearedCells, combo, points, comboModeConfig, tier, rating, isComboMilestone(combo)))
       playComboSound({ enabled: settings.soundEnabled, volume: settings.volume, combo, lowStimulus: settings.lowStimulus })
       triggerHaptic(settings.hapticsEnabled, combo, settings.lowStimulus)
       const title = getComboTitle(combo)

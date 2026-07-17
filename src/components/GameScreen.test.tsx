@@ -117,6 +117,40 @@ describe('selection cancellation', () => {
   })
 })
 
+describe('successful-clear effects', () => {
+  it('creates exactly one fruit explosion for an exact-ten keyboard selection', async () => {
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    const { container } = render(gameScreen(playingGame, dispatch))
+    const grid = within(container).getByRole('grid')
+
+    fireEvent.keyDown(grid, { key: 'Enter' })
+    fireEvent.keyDown(grid, { key: 'ArrowRight' })
+    fireEvent.keyDown(grid, { key: 'Enter' })
+
+    await waitFor(() => expect(container.querySelectorAll('.combo-burst')).toHaveLength(1))
+    expect(container.querySelectorAll('.fruit-particle').length).toBeGreaterThan(0)
+    expect(container.querySelector('.particle-layer')).toHaveAttribute('data-active-bursts', '1')
+    expect(dispatch).toHaveBeenCalledOnce()
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'select', rect: { start: { row: 0, column: 0 }, end: { row: 0, column: 1 } } }))
+  })
+
+  it('does not create an explosion for an invalid keyboard selection', async () => {
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    const { container } = render(gameScreen(playingGame, dispatch))
+    const grid = within(container).getByRole('grid')
+
+    fireEvent.keyDown(grid, { key: 'Enter' })
+    fireEvent.keyDown(grid, { key: 'ArrowDown' })
+    fireEvent.keyDown(grid, { key: 'ArrowRight' })
+    fireEvent.keyDown(grid, { key: 'Enter' })
+
+    await Promise.resolve()
+    expect(container.querySelector('.combo-burst')).toBeNull()
+    expect(container.querySelector('.particle-layer')).toBeNull()
+    expect(dispatch).toHaveBeenCalledOnce()
+  })
+})
+
 describe('automatic no-move recovery', () => {
   it('dispatches one free system reshuffle and hides the manual reshuffle control', async () => {
     const dispatch = vi.fn<(action: GameAction) => void>()

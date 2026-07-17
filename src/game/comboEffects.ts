@@ -1,5 +1,5 @@
 import type { ComboRating, ComboTier } from './comboTier'
-import type { GridRect } from './types'
+import type { GridPoint, GridRect } from './types'
 import type { ModeComboConfig } from './comboConfig'
 import type { GameSettings } from './types'
 
@@ -8,6 +8,7 @@ export type EffectLevel = 'full' | 'reduced' | 'minimal' | 'off'
 export type ComboClearEffect = {
   id: number
   rect: GridRect
+  cells: readonly GridPoint[]
   combo: number
   tier: ComboTier
   rating: ComboRating
@@ -27,6 +28,7 @@ export function resolveEffectLevel(settings: GameSettings, prefersReducedMotion:
 export function createComboClearEffect(
   id: number,
   rect: GridRect,
+  cells: readonly GridPoint[],
   combo: number,
   points: number,
   config: ModeComboConfig,
@@ -34,5 +36,5 @@ export function createComboClearEffect(
   rating: ComboRating,
   milestone: boolean,
 ): ComboClearEffect {
-  return { id, rect, combo, tier, rating, milestone, points, durationMs: config.clearAnimationMs, particleScale: config.particleScale, burstScale: config.burstScale }
+  return { id, rect, cells, combo, tier, rating, milestone, points, durationMs: config.clearAnimationMs, particleScale: config.particleScale, burstScale: config.burstScale }
 }
