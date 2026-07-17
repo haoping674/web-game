@@ -8,12 +8,11 @@ export const ROUND_SECONDS = getModeConfig('classic').roundSeconds ?? 120
 
 export const GAME_VERSION = '2.0.0'
 export const STORAGE_KEY = 'orchard-ten-v2'
-export const STORAGE_SCHEMA_VERSION = 4
-export const COMBO_WINDOW_MS = balanceConfig.combo.windowMs
+export const STORAGE_SCHEMA_VERSION = 5
 export const HINT_LIMIT = getModeConfig('classic').hintLimit
 export const HINT_DURATION_MS = balanceConfig.hint.durationMs
-export const CLEAR_ANIMATION_MS = 240
-export const SCORE_MILESTONES = [3, 5, 10] as const
+export const CLEAR_ANIMATION_MS = 480
+export const SCORE_MILESTONES = [5, 10, 20] as const
 export const PERFORMANCE_TIERS = [
   { minimum: 0, label: '初次嘗試' },
   { minimum: 20, label: '漸入佳境' },

@@ -5,6 +5,7 @@ export type CellValue = number | null
 export type GridPoint = { row: number; column: number }
 export type GridRect = { start: GridPoint; end: GridPoint }
 export type GameStatus = 'start' | 'playing' | 'paused' | 'finished'
+export type AnimationIntensity = 'full' | 'reduced' | 'off'
 
 export type GameState = {
   mode: PlayableMode
@@ -27,7 +28,9 @@ export type GameSettings = {
   soundEnabled: boolean
   volume: number
   animationsEnabled: boolean
+  animationIntensity: AnimationIntensity
   lowStimulus: boolean
+  hapticsEnabled: boolean
   showSelectionHelp: boolean
 }
 
@@ -46,4 +49,5 @@ export type StoredGameData = {
   settings: GameSettings
   statisticsByMode: Record<PlayableMode, GameStatistics>
   tutorialSeen: boolean
+  mobileGestureHintSeen: boolean
 }

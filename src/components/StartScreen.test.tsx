@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GameSettings, GameStatistics } from '../game/types'
 import { StartScreen } from './StartScreen'
 
-const settings: GameSettings = { soundEnabled: true, volume: 0.45, animationsEnabled: true, lowStimulus: false, showSelectionHelp: true }
+const settings: GameSettings = { soundEnabled: true, volume: 0.45, animationsEnabled: true, animationIntensity: 'full', lowStimulus: false, hapticsEnabled: true, showSelectionHelp: true }
 const statistics: GameStatistics = { highScore: 18, lastScore: 12, gamesPlayed: 2, totalCleared: 30, highestCombo: 3, totalScore: 30, bestClearsPerMinute: 18 }
 const install = { canInstall: false, isInstalled: false, ios: false, onInstall: vi.fn(), onIosInstructions: vi.fn() }
 

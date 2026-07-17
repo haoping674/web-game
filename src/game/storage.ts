@@ -1,15 +1,15 @@
 import { STORAGE_KEY, STORAGE_SCHEMA_VERSION } from './constants'
 import type { PlayableMode } from './modes'
-import type { GameSettings, GameStatistics, StoredGameData } from './types'
+import type { AnimationIntensity, GameSettings, GameStatistics, StoredGameData } from './types'
 
-export const defaultSettings: GameSettings = { soundEnabled: true, volume: 0.45, animationsEnabled: true, lowStimulus: false, showSelectionHelp: true }
+export const defaultSettings: GameSettings = { soundEnabled: true, volume: 0.45, animationsEnabled: true, animationIntensity: 'full', lowStimulus: false, hapticsEnabled: true, showSelectionHelp: true }
 export const defaultStatistics: GameStatistics = { highScore: 0, lastScore: 0, gamesPlayed: 0, totalCleared: 0, highestCombo: 0, totalScore: 0, bestClearsPerMinute: 0 }
 export const defaultStatisticsByMode: Record<PlayableMode, GameStatistics> = {
   classic: defaultStatistics,
   quick: { ...defaultStatistics },
   hard: { ...defaultStatistics },
 }
-export const defaultStoredGameData: StoredGameData = { version: STORAGE_SCHEMA_VERSION, settings: defaultSettings, statisticsByMode: defaultStatisticsByMode, tutorialSeen: false }
+export const defaultStoredGameData: StoredGameData = { version: STORAGE_SCHEMA_VERSION, settings: defaultSettings, statisticsByMode: defaultStatisticsByMode, tutorialSeen: false, mobileGestureHintSeen: false }
 
 function getStorage(storage: Storage | undefined): Storage | undefined {
   try { return storage ?? globalThis.localStorage } catch { return undefined }
@@ -18,6 +18,10 @@ function getStorage(storage: Storage | undefined): Storage | undefined {
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null }
 function numberValue(value: unknown, fallback: number): number { return typeof value === 'number' && Number.isFinite(value) ? value : fallback }
 function booleanValue(value: unknown, fallback: boolean): boolean { return typeof value === 'boolean' ? value : fallback }
+function animationIntensityValue(value: unknown, animationsEnabled: boolean): AnimationIntensity {
+  if (value === 'full' || value === 'reduced' || value === 'off') return value
+  return animationsEnabled ? 'full' : 'off'
+}
 
 function normalizeStatistics(value: unknown): GameStatistics {
   const statistics = isRecord(value) ? value : {}
@@ -37,13 +41,18 @@ export function readGameData(storage?: Storage): StoredGameData {
       // Historical versions share this stable key. Only known fields are
       // normalised, so cache updates cannot affect player data.
       version: STORAGE_SCHEMA_VERSION,
-      settings: { soundEnabled: booleanValue(settings.soundEnabled, defaultSettings.soundEnabled), volume: Math.max(0, Math.min(1, numberValue(settings.volume, defaultSettings.volume))), animationsEnabled: booleanValue(settings.animationsEnabled, defaultSettings.animationsEnabled), lowStimulus: booleanValue(settings.lowStimulus, defaultSettings.lowStimulus), showSelectionHelp: booleanValue(settings.showSelectionHelp, defaultSettings.showSelectionHelp) },
+      settings: (() => {
+        const animationsEnabled = booleanValue(settings.animationsEnabled, defaultSettings.animationsEnabled)
+        const animationIntensity = animationIntensityValue(settings.animationIntensity, animationsEnabled)
+        return { soundEnabled: booleanValue(settings.soundEnabled, defaultSettings.soundEnabled), volume: Math.max(0, Math.min(1, numberValue(settings.volume, defaultSettings.volume))), animationsEnabled: animationIntensity !== 'off', animationIntensity, lowStimulus: booleanValue(settings.lowStimulus, defaultSettings.lowStimulus), hapticsEnabled: booleanValue(settings.hapticsEnabled, defaultSettings.hapticsEnabled), showSelectionHelp: booleanValue(settings.showSelectionHelp, defaultSettings.showSelectionHelp) }
+      })(),
       statisticsByMode: {
         classic: normalizeStatistics(statisticsByMode.classic ?? legacyStatistics),
         quick: normalizeStatistics(statisticsByMode.quick),
         hard: normalizeStatistics(statisticsByMode.hard),
       },
       tutorialSeen: booleanValue(parsed.tutorialSeen, false),
+      mobileGestureHintSeen: booleanValue(parsed.mobileGestureHintSeen, false),
     }
   } catch { return defaultStoredGameData }
 }

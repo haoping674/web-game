@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { COMBO_WINDOW_MS, HINT_DURATION_MS, SCORE_MILESTONES, TARGET_SUM } from '../game/constants'
+import { getComboConfig } from '../game/comboConfig'
+import { createComboClearEffect, resolveEffectLevel, type ComboClearEffect } from '../game/comboEffects'
+import { getNextGameWakeDelay } from '../game/comboTimer'
+import { getComboTier, getComboTitle } from '../game/comboTier'
+import { HINT_DURATION_MS, TARGET_SUM } from '../game/constants'
 import type { GameAction } from '../game/gameReducer'
 import { getModeHintLimit, PLAYABLE_MODE_DETAILS } from '../game/modes'
-import { playHarvestSound, playInvalidSound } from '../game/soundManager'
+import { getRectangleCells } from '../game/selectionCalculator'
+import { playComboSound, playInvalidSound, triggerHaptic } from '../game/soundManager'
 import type { GameSettings, GameState, GridRect } from '../game/types'
 import { findValidMove, selectHintMove } from '../game/validMoveFinder'
 import type { NetworkNotice } from '../hooks/useNetworkStatus'
 import { GameBoard } from './GameBoard'
+import { ComboIndicator } from './ComboIndicator'
 import { NetworkStatusToast } from './NetworkStatusToast'
 import { PausedBoardPlaceholder } from './PausedBoardPlaceholder'
 import { Timer } from './Timer'
@@ -20,32 +26,72 @@ type GameScreenProps = {
   onRestart: () => void
   onOpenSettings: () => void
   networkNotice: NetworkNotice
+  showMobileGestureHint?: boolean
+  onMobileGestureHintShown?: () => void
 }
 
-export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, onRestart, onOpenSettings, networkNotice }: GameScreenProps) {
+function usePrefersReducedMotion(): boolean {
+  const query = '(prefers-reduced-motion: reduce)'
+  const [reduced, setReduced] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const media = window.matchMedia(query)
+    const update = () => setReduced(media.matches)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  return reduced
+}
+
+export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, onRestart, onOpenSettings, networkNotice, showMobileGestureHint = false, onMobileGestureHintShown }: GameScreenProps) {
   const [message, setMessage] = useState('拖曳框選水果，讓總和剛好是 10。')
   const [hint, setHint] = useState<GridRect | null>(null)
+  const [clearEffect, setClearEffect] = useState<ComboClearEffect | null>(null)
+  const [gestureHintVisible, setGestureHintVisible] = useState(false)
+  const effectId = useRef(0)
+  const gestureHintHandled = useRef(false)
   const autoReshuffledBoard = useRef<GameState['board'] | null>(null)
   const paused = game.status === 'paused'
   const interactive = game.status === 'playing' && !tutorialOpen
   const hintLimit = getModeHintLimit(game.mode)
   const modeDetails = PLAYABLE_MODE_DETAILS[game.mode]
+  const comboModeConfig = getComboConfig(game.mode)
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const effectLevel = resolveEffectLevel(settings, prefersReducedMotion)
   const validMove = useMemo(() => game.status === 'playing' ? findValidMove(game.board) : null, [game.board, game.status])
   const remainingFruit = useMemo(() => game.board.flat().filter((value) => value !== null).length, [game.board])
-  const comboRemaining = game.comboDeadline === null
-    ? 0
-    : Math.max(0, game.status === 'paused' ? game.comboDeadline : game.comboDeadline - Date.now())
 
   useEffect(() => {
-    if (!interactive || game.nextTickAt === null) return undefined
-    const delay = Math.max(0, game.nextTickAt - Date.now())
+    if (!interactive) return undefined
+    const now = Date.now()
+    const delay = getNextGameWakeDelay(game.nextTickAt, game.comboDeadline, now)
+    if (delay === null) return undefined
     const timer = window.setTimeout(() => dispatch({ type: 'tick', now: Date.now() }), delay)
     return () => window.clearTimeout(timer)
-  }, [dispatch, game.nextTickAt, interactive])
+  }, [dispatch, game.comboDeadline, game.nextTickAt, interactive])
 
   useEffect(() => {
     if (!interactive) setHint(null)
   }, [interactive])
+
+  useEffect(() => {
+    if (game.successfulMoves === 0) setClearEffect(null)
+  }, [game.successfulMoves])
+
+  useEffect(() => {
+    if (!interactive || !showMobileGestureHint || gestureHintHandled.current) return undefined
+    const isCoarsePointer = window.matchMedia('(hover: none) and (pointer: coarse), (any-pointer: coarse)').matches
+    if (!isCoarsePointer) return undefined
+    gestureHintHandled.current = true
+    setGestureHintVisible(true)
+    onMobileGestureHintShown?.()
+    return undefined
+  }, [interactive, onMobileGestureHintShown, showMobileGestureHint])
+
+  useEffect(() => {
+    if (!gestureHintVisible) return undefined
+    const timer = window.setTimeout(() => setGestureHintVisible(false), 5_200)
+    return () => window.clearTimeout(timer)
+  }, [gestureHintVisible])
 
   useEffect(() => {
     if (!hint || !interactive) return undefined
@@ -65,8 +111,18 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
     if (!interactive) return
     const success = sum === TARGET_SUM
     if (success) {
-      playHarvestSound(settings.soundEnabled, settings.volume)
-      setMessage('成功消除！分數依消除水果數增加，Combo 繼續累積。')
+      const now = Date.now()
+      const combo = game.comboDeadline !== null && now <= game.comboDeadline ? game.combo + 1 : 1
+      const tier = getComboTier(combo)
+      const points = getRectangleCells(rect).filter(({ row, column }) => game.board[row]?.[column] !== null).length
+      effectId.current += 1
+      setClearEffect(createComboClearEffect(effectId.current, rect, combo, points, comboModeConfig, tier))
+      playComboSound({ enabled: settings.soundEnabled, volume: settings.volume, combo, lowStimulus: settings.lowStimulus })
+      triggerHaptic(settings.hapticsEnabled, combo, settings.lowStimulus)
+      const title = getComboTitle(combo)
+      setMessage(title ? `${title}！Combo ${combo}，節奏持續累積。` : `成功消除！Combo ${combo}，繼續保持節奏。`)
+      dispatch({ type: 'select', rect, now })
+      return
     } else {
       playInvalidSound(settings.soundEnabled, settings.volume)
       setMessage(sum > TARGET_SUM ? `總和 ${sum}，超過 ${sum - TARGET_SUM}；Combo 已中斷。` : `總和 ${sum}，還差 ${TARGET_SUM - sum}；再試一次。`)
@@ -85,8 +141,6 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
     setMessage('提示已顯示，試著框選發亮的區域。')
   }
 
-  const comboLevel = SCORE_MILESTONES.includes(game.combo as typeof SCORE_MILESTONES[number]) ? ' is-milestone' : ''
-
   return (
     <section className="play-screen" inert={paused} aria-hidden={paused}>
       <header className="play-topbar">
@@ -95,20 +149,21 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       </header>
       <section className="hud" aria-label="遊戲資訊">
         <div><span>分數</span><strong>{String(game.score).padStart(3, '0')}</strong></div>
-        <div className="hud-combo"><span>Combo</span><strong className={comboLevel}>{game.combo} <small>最高 {game.bestCombo}</small></strong><i className={game.combo > 0 ? '' : 'is-idle'} style={{ '--combo-progress': `${game.combo > 0 ? (comboRemaining / COMBO_WINDOW_MS) * 100 : 0}%` } as React.CSSProperties} aria-label={game.combo > 0 ? 'Combo 剩餘時間' : undefined} aria-hidden={game.combo === 0} /></div>
+        <ComboIndicator combo={game.combo} bestCombo={game.bestCombo} comboDeadline={game.comboDeadline} status={game.status} mode={game.mode} />
         <div className="timer"><span>時間</span><Timer seconds={game.secondsLeft} urgent={game.secondsLeft <= 10} /></div>
         <button type="button" className="icon-button" aria-label="暫停遊戲" disabled={!interactive} onClick={onPause}>Ⅱ</button>
       </section>
       {game.status === 'playing' ? <>
         <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || !validMove || game.hintsUsed >= hintLimit} onClick={useHint}>提示 {hintLimit - game.hintsUsed}/{hintLimit}</button><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
         <NetworkStatusToast notice={networkNotice} inline />
-        <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} animationsEnabled={settings.animationsEnabled} />
+        {gestureHintVisible ? <p className="mobile-gesture-hint" role="status">棋盤內單指框選，雙指可移動畫面。</p> : null}
+        <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} />
         <p className="selection-status" aria-live="polite">{message}</p>
         {settings.showSelectionHelp && <p className="shortcut-tip">拖曳可框選；鍵盤可用方向鍵移動，按 Enter 設定矩形兩端。</p>}
       </> : paused ? <>
         <NetworkStatusToast notice={networkNotice} inline />
         <PausedBoardPlaceholder />
-      </> : <GameBoard board={game.board} disabled animationsEnabled={settings.animationsEnabled} />}
+      </> : <GameBoard board={game.board} disabled effectLevel={effectLevel} />}
     </section>
   )
 }

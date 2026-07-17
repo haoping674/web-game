@@ -40,9 +40,6 @@ export const balanceConfig = {
     preferredMinimumArea: 2,
     preferredMaximumArea: 4,
   },
-  combo: {
-    windowMs: 4_000,
-  },
   scoring: {
     pointsPerFruit: 1,
   },

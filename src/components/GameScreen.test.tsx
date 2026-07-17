@@ -7,7 +7,7 @@ import type { GameSettings, GameState } from '../game/types'
 import { GameBoard } from './GameBoard'
 import { GameScreen } from './GameScreen'
 
-const settings: GameSettings = { soundEnabled: false, volume: 0.5, animationsEnabled: true, lowStimulus: false, showSelectionHelp: true }
+const settings: GameSettings = { soundEnabled: false, volume: 0.5, animationsEnabled: true, animationIntensity: 'full', lowStimulus: false, hapticsEnabled: false, showSelectionHelp: true }
 const board = [[1, 9], [null, 2]]
 const playingGame: GameState = { mode: 'classic', board, score: 12, clearedFruitCount: 12, secondsLeft: 42, nextTickAt: Date.now() + 1_000, status: 'playing', combo: 2, bestCombo: 3, comboDeadline: Date.now() + 2_000, successfulMoves: 1, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
 
@@ -69,6 +69,37 @@ describe('selection cancellation', () => {
     fireEvent.pointerDown(grid, { pointerId: 2, clientX: 10, clientY: 10 })
     fireEvent.pointerCancel(grid, { pointerId: 2 })
     expect(onSelectionEnd).not.toHaveBeenCalled()
+  })
+
+  it('cancels immediately on a second touch and resumes only after every touch leaves', () => {
+    const onSelectionEnd = vi.fn()
+    const { container } = render(<GameBoard board={board} onSelectionEnd={onSelectionEnd} />)
+    const grid = within(container).getByRole('grid')
+    vi.spyOn(grid, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100, toJSON: () => ({}) })
+    fireEvent.pointerDown(grid, { pointerId: 10, pointerType: 'touch', clientX: 5, clientY: 5 })
+    expect(container.querySelector('.selection-overlay')).not.toBeNull()
+    fireEvent.pointerDown(grid, { pointerId: 11, pointerType: 'touch', clientX: 15, clientY: 5 })
+    expect(container.querySelector('.selection-overlay')).toBeNull()
+    expect(grid).toHaveAttribute('data-multi-pointer-blocked', 'true')
+    fireEvent.pointerUp(grid, { pointerId: 11, pointerType: 'touch', clientX: 15, clientY: 5 })
+    fireEvent.pointerUp(grid, { pointerId: 10, pointerType: 'touch', clientX: 5, clientY: 5 })
+    expect(onSelectionEnd).not.toHaveBeenCalled()
+    expect(grid).not.toHaveAttribute('data-multi-pointer-blocked')
+    fireEvent.pointerDown(grid, { pointerId: 12, pointerType: 'touch', clientX: 5, clientY: 5 })
+    fireEvent.pointerUp(grid, { pointerId: 12, pointerType: 'touch', clientX: 15, clientY: 5 })
+    expect(onSelectionEnd).toHaveBeenCalledWith({ start: { row: 0, column: 0 }, end: { row: 0, column: 1 } }, 10)
+  })
+
+  it('clamps movement but never submits when the captured pointer ends outside the board', () => {
+    const onSelectionEnd = vi.fn()
+    const { container } = render(<GameBoard board={board} onSelectionEnd={onSelectionEnd} />)
+    const grid = within(container).getByRole('grid')
+    vi.spyOn(grid, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100, toJSON: () => ({}) })
+    fireEvent.pointerDown(grid, { pointerId: 20, pointerType: 'touch', clientX: 5, clientY: 5 })
+    fireEvent.pointerMove(grid, { pointerId: 20, pointerType: 'touch', clientX: 260, clientY: 5 })
+    fireEvent.pointerUp(grid, { pointerId: 20, pointerType: 'touch', clientX: 260, clientY: 5 })
+    expect(onSelectionEnd).not.toHaveBeenCalled()
+    expect(container.querySelector('.selection-overlay')).toBeNull()
   })
 })
 

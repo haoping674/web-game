@@ -48,6 +48,14 @@ function App() {
   const resumeGame = useCallback(() => dispatch({ type: 'resume', now: Date.now() }), [])
   const restartGame = useCallback(() => dispatch({ type: 'restart', now: Date.now() }), [])
   const homeGame = useCallback(() => dispatch({ type: 'home' }), [])
+  const markMobileGestureHintSeen = useCallback(() => {
+    setData((current) => {
+      if (current.mobileGestureHintSeen) return current
+      const next = { ...current, mobileGestureHintSeen: true }
+      saveGameData(next)
+      return next
+    })
+  }, [])
   useGamePauseShortcut({ isPlaying: game.status === 'playing', onPause: pauseGame })
   usePageVisibilityPause({ isPlaying: game.status === 'playing', onPause: pauseGame })
   const completeTutorial = () => {
@@ -68,18 +76,18 @@ function App() {
   const clearStatistics = () => { if (window.confirm('確定要清除所有本機遊戲紀錄與設定嗎？')) { const cleared = clearGameData(); updateData(cleared); setActiveDialog(null) } }
   const openGameSettings = () => { pauseGame(); setActiveDialog('settings') }
   const lowStimulusClass = data.settings.lowStimulus ? ' low-stimulation' : ''
-  const animationClass = data.settings.animationsEnabled ? '' : ' animations-off'
+  const animationClass = data.settings.animationIntensity === 'off' || !data.settings.animationsEnabled ? ' animations-off' : data.settings.animationIntensity === 'reduced' ? ' animations-reduced' : ''
   const isGameActive = game.status === 'playing' || game.status === 'paused'
   const installProps = { canInstall: install.canInstall, isInstalled: install.isInstalled, ios: install.ios, onInstall: install.install, onIosInstructions: install.openIosInstructions }
   const showUpdate = pwaUpdate.updateAvailable && !deferUpdate
-  return <main className={`app-shell${lowStimulusClass}${animationClass}`}>
+  return <main className={`app-shell${lowStimulusClass}${animationClass}${isGameActive ? ' is-game-active' : ''}`}>
     <section className="game-card">
       {game.status === 'start' && <StartScreen selectedMode={game.mode} onModeChange={(mode) => dispatch({ type: 'set-mode', mode })} onStart={startGame} settings={data.settings} statistics={data.statisticsByMode[game.mode]} onOpenSettings={() => setActiveDialog('settings')} onHowToPlay={() => setActiveDialog('how-to')} onAbout={() => setActiveDialog('about')} install={installProps} />}
-      {game.status !== 'start' && <GameScreen game={game} dispatch={dispatch} settings={data.settings} tutorialOpen={activeDialog === 'tutorial'} onPause={pauseGame} onRestart={restartGame} onOpenSettings={openGameSettings} networkNotice={networkNotice} />}
+      {game.status !== 'start' && <GameScreen game={game} dispatch={dispatch} settings={data.settings} tutorialOpen={activeDialog === 'tutorial'} onPause={pauseGame} onRestart={restartGame} onOpenSettings={openGameSettings} networkNotice={networkNotice} showMobileGestureHint={!data.mobileGestureHintSeen} onMobileGestureHintShown={markMobileGestureHintSeen} />}
       {game.status === 'paused' && activeDialog !== 'settings' && activeDialog !== 'tutorial' && <PauseDialog onResume={resumeGame} onRestart={restartGame} onHome={homeGame} />}
       {game.status === 'finished' && <ResultDialog game={game} statistics={data.statisticsByMode[game.mode]} onRestart={restartGame} onHome={homeGame} />}
     </section>
-    {game.status !== 'playing' && <Footer onAbout={() => setActiveDialog('about')} onHowToPlay={() => setActiveDialog('how-to')} />}
+    {game.status === 'start' && <Footer onAbout={() => setActiveDialog('about')} onHowToPlay={() => setActiveDialog('how-to')} />}
     {activeDialog === 'about' && <AboutDialog onClose={() => setActiveDialog(null)} />}
     {activeDialog === 'how-to' && <HowToPlayDialog onClose={() => setActiveDialog(null)} />}
     {activeDialog === 'tutorial' && <TutorialDialog onComplete={completeTutorial} onSkip={completeTutorial} />}

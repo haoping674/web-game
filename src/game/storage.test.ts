@@ -27,4 +27,16 @@ describe('readGameData migration', () => {
   it('falls back safely when local JSON is corrupted', () => {
     expect(readGameData(createStorage('{not-json')).version).toBe(STORAGE_SCHEMA_VERSION)
   })
+
+  it('migrates the legacy animation toggle and keeps new preference fields', () => {
+    const data = readGameData(createStorage(JSON.stringify({
+      version: 4,
+      settings: { animationsEnabled: false, hapticsEnabled: false },
+      mobileGestureHintSeen: true,
+    })))
+    expect(data.settings.animationIntensity).toBe('off')
+    expect(data.settings.animationsEnabled).toBe(false)
+    expect(data.settings.hapticsEnabled).toBe(false)
+    expect(data.mobileGestureHintSeen).toBe(true)
+  })
 })

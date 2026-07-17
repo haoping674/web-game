@@ -1,5 +1,5 @@
 import { generateBoard } from './boardGenerator'
-import { COMBO_WINDOW_MS } from './constants'
+import { getComboWindowMs } from './comboConfig'
 import { getModeHintLimit, getModeRoundSeconds } from './modes'
 import { getRectangleCells } from './selectionCalculator'
 import { calculateMoveScore } from './scoring'
@@ -52,8 +52,8 @@ function advancePlayingTime(state: GameState, now: number): GameState {
     secondsLeft,
     nextTickAt: secondsLeft === 0 ? null : state.nextTickAt + elapsedTicks * 1_000,
     status: secondsLeft === 0 ? 'finished' : 'playing',
-    combo: comboExpired ? 0 : state.combo,
-    comboDeadline: comboExpired ? null : state.comboDeadline,
+    combo: secondsLeft === 0 || comboExpired ? 0 : state.combo,
+    comboDeadline: secondsLeft === 0 || comboExpired ? null : state.comboDeadline,
   }
 }
 
@@ -78,7 +78,7 @@ function applySelection(state: GameState, rect: GridRect, now: number): GameStat
   selected.forEach(({ row, column }) => { board[row]![column] = null })
   const combo = state.comboDeadline !== null && now <= state.comboDeadline ? state.combo + 1 : 1
   const moveScore = calculateMoveScore({ fruitCount: selected.length, rectangleArea: getRectangleCells(rect).length, combo })
-  return { ...state, board, score: state.score + moveScore.total, clearedFruitCount: state.clearedFruitCount + selected.length, combo, bestCombo: Math.max(state.bestCombo, combo), comboDeadline: now + COMBO_WINDOW_MS, successfulMoves: state.successfulMoves + 1 }
+  return { ...state, board, score: state.score + moveScore.total, clearedFruitCount: state.clearedFruitCount + selected.length, combo, bestCombo: Math.max(state.bestCombo, combo), comboDeadline: now + getComboWindowMs(state.mode, combo), successfulMoves: state.successfulMoves + 1 }
 }
 
 function applyReshuffle(state: GameState): GameState {
