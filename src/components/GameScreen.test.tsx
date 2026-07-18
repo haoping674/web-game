@@ -104,15 +104,16 @@ describe('selection cancellation', () => {
     expect(onSelectionEnd).toHaveBeenCalledWith({ start: { row: 0, column: 0 }, end: { row: 0, column: 1 } }, 10)
   })
 
-  it('clamps movement but never submits when the captured pointer ends outside the board', () => {
+  it('submits the last in-board selection when the captured pointer ends outside the board', () => {
     const onSelectionEnd = vi.fn()
     const { container } = render(<GameBoard board={board} onSelectionEnd={onSelectionEnd} />)
     const grid = within(container).getByRole('grid')
     vi.spyOn(grid, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100, toJSON: () => ({}) })
     fireEvent.pointerDown(grid, { pointerId: 20, pointerType: 'touch', clientX: 5, clientY: 5 })
+    fireEvent.pointerMove(grid, { pointerId: 20, pointerType: 'touch', clientX: 15, clientY: 5 })
     fireEvent.pointerMove(grid, { pointerId: 20, pointerType: 'touch', clientX: 260, clientY: 5 })
     fireEvent.pointerUp(grid, { pointerId: 20, pointerType: 'touch', clientX: 260, clientY: 5 })
-    expect(onSelectionEnd).not.toHaveBeenCalled()
+    expect(onSelectionEnd).toHaveBeenCalledWith({ start: { row: 0, column: 0 }, end: { row: 0, column: 1 } }, 10)
     expect(container.querySelector('.selection-overlay')).toBeNull()
   })
 })

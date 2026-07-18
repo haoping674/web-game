@@ -43,6 +43,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
   const activeTouchPointersRef = useRef(new Set<number>())
   const multiPointerBlockedRef = useRef(false)
   const pendingPoint = useRef<GridPoint | null>(null)
+  const lastBoardPointRef = useRef<GridPoint | null>(null)
   const isPortrait = usePortraitBoard()
   const [selection, setSelection] = useState<GridRect | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -147,6 +148,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
       if (typeof event.currentTarget.setPointerCapture === 'function') event.currentTarget.setPointerCapture(event.pointerId)
     } catch { /* pointer capture is an enhancement, not a requirement */ }
     activePointerIdRef.current = event.pointerId
+    lastBoardPointRef.current = boardPoint.point
     setKeyboardStart(null)
     setKeyboardPoint(boardPoint.point)
     setSelection({ start: boardPoint.point, end: boardPoint.point })
@@ -156,7 +158,10 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (disabled || multiPointerBlockedRef.current || !isDragging || event.pointerId !== activePointerIdRef.current) return
     if (event.cancelable) event.preventDefault()
-    pendingPoint.current = pointFromCoordinates(event.clientX, event.clientY)?.point ?? null
+    const boardPoint = pointFromCoordinates(event.clientX, event.clientY)
+    if (!boardPoint?.inside) return
+    lastBoardPointRef.current = boardPoint.point
+    pendingPoint.current = boardPoint.point
     if (frameRef.current !== null) return
     frameRef.current = window.requestAnimationFrame(() => {
       const point = pendingPoint.current
@@ -174,13 +179,15 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
     if (event.pointerId !== activePointerIdRef.current || !isDragging || !selection || disabled) return
     if (event.cancelable) event.preventDefault()
     const boardPoint = pointFromCoordinates(event.clientX, event.clientY)
-    if (!boardPoint?.inside) {
+    const endPoint = boardPoint?.inside ? boardPoint.point : lastBoardPointRef.current
+    if (!endPoint) {
       cancelActiveSelection()
       return
     }
+    lastBoardPointRef.current = endPoint
     cancelFrame()
     releaseActivePointer()
-    const completed = normalizeRect({ ...selection, end: boardPoint.point })
+    const completed = normalizeRect({ ...selection, end: endPoint })
     const sum = sumSelection(board, completed)
     if (sum !== TARGET_SUM) {
       if (invalidTimerRef.current !== null) window.clearTimeout(invalidTimerRef.current)
