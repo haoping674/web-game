@@ -131,6 +131,9 @@ describe('successful-clear effects', () => {
     await waitFor(() => expect(container.querySelectorAll('.combo-burst')).toHaveLength(1))
     expect(container.querySelectorAll('.fruit-particle').length).toBeGreaterThan(0)
     expect(container.querySelector('.particle-layer')).toHaveAttribute('data-active-bursts', '1')
+    expect(container.querySelector('.combo-evaluation')).toHaveTextContent('Juicy')
+    expect(container.querySelector('.combo-evaluation')).toHaveClass('is-visible')
+    expect(container.querySelector('.rating-pop')).toBeNull()
     expect(dispatch).toHaveBeenCalledOnce()
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'select', rect: { start: { row: 0, column: 0 }, end: { row: 0, column: 1 } } }))
   })
@@ -176,5 +179,21 @@ describe('playable mode HUD', () => {
     render(gameScreen({ ...playingGame, mode: 'hard', secondsLeft: 90 }))
     expect(screen.getByText('困難 · HARD')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '提示 1/1' })).toBeInTheDocument()
+  })
+
+  it('keeps the Combo feedback slot in the HUD and outside the board overlay', () => {
+    const { container } = render(gameScreen(playingGame))
+    const feedback = container.querySelector('.combo-evaluation')
+    expect(feedback).toBeInTheDocument()
+    expect(feedback).not.toHaveClass('is-visible')
+    expect(container.querySelector('.game-board .combo-evaluation')).toBeNull()
+    expect(feedback).toHaveAttribute('role', 'status')
+  })
+
+  it('shows persistent Fruit Flow state in the HUD, never inside the board', () => {
+    const { container } = render(gameScreen({ ...playingGame, combo: 10, bestCombo: 10 }))
+    expect(container.querySelector('.hud .combo-evaluation')).toHaveTextContent('Fruit Flow')
+    expect(container.querySelector('.game-board')).not.toHaveTextContent('Fruit Flow')
+    expect(container.querySelector('.flow-state-overlay')).toBeNull()
   })
 })

@@ -83,7 +83,6 @@ export function ParticleLayer({ effect, level }: ParticleLayerProps) {
         {level !== 'minimal' ? <span className="combo-ring" /> : null}
         {level === 'full' && config.hasSecondRing ? <span className="combo-ring combo-ring-secondary" /> : null}
         <b className="score-pop">+{burst.points}</b>
-        {level !== 'minimal' ? <em className="rating-pop">{burst.rating}</em> : null}
         {level === 'full' && config.hasFramePulse ? <span className="board-burst" /> : null}
         </div>
         {Array.from({ length: burst.particleCount }, (_, index) => {

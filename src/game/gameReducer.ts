@@ -71,14 +71,18 @@ function pausePlayingTime(state: GameState, now: number): GameState {
 
 function applySelection(state: GameState, rect: GridRect, now: number): GameState {
   if (state.status !== 'playing') return state
-  if (!isValidMove(state.board, rect)) return { ...state, combo: 0, comboDeadline: null, invalidMoves: state.invalidMoves + 1 }
-  const selected = getRectangleCells(rect).filter(({ row, column }) => state.board[row]?.[column] !== null)
-  if (selected.length === 0) return { ...state, combo: 0, comboDeadline: null, invalidMoves: state.invalidMoves + 1 }
-  const board = state.board.map((row) => [...row])
+  // The timer remains authoritative when interaction arrives after a scheduled wake-up.
+  // Invalid selections never reset or extend it.
+  const current = advancePlayingTime(state, now)
+  if (current.status !== 'playing') return current
+  if (!isValidMove(current.board, rect)) return { ...current, invalidMoves: current.invalidMoves + 1 }
+  const selected = getRectangleCells(rect).filter(({ row, column }) => current.board[row]?.[column] !== null)
+  if (selected.length === 0) return { ...current, invalidMoves: current.invalidMoves + 1 }
+  const board = current.board.map((row) => [...row])
   selected.forEach(({ row, column }) => { board[row]![column] = null })
-  const combo = state.comboDeadline !== null && now <= state.comboDeadline ? state.combo + 1 : 1
+  const combo = current.comboDeadline !== null && now <= current.comboDeadline ? current.combo + 1 : 1
   const moveScore = calculateMoveScore({ fruitCount: selected.length, rectangleArea: getRectangleCells(rect).length, combo })
-  return { ...state, board, score: state.score + moveScore.total, clearedFruitCount: state.clearedFruitCount + selected.length, combo, bestCombo: Math.max(state.bestCombo, combo), comboDeadline: now + getComboWindowMs(state.mode, combo), successfulMoves: state.successfulMoves + 1 }
+  return { ...current, board, score: current.score + moveScore.total, clearedFruitCount: current.clearedFruitCount + selected.length, combo, bestCombo: Math.max(current.bestCombo, combo), comboDeadline: now + getComboWindowMs(current.mode, combo), successfulMoves: current.successfulMoves + 1 }
 }
 
 function applyReshuffle(state: GameState): GameState {

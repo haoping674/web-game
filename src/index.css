@@ -46,17 +46,13 @@ h1 { margin:0; font:700 clamp(28px,5vw,53px)/1.12 Fraunces,serif; letter-spacing
 
 .network-toast.is-inline { position:static; width:auto; margin:0 0 8px; box-shadow:none; }
 
-/* Fruit Flow stays board-local: its marker and pulse use compositor-friendly properties only. */
+/* Combo feedback stays in the reserved HUD slot; board effects remain non-textual. */
 .hud-combo.tier-orchard strong { color:var(--accent); animation:combo-number-pop 360ms cubic-bezier(.2,.8,.2,1); }
 .is-clearing.tier-orchard { animation-name:harvest-out-charged; }
 .combo-burst.tier-orchard .harvest-core { background:radial-gradient(circle,#fffdf6 0 10%,rgb(112 191 165/.92) 11% 31%,rgb(244 201 88/.34) 32% 60%,transparent 62%); }.combo-burst.tier-orchard .score-pop { border-color:rgb(165 64 52/.3); color:var(--accent-dark); font-size:19px; }
-.rating-pop { position:absolute; left:50%; top:14px; transform:translateX(-50%); color:#15543a; font:700 10px Fraunces,serif; white-space:nowrap; will-change:transform,opacity; animation:rating-float calc(var(--burst-duration) + 110ms) ease-out both; }
-.flow-state-overlay { position:absolute; z-index:7; top:7px; right:7px; display:flex; align-items:center; gap:4px; padding:3px 7px; border:1px solid rgb(244 201 88/.72); border-radius:99px; background:rgb(255 253 246/.9); color:#a54034; box-shadow:0 2px 0 rgb(39 50 47/.12); font:700 10px Fraunces,serif; pointer-events:none; will-change:transform,opacity; animation:flow-marker-in 360ms ease-out both; }.flow-state-overlay span { color:#df604b; }.flow-state-overlay.is-reduced { animation:none; }
 .board-frame:has(.combo-burst.tier-orchard):not(:has(.particle-layer.effects-minimal)) { animation:board-border-pulse 460ms ease-out; }
-.low-stimulation .flow-state-overlay { animation:none; }.low-stimulation .rating-pop { display:none; }
-@keyframes rating-float { from { transform:translate(-50%,3px); opacity:0; } 20%,65% { opacity:1; } to { transform:translate(-50%,-21px); opacity:0; } }
-@keyframes flow-marker-in { from { transform:translateY(-5px); opacity:0; } }
-@keyframes fruit-flow-breathe { 50% { border-color:#e2a43c; box-shadow:0 0 0 4px rgb(226 164 60/.12); } }
+.low-stimulation .combo-evaluation.is-visible { animation:combo-evaluation-gentle 560ms ease-out both; }
+@keyframes combo-evaluation-pop { from { transform:scale(.88); opacity:0; } 18%,62% { transform:scale(1); opacity:1; } to { transform:scale(.98); opacity:0; } } @keyframes combo-evaluation-gentle { from { opacity:0; } 18%,62% { opacity:1; } to { opacity:0; } }
 
 @media (max-width:560px) and (orientation:portrait) { .game-board.is-portrait { width:auto; height:min(calc(100dvh - 215px),145vw); max-width:100%; margin:auto; aspect-ratio:10/17; } }
 @media (max-width:560px) and (orientation:portrait) { .paused-board { aspect-ratio:10/17; } }
@@ -67,3 +63,20 @@ h1 { margin:0; font:700 clamp(28px,5vw,53px)/1.12 Fraunces,serif; letter-spacing
 
 /* Low-stimulation keeps two quiet, fruit-local particles instead of hiding all feedback. */
 .low-stimulation .particle-layer.effects-minimal i { display:block; }
+
+/* The feedback area is a fixed row inside the HUD, never a board-local overlay. */
+.hud { grid-template-columns:1fr minmax(112px,1.25fr) 1fr auto; padding:8px 0; }
+.hud-combo { height:70px; min-width:0; display:grid; grid-template-rows:13px 28px 15px 3px; align-content:center; justify-items:center; gap:2px; }
+.hud-combo .combo-label { line-height:13px; }
+.hud-combo strong { line-height:1; }
+.hud-combo strong small { margin-top:2px; }
+.hud-combo em { display:none; }
+.combo-evaluation { display:block; width:100%; min-width:0; overflow:hidden; color:var(--accent-dark); font:700 clamp(9px,1.3vw,12px)/15px Fraunces,serif; letter-spacing:.01em; text-overflow:ellipsis; white-space:nowrap; opacity:0; pointer-events:none; transform:scale(.92); will-change:transform,opacity; }
+.combo-evaluation.is-visible { animation:combo-evaluation-pop 560ms ease-out both; }
+.hud-combo i { margin:0 auto; }
+
+@media (max-width:560px) {
+  .hud { grid-template-columns:.8fr minmax(86px,1.15fr) .8fr auto; padding:5px 0; }
+  .hud-combo { height:62px; grid-template-rows:12px 25px 14px 3px; }
+  .combo-evaluation { font-size:clamp(8px,2.6vw,10px); line-height:14px; }
+}

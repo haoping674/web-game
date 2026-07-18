@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getComboConfig, getComboWindowMs } from '../game/comboConfig'
 import { createComboClearEffect, resolveEffectLevel, type ComboClearEffect } from '../game/comboEffects'
 import { getNextGameWakeDelay } from '../game/comboTimer'
-import { getComboRating, getComboTier, getComboTitle, isComboMilestone } from '../game/comboTier'
+import { getComboRating, getComboTier, getComboTitle, isComboMilestone, type ComboRating } from '../game/comboTier'
 import { HINT_DURATION_MS, TARGET_SUM } from '../game/constants'
 import type { GameAction } from '../game/gameReducer'
 import { getModeHintLimit, PLAYABLE_MODE_DETAILS } from '../game/modes'
@@ -46,8 +46,10 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   const [message, setMessage] = useState('拖曳框選水果，讓總和剛好是 10。')
   const [hint, setHint] = useState<GridRect | null>(null)
   const [clearEffect, setClearEffect] = useState<ComboClearEffect | null>(null)
+  const [comboEvaluation, setComboEvaluation] = useState<ComboRating | null>(null)
   const [gestureHintVisible, setGestureHintVisible] = useState(false)
   const effectId = useRef(0)
+  const evaluationTimer = useRef<number | null>(null)
   const previousCombo = useRef(game.combo)
   const gestureHintHandled = useRef(false)
   const autoReshuffledBoard = useRef<GameState['board'] | null>(null)
@@ -72,6 +74,10 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
 
   useEffect(() => () => stopComboAudio(), [])
 
+  useEffect(() => () => {
+    if (evaluationTimer.current !== null) window.clearTimeout(evaluationTimer.current)
+  }, [])
+
   useEffect(() => {
     if (!interactive) return undefined
     const now = Date.now()
@@ -86,8 +92,25 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   }, [interactive])
 
   useEffect(() => {
-    if (game.successfulMoves === 0) setClearEffect(null)
+    if (game.successfulMoves === 0) {
+      setClearEffect(null)
+      if (evaluationTimer.current !== null) {
+        window.clearTimeout(evaluationTimer.current)
+        evaluationTimer.current = null
+      }
+      setComboEvaluation(null)
+    }
   }, [game.successfulMoves])
+
+  useEffect(() => {
+    if (game.combo === 0 || game.status !== 'playing') {
+      if (evaluationTimer.current !== null) {
+        window.clearTimeout(evaluationTimer.current)
+        evaluationTimer.current = null
+      }
+      setComboEvaluation(null)
+    }
+  }, [game.combo, game.status])
 
   useEffect(() => {
     if (!interactive || !showMobileGestureHint || gestureHintHandled.current) return undefined
@@ -133,6 +156,12 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       const points = clearedCells.length
       effectId.current += 1
       setClearEffect(createComboClearEffect(effectId.current, rect, clearedCells, combo, points, comboModeConfig, tier, rating, isComboMilestone(combo)))
+      if (evaluationTimer.current !== null) window.clearTimeout(evaluationTimer.current)
+      setComboEvaluation(rating)
+      evaluationTimer.current = window.setTimeout(() => {
+        evaluationTimer.current = null
+        setComboEvaluation(null)
+      }, 560)
       playComboSound({ enabled: settings.soundEnabled, volume: settings.volume, combo, lowStimulus: settings.lowStimulus })
       triggerHaptic(settings.hapticsEnabled, combo, settings.lowStimulus)
       const title = getComboTitle(combo)
@@ -141,7 +170,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       return
     } else {
       playInvalidSound(settings.soundEnabled, settings.volume)
-      setMessage(sum > TARGET_SUM ? `總和 ${sum}，超過 ${sum - TARGET_SUM}；Combo 已中斷。` : `總和 ${sum}，還差 ${TARGET_SUM - sum}；再試一次。`)
+      setMessage(sum > TARGET_SUM ? `總和 ${sum}，超過 ${sum - TARGET_SUM}；Combo 倒數仍在繼續。` : `總和 ${sum}，還差 ${TARGET_SUM - sum}；再試一次。`)
     }
     dispatch({ type: 'select', rect, now: Date.now() })
   }
@@ -165,7 +194,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       </header>
       <section className="hud" aria-label="遊戲資訊">
         <div><span>分數</span><strong>{String(game.score).padStart(3, '0')}</strong></div>
-        <ComboIndicator combo={game.combo} bestCombo={game.bestCombo} comboDeadline={game.comboDeadline} status={game.status} mode={game.mode} />
+        <ComboIndicator combo={game.combo} bestCombo={game.bestCombo} comboDeadline={game.comboDeadline} status={game.status} mode={game.mode} evaluation={comboEvaluation} />
         <div className="timer"><span>時間</span><Timer seconds={game.secondsLeft} urgent={game.secondsLeft <= 10} /></div>
         <button type="button" className="icon-button" aria-label="暫停遊戲" disabled={!interactive} onClick={onPause}>Ⅱ</button>
       </section>
@@ -173,7 +202,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
         <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || !validMove || game.hintsUsed >= hintLimit} onClick={useHint}>提示 {hintLimit - game.hintsUsed}/{hintLimit}</button><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
         <NetworkStatusToast notice={networkNotice} inline />
         {gestureHintVisible ? <p className="mobile-gesture-hint" role="status">棋盤內單指框選，雙指可移動畫面。</p> : null}
-        <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} combo={game.combo} />
+        <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} />
         <p className="selection-status" aria-live="polite">{message}</p>
         {settings.showSelectionHelp && <p className="shortcut-tip">拖曳可框選；鍵盤可用方向鍵移動，按 Enter 設定矩形兩端。</p>}
       </> : paused ? <>
