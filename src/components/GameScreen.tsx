@@ -9,6 +9,7 @@ import { getModeHintLimit, PLAYABLE_MODE_DETAILS } from '../game/modes'
 import { getRectangleCells } from '../game/selectionCalculator'
 import { playComboBreakSound, playComboSound, playInvalidSound, stopComboAudio, triggerHaptic } from '../game/soundManager'
 import type { GameSettings, GameState, GridRect } from '../game/types'
+import type { FruitParticleOrigin } from '../game/fruitParticles'
 import { findValidMove, selectHintMove } from '../game/validMoveFinder'
 import type { NetworkNotice } from '../hooks/useNetworkStatus'
 import { GameBoard } from './GameBoard'
@@ -142,7 +143,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
     dispatch({ type: 'reshuffle' })
   }, [dispatch, game.board, interactive, remainingFruit, validMove])
 
-  const handleSelection = (rect: GridRect, sum: number) => {
+  const handleSelection = (rect: GridRect, sum: number, fruits: readonly FruitParticleOrigin[] = []) => {
     if (!interactive) return
     const success = sum === TARGET_SUM
     if (success) {
@@ -155,7 +156,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       const clearedCells = getRectangleCells(rect).filter(({ row, column }) => game.board[row]?.[column] !== null)
       const points = clearedCells.length
       effectId.current += 1
-      setClearEffect(createComboClearEffect(effectId.current, rect, clearedCells, combo, points, comboModeConfig, tier, rating, isComboMilestone(combo)))
+      setClearEffect(createComboClearEffect(effectId.current, rect, clearedCells, combo, points, comboModeConfig, tier, rating, isComboMilestone(combo), { fruits, combo, tier, milestone: isComboMilestone(combo) }))
       if (evaluationTimer.current !== null) window.clearTimeout(evaluationTimer.current)
       setComboEvaluation(rating)
       evaluationTimer.current = window.setTimeout(() => {

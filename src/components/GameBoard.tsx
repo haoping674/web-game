@@ -2,14 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { BOARD_COLUMNS, BOARD_ROWS, TARGET_SUM } from '../game/constants'
 import type { ComboClearEffect, EffectLevel } from '../game/comboEffects'
 import { getRectangleCells, isPointInRect, normalizeRect, sumSelection } from '../game/selectionCalculator'
-import { calculateExplosionGeometry } from '../game/explosion'
 import type { CellValue, GridPoint, GridRect } from '../game/types'
+import { getFruitTheme, type FruitParticleOrigin } from '../game/fruitParticles'
 import { FruitCell } from './FruitCell'
 import { ParticleLayer } from './ParticleLayer'
 
 type GameBoardProps = {
   board: CellValue[][]
-  onSelectionEnd?: (rect: GridRect, sum: number) => void
+  onSelectionEnd?: (rect: GridRect, sum: number, fruits?: readonly FruitParticleOrigin[]) => void
   disabled?: boolean
   hint?: GridRect | null
   clearEffect?: ComboClearEffect | null
@@ -129,6 +129,22 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
     return { point: isPortrait ? { row: visualColumn, column: visualRow } : { row: visualRow, column: visualColumn }, inside }
   }
 
+  const captureFruitOrigins = (rect: GridRect): FruitParticleOrigin[] => {
+    const boardElement = boardRef.current
+    if (!boardElement) return []
+    const cells = getRectangleCells(rect).filter(({ row, column }) => board[row]?.[column] !== null)
+    // Read board and fruit rectangles together, before the reducer clears their values.
+    const boardBounds = boardElement.getBoundingClientRect()
+    return cells.flatMap(({ row, column }) => {
+      const id = `${row}-${column}`
+      const element = boardElement.querySelector<HTMLElement>(`[data-fruit-id="${id}"]`)
+      if (!element) return []
+      const bounds = element.getBoundingClientRect()
+      if (bounds.width <= 0 || bounds.height <= 0) return []
+      return [{ id, type: getFruitTheme(row * BOARD_COLUMNS + column), centerX: bounds.left - boardBounds.left + bounds.width / 2, centerY: bounds.top - boardBounds.top + bounds.height / 2, width: bounds.width, height: bounds.height }]
+    })
+  }
+
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return
     if (event.pointerType === 'touch') {
@@ -197,7 +213,9 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
         invalidTimerRef.current = null
       }, 260)
     }
-    onSelectionEnd?.(completed, sum)
+    const fruits = sum === TARGET_SUM ? captureFruitOrigins(completed) : []
+    if (fruits.length > 0) onSelectionEnd?.(completed, sum, fruits)
+    else onSelectionEnd?.(completed, sum)
     setIsDragging(false)
     setSelection(null)
   }
@@ -246,18 +264,16 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
       if (!keyboardStart) setKeyboardStart(keyboardPoint)
       else {
         const rect = normalizeRect({ start: keyboardStart, end: keyboardPoint })
-        onSelectionEnd?.(rect, sumSelection(board, rect))
+        const sum = sumSelection(board, rect)
+        const fruits = sum === TARGET_SUM ? captureFruitOrigins(rect) : []
+        if (fruits.length > 0) onSelectionEnd?.(rect, sum, fruits)
+        else onSelectionEnd?.(rect, sum)
         setKeyboardStart(null)
       }
     } else if (event.key === 'Escape') {
       setKeyboardStart(null)
     }
   }
-
-  const effectPosition = clearEffect ? {
-    ...clearEffect,
-    ...calculateExplosionGeometry(clearEffect.rect, clearEffect.cells, BOARD_ROWS, BOARD_COLUMNS, isPortrait),
-  } : null
 
   return (
     <div className={`board-frame${multiPointerBlocked ? ' is-multi-pointer' : ''}`}>
@@ -288,6 +304,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
             key={`${rowIndex}-${columnIndex}`}
             value={value}
             index={rowIndex * BOARD_COLUMNS + columnIndex}
+            fruitId={`${rowIndex}-${columnIndex}`}
             highlighted={activeSelection ? isPointInRect(point, activeSelection) : false}
             animationsEnabled={effectLevel !== 'off'}
             clearEffectId={isClearedCell ? clearEffect?.id : undefined}
@@ -301,7 +318,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
           <output className={`selection-sum ${selectionState}`} style={selectionSumStyle}>{feedback}<small>{selectedCount} 顆水果</small></output>
         </> : null}
         {!keyboardStart && !isDragging ? <div className="keyboard-cursor" style={cursorStyle} aria-hidden="true" /> : null}
-        <ParticleLayer effect={effectPosition} level={effectLevel} />
+        <ParticleLayer effect={clearEffect} level={effectLevel} />
       </div>
     </div>
   )

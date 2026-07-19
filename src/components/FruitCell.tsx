@@ -1,10 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { ComboTier } from '../game/comboTier'
 import type { CellValue } from '../game/types'
+import { getFruitTheme, type FruitTheme } from '../game/fruitParticles'
 
 type FruitCellProps = {
   value: CellValue
   index: number
+  fruitId?: string
+  fruitTheme?: FruitTheme
   highlighted?: boolean
   clearEffectId?: number
   clearTier?: ComboTier
@@ -13,7 +16,7 @@ type FruitCellProps = {
   style?: CSSProperties
 }
 
-export function FruitCell({ value, index, highlighted = false, clearEffectId, clearTier = 'base', clearDurationMs = 240, animationsEnabled = true, style }: FruitCellProps) {
+export function FruitCell({ value, index, fruitId, fruitTheme = getFruitTheme(index), highlighted = false, clearEffectId, clearTier = 'base', clearDurationMs = 240, animationsEnabled = true, style }: FruitCellProps) {
   const previous = useRef<CellValue>(value)
   const departureTimer = useRef<number | null>(null)
   const [departingValue, setDepartingValue] = useState<CellValue>(null)
@@ -54,12 +57,12 @@ export function FruitCell({ value, index, highlighted = false, clearEffectId, cl
 
   const leaving = value === null && departingValue !== null
   const displayValue = value ?? departingValue
-  if (displayValue === null) return <div className="fruit-cell is-empty" style={style} aria-hidden="true" />
+  if (displayValue === null) return <div className="fruit-cell is-empty" style={style} data-fruit-id={fruitId} data-fruit-theme={fruitTheme} aria-hidden="true" />
   const theme = index % 9
   const clearClass = leaving ? ` is-clearing tier-${clearTier}` : ''
   const cellStyle = { ...style, '--clear-delay': `${(index % 5) * 9}ms`, '--clear-duration': `${clearDurationMs}ms` } as CSSProperties
   return (
-    <div className={`fruit-cell fruit-theme-${theme}${highlighted ? ' is-highlighted' : ''}${clearClass}`} style={cellStyle}>
+    <div className={`fruit-cell fruit-theme-${theme}${highlighted ? ' is-highlighted' : ''}${clearClass}`} style={cellStyle} data-fruit-id={fruitId} data-fruit-theme={fruitTheme}>
       <span className="fruit-leaf" aria-hidden="true" />
       <span className="fruit-value">{displayValue}</span>
     </div>

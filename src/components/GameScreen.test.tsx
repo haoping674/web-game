@@ -12,6 +12,7 @@ const board = [[1, 9], [null, 2]]
 const playingGame: GameState = { mode: 'classic', board, score: 12, clearedFruitCount: 12, secondsLeft: 42, nextTickAt: Date.now() + 1_000, status: 'playing', combo: 2, bestCombo: 3, comboDeadline: Date.now() + 2_000, successfulMoves: 1, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
 
 beforeAll(() => {
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', { configurable: true, value: vi.fn(() => null) })
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     value: vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
@@ -129,7 +130,8 @@ describe('successful-clear effects', () => {
     fireEvent.keyDown(grid, { key: 'Enter' })
 
     await waitFor(() => expect(container.querySelectorAll('.combo-burst')).toHaveLength(1))
-    expect(container.querySelectorAll('.fruit-particle').length).toBeGreaterThan(0)
+    expect(container.querySelector('.fruit-particle-canvas')).toBeInTheDocument()
+    expect(container.querySelectorAll('.fruit-particle')).toHaveLength(0)
     expect(container.querySelector('.particle-layer')).toHaveAttribute('data-active-bursts', '1')
     expect(container.querySelector('.combo-evaluation')).toHaveTextContent('Juicy')
     expect(container.querySelector('.combo-evaluation')).toHaveClass('is-visible')
