@@ -19,9 +19,9 @@ export default defineConfig(() => {
         registerType: 'prompt',
         injectRegister: false,
         manifest: {
-          name: 'Orchard Ten',
-          short_name: 'Orchard Ten',
-          description: 'A calm number puzzle: select neighboring fruit tiles that add up to ten.',
+          name: 'Orchard Arcade',
+          short_name: 'Orchard Arcade',
+          description: 'Two calm, original puzzle games: Orchard Ten and Color Links.',
           start_url: base,
           scope: base,
           display: 'standalone',
@@ -42,9 +42,27 @@ export default defineConfig(() => {
           navigateFallback: `${base}index.html`,
           navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
           globPatterns: ['**/*.{html,js,css,svg,png,ico,webmanifest,woff2}'],
-          // Precache only built, same-origin assets. No runtime rule means
-          // external references are neither intercepted nor cached.
-          runtimeCaching: [],
+          // Keep game engines out of the install-time app shell. Each engine and
+          // its shared timer hook are cached only after the player opens a game.
+          globIgnores: [
+            'favicon.svg',
+            '**/FruitSumGame-*.js',
+            '**/ColorLinksGame-*.js',
+            '**/usePageVisibilityPause-*.js',
+          ],
+          runtimeCaching: [
+            {
+              urlPattern: ({ request, url }) =>
+                request.destination === 'script'
+                && /\/assets\/(?:FruitSumGame|ColorLinksGame|usePageVisibilityPause)-[^/]+\.js$/.test(url.pathname),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'orchard-arcade-games-v1',
+                expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+          ],
         },
         devOptions: { enabled: false },
       }),

@@ -1,100 +1,118 @@
-import { useCallback, useEffect, useReducer, useState } from 'react'
-import { AboutDialog } from './components/AboutDialog'
-import { Footer } from './components/Footer'
-import { GameScreen } from './components/GameScreen'
-import { HowToPlayDialog } from './components/HowToPlayDialog'
-import { IosInstallDialog } from './components/IosInstallDialog'
-import { NetworkStatusToast } from './components/NetworkStatusToast'
-import { PauseDialog } from './components/PauseDialog'
-import { PwaUpdateDialog } from './components/PwaUpdateDialog'
-import { ResultDialog } from './components/ResultDialog'
-import { SettingsDialog } from './components/SettingsDialog'
-import { StartScreen } from './components/StartScreen'
-import { TutorialDialog } from './components/TutorialDialog'
-import { createGameState, gameReducer } from './game/gameReducer'
-import { getModeRoundSeconds } from './game/modes'
-import { clearsPerMinute } from './game/scoring'
-import { clearGameData, readGameData, recordFinishedRound, saveGameData } from './game/storage'
-import { useInstallPrompt } from './hooks/useInstallPrompt'
-import { useGamePauseShortcut } from './hooks/useGamePauseShortcut'
-import { useNetworkStatus } from './hooks/useNetworkStatus'
-import { usePwaUpdate } from './hooks/usePwaUpdate'
-import { usePageVisibilityPause } from './hooks/usePageVisibilityPause'
-import type { GameSettings, StoredGameData } from './game/types'
+import { Component, lazy, Suspense, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
+import { HomePage } from './app/HomePage'
+import { GAME_REGISTRY } from './app/gameRegistry'
+import { HOME_ROUTE, navigate, useAppPathname } from './app/router'
+import { AppHeader } from './shared/components/AppHeader'
+import { PlatformSettingsDialog } from './shared/components/PlatformSettingsDialog'
+import { readAppStorage, saveAppStorage, type AppStorage, type GlobalSettings } from './shared/storage/appStorage'
 import './index.css'
 
-type ActiveDialog = 'about' | 'how-to' | 'settings' | 'tutorial' | null
-function App() {
-  const [game, dispatch] = useReducer(gameReducer, undefined, () => createGameState())
-  const [data, setData] = useState<StoredGameData>(readGameData)
-  const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
-  const [resumeAfterTutorial, setResumeAfterTutorial] = useState(false)
-  const [deferUpdate, setDeferUpdate] = useState(false)
-  const install = useInstallPrompt()
-  const networkNotice = useNetworkStatus()
-  const pwaUpdate = usePwaUpdate()
-  const updateData = (next: StoredGameData) => { setData(next); saveGameData(next) }
-  const updateSettings = (settings: GameSettings) => updateData({ ...data, settings })
-  useEffect(() => {
-    if (game.status !== 'finished') return
-    const clearedPerMinute = clearsPerMinute(game.clearedFruitCount, getModeRoundSeconds(game.mode) - game.secondsLeft)
-    setData((current) => {
-      const next = recordFinishedRound(current, game.mode, game.score, game.clearedFruitCount, game.bestCombo, clearedPerMinute)
-      saveGameData(next)
-      return next
-    })
-  }, [game.bestCombo, game.clearedFruitCount, game.mode, game.score, game.secondsLeft, game.status])
-  const pauseGame = useCallback(() => dispatch({ type: 'pause', now: Date.now() }), [])
-  const resumeGame = useCallback(() => dispatch({ type: 'resume', now: Date.now() }), [])
-  const restartGame = useCallback(() => dispatch({ type: 'restart', now: Date.now() }), [])
-  const homeGame = useCallback(() => dispatch({ type: 'home' }), [])
-  const markMobileGestureHintSeen = useCallback(() => {
-    setData((current) => {
-      if (current.mobileGestureHintSeen) return current
-      const next = { ...current, mobileGestureHintSeen: true }
-      saveGameData(next)
-      return next
-    })
-  }, [])
-  useGamePauseShortcut({ isPlaying: game.status === 'playing', onPause: pauseGame })
-  usePageVisibilityPause({ isPlaying: game.status === 'playing', onPause: pauseGame })
-  const completeTutorial = () => {
-    updateData({ ...data, tutorialSeen: true })
-    setActiveDialog(null)
-    if (resumeAfterTutorial) resumeGame()
-    setResumeAfterTutorial(false)
+const FruitSumGame = lazy(() => import('./games/fruit-sum/FruitSumGame'))
+const ColorLinksGame = lazy(() => import('./games/color-links/ColorLinksGame'))
+
+type RouteErrorBoundaryProps = { children: ReactNode; onHome: () => void }
+type RouteErrorBoundaryState = { failed: boolean }
+
+class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBoundaryState> {
+  state: RouteErrorBoundaryState = { failed: false }
+
+  static getDerivedStateFromError(): RouteErrorBoundaryState {
+    return { failed: true }
   }
-  const startGame = () => {
-    const now = Date.now()
-    dispatch({ type: 'start', now })
-    if (!data.tutorialSeen) {
-      dispatch({ type: 'pause', now })
-      setResumeAfterTutorial(true)
-      setActiveDialog('tutorial')
-    }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error('Game module failed to load', error, info)
   }
-  const clearStatistics = () => { if (window.confirm('確定要清除所有本機遊戲紀錄與設定嗎？')) { const cleared = clearGameData(); updateData(cleared); setActiveDialog(null) } }
-  const openGameSettings = () => { pauseGame(); setActiveDialog('settings') }
-  const lowStimulusClass = data.settings.lowStimulus ? ' low-stimulation' : ''
-  const animationClass = data.settings.animationIntensity === 'off' || !data.settings.animationsEnabled ? ' animations-off' : data.settings.animationIntensity === 'reduced' ? ' animations-reduced' : ''
-  const isGameActive = game.status === 'playing' || game.status === 'paused'
-  const installProps = { canInstall: install.canInstall, isInstalled: install.isInstalled, ios: install.ios, onInstall: install.install, onIosInstructions: install.openIosInstructions }
-  const showUpdate = pwaUpdate.updateAvailable && !deferUpdate
-  return <main className={`app-shell${lowStimulusClass}${animationClass}${isGameActive ? ' is-game-active' : ''}`}>
-    <section className="game-card">
-      {game.status === 'start' && <StartScreen selectedMode={game.mode} onModeChange={(mode) => dispatch({ type: 'set-mode', mode })} onStart={startGame} settings={data.settings} statistics={data.statisticsByMode[game.mode]} onOpenSettings={() => setActiveDialog('settings')} onHowToPlay={() => setActiveDialog('how-to')} onAbout={() => setActiveDialog('about')} install={installProps} />}
-      {game.status !== 'start' && <GameScreen game={game} dispatch={dispatch} settings={data.settings} tutorialOpen={activeDialog === 'tutorial'} onPause={pauseGame} onRestart={restartGame} onOpenSettings={openGameSettings} networkNotice={networkNotice} showMobileGestureHint={!data.mobileGestureHintSeen} onMobileGestureHintShown={markMobileGestureHintSeen} />}
-      {game.status === 'paused' && activeDialog !== 'settings' && activeDialog !== 'tutorial' && <PauseDialog onResume={resumeGame} onRestart={restartGame} onHome={homeGame} />}
-      {game.status === 'finished' && <ResultDialog game={game} statistics={data.statisticsByMode[game.mode]} onRestart={restartGame} onHome={homeGame} />}
-    </section>
-    {game.status === 'start' && <Footer onAbout={() => setActiveDialog('about')} onHowToPlay={() => setActiveDialog('how-to')} />}
-    {activeDialog === 'about' && <AboutDialog onClose={() => setActiveDialog(null)} />}
-    {activeDialog === 'how-to' && <HowToPlayDialog onClose={() => setActiveDialog(null)} />}
-    {activeDialog === 'tutorial' && <TutorialDialog onComplete={completeTutorial} onSkip={completeTutorial} />}
-    {activeDialog === 'settings' && <SettingsDialog settings={data.settings} onChange={updateSettings} onTutorial={() => setActiveDialog('tutorial')} onAbout={() => setActiveDialog('about')} onClearStatistics={clearStatistics} onClose={() => setActiveDialog(null)} />}
-    {install.showIosInstructions && <IosInstallDialog onClose={install.closeIosInstructions} />}
-    {game.status !== 'playing' && <NetworkStatusToast notice={networkNotice} />}
-    <PwaUpdateDialog visible={showUpdate} isGameActive={isGameActive} onUpdate={pwaUpdate.applyUpdate} onLater={() => setDeferUpdate(true)} />
-  </main>
+
+  render(): ReactNode {
+    if (!this.state.failed) return this.props.children
+    return (
+      <section className="route-fallback" role="alert">
+        <p className="eyebrow">LOAD INTERRUPTED</p>
+        <h1>遊戲暫時無法載入</h1>
+        <p>請確認網路狀態後再試一次，或先返回遊戲廳。</p>
+        <button type="button" className="primary-button" onClick={() => window.location.reload()}>重新載入</button>
+        <button type="button" className="text-button" onClick={this.props.onHome}>返回遊戲廳</button>
+      </section>
+    )
+  }
 }
+
+function RouteLoading() {
+  return (
+    <section className="route-loading" role="status" aria-live="polite">
+      <span aria-hidden="true">✦</span>
+      <p>正在準備遊戲…</p>
+    </section>
+  )
+}
+
+function App() {
+  const [pathname, go] = useAppPathname()
+  const [storage, setStorage] = useState<AppStorage>(readAppStorage)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const fruitRoute = GAME_REGISTRY[0].route
+  const colorRoute = GAME_REGISTRY[1].route
+  const knownRoute = pathname === HOME_ROUTE || pathname === fruitRoute || pathname === colorRoute
+
+  useEffect(() => {
+    if (!knownRoute) navigate(HOME_ROUTE, { replace: true })
+  }, [knownRoute])
+
+  useEffect(() => {
+    document.documentElement.dataset.effectIntensity = storage.globalSettings.effectIntensity
+    return () => {
+      delete document.documentElement.dataset.effectIntensity
+    }
+  }, [storage.globalSettings.effectIntensity])
+
+  const refreshStorage = useCallback(() => setStorage(readAppStorage()), [])
+  const updateSettings = useCallback((globalSettings: GlobalSettings) => {
+    setStorage((current) => saveAppStorage({ ...current, globalSettings }))
+  }, [])
+  const returnHome = useCallback(() => go(HOME_ROUTE), [go])
+  const openSettings = useCallback(() => {
+    if (pathname !== HOME_ROUTE) window.dispatchEvent(new Event('orchard-arcade:settings-open'))
+    setSettingsOpen(true)
+  }, [pathname])
+
+  if (!knownRoute) return null
+
+  return (
+    <>
+      {pathname === HOME_ROUTE ? (
+        <HomePage data={storage} onNavigate={go} onSettings={openSettings} />
+      ) : (
+        <main className="platform-shell game-route-shell">
+          <AppHeader compact onHome={returnHome} onSettings={openSettings} />
+          <RouteErrorBoundary key={pathname} onHome={returnHome}>
+            <Suspense fallback={<RouteLoading />}>
+              {pathname === fruitRoute ? (
+                <FruitSumGame
+                  globalSettings={storage.globalSettings}
+                  onProgressChange={refreshStorage}
+                  platformSettingsOpen={settingsOpen}
+                />
+              ) : (
+                <ColorLinksGame
+                  globalSettings={storage.globalSettings}
+                  onProgressChange={refreshStorage}
+                  platformSettingsOpen={settingsOpen}
+                />
+              )}
+            </Suspense>
+          </RouteErrorBoundary>
+        </main>
+      )}
+      {settingsOpen ? (
+        <PlatformSettingsDialog
+          settings={storage.globalSettings}
+          onChange={updateSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
+    </>
+  )
+}
+
 export default App

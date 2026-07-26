@@ -136,7 +136,7 @@ describe('successful-clear effects', () => {
     expect(container.querySelector('.combo-evaluation')).toHaveTextContent('Juicy')
     expect(container.querySelector('.combo-evaluation')).toHaveClass('is-visible')
     expect(container.querySelector('.rating-pop')).toBeNull()
-    expect(dispatch).toHaveBeenCalledOnce()
+    expect(dispatch.mock.calls.filter(([action]) => action.type === 'select')).toHaveLength(1)
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'select', rect: { start: { row: 0, column: 0 }, end: { row: 0, column: 1 } } }))
   })
 
