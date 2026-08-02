@@ -40,19 +40,11 @@ describe('Combo feedback tiers', () => {
     expect(getComboRating({ combo: 10, remainingRatio: 0.1, validSuccess: true })).toBe('Fruit Flow')
   })
 
-  it('uses special layered sounds only at 5, 10 and 20, with a capped high-tier cycle', () => {
+  it('uses the same simple harvest sound at every Combo level', () => {
     expect([5, 10, 15, 20].every(isComboMilestone)).toBe(true)
-    expect(getComboSoundProfile(10).milestone).toBe(true)
-    expect(getComboSoundProfile(11).frequencies).toHaveLength(3)
-    expect(getComboSoundProfile(13).frequencies).toEqual(getComboSoundProfile(17).frequencies)
-    expect(getComboSoundProfile(14).frequencies).not.toEqual(getComboSoundProfile(13).frequencies)
-    expect(getComboSoundProfile(20).frequencies).not.toHaveLength(0)
-  })
-
-  it('never drops the root pitch while a Combo rises', () => {
-    const roots = Array.from({ length: 32 }, (_, index) => getComboSoundProfile(index + 1).frequencies[0]!)
-    expect(roots.every((root, index) => index === 0 || root >= roots[index - 1]!)).toBe(true)
-    expect(Math.max(...roots)).toBeCloseTo(1_046.5, 1)
+    const profiles = [1, 5, 10, 20].map((combo) => getComboSoundProfile(combo))
+    expect(profiles).toEqual([profiles[0], profiles[0], profiles[0], profiles[0]])
+    expect(profiles[0]).toMatchObject({ frequencies: [523.25, 659.25], offsets: [0, 0.045], duration: 0.16, waveform: 'sine', milestone: false })
   })
 
   it('reduces motion and low-stimulus feedback to the minimal tier', () => {
@@ -60,6 +52,6 @@ describe('Combo feedback tiers', () => {
     expect(resolveEffectLevel({ ...defaultSettings, animationIntensity: 'reduced' }, false)).toBe('reduced')
     expect(resolveEffectLevel({ ...defaultSettings, lowStimulus: true }, false)).toBe('minimal')
     expect(resolveEffectLevel(defaultSettings, true)).toBe('minimal')
-    expect(getComboSoundProfile(20, true).frequencies).toHaveLength(2)
+    expect(getComboSoundProfile(20, true).frequencies).toEqual([523.25, 659.25])
   })
 })
