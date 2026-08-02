@@ -3,6 +3,7 @@ import {
   APP_STORAGE_KEY,
   APP_STORAGE_VERSION,
   readAppStorage,
+  recordColorLinksResult,
   recordGameResult,
   resetGameProgress,
 } from './appStorage'
@@ -47,15 +48,15 @@ describe('platform storage', () => {
   it('keeps the two games independent when recording and clearing progress', () => {
     const storage = createStorage()
     recordGameResult('fruitSum', 24, storage, new Date('2026-01-01T00:00:00.000Z'))
-    recordGameResult('colorLinks', 61, storage, new Date('2026-01-02T00:00:00.000Z'))
-    recordGameResult('colorLinks', 14, storage, new Date('2026-01-03T00:00:00.000Z'))
+    recordColorLinksResult(61, storage, new Date('2026-01-02T00:00:00.000Z'))
+    recordColorLinksResult(14, storage, new Date('2026-01-03T00:00:00.000Z'))
     const recorded = readAppStorage(storage)
     expect(recorded.games.fruitSum).toMatchObject({ highScore: 24, gamesPlayed: 1 })
-    expect(recorded.games.colorLinks).toMatchObject({ highScore: 61, gamesPlayed: 2 })
+    expect(recorded.games.colorLinks).toMatchObject({ bestTimeSeconds: 14, gamesPlayed: 2 })
 
     const reset = resetGameProgress('fruitSum', storage)
     expect(reset.games.fruitSum).toEqual({ highScore: 0, gamesPlayed: 0 })
-    expect(reset.games.colorLinks).toMatchObject({ highScore: 61, gamesPlayed: 2 })
+    expect(reset.games.colorLinks).toMatchObject({ bestTimeSeconds: 14, gamesPlayed: 2 })
   })
 
   it('falls back safely from corrupted platform and legacy JSON', () => {

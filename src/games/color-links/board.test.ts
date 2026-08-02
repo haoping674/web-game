@@ -78,7 +78,7 @@ describe('Color Links board generation and recovery', () => {
     }
   })
 
-  it('regenerates a safe board when remaining singleton colors cannot be reshuffled into a move', () => {
+  it('reports when remaining singleton colors cannot be reshuffled into a move', () => {
     const deadBoard: ColorLinksBoard = [
       ['coral', null, 'amber'],
       [null, null, null],

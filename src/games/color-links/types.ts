@@ -33,7 +33,7 @@ export type ColorLinksState = {
   board: ColorLinksBoard
   status: ColorLinksStatus
   score: number
-  secondsLeft: number
+  elapsedSeconds: number
   nextTickAt: number | null
   successfulMoves: number
   invalidMoves: number

@@ -14,6 +14,7 @@ export type GlobalSettings = {
 
 export type GameProgress = {
   highScore: number
+  bestTimeSeconds?: number
   gamesPlayed: number
   lastPlayedAt?: string
 }
@@ -57,7 +58,14 @@ function normalizeProgress(value: unknown): GameProgress {
     highScore: finiteNumber(progress.highScore),
     gamesPlayed: finiteNumber(progress.gamesPlayed),
   }
-  return lastPlayedAt ? { ...normalized, lastPlayedAt } : normalized
+  const bestTimeSeconds = typeof progress.bestTimeSeconds === 'number' && Number.isFinite(progress.bestTimeSeconds)
+    ? Math.max(0, Math.floor(progress.bestTimeSeconds))
+    : undefined
+  return {
+    ...normalized,
+    ...(bestTimeSeconds === undefined ? {} : { bestTimeSeconds }),
+    ...(lastPlayedAt ? { lastPlayedAt } : {}),
+  }
 }
 
 function getStorage(storage?: Storage): Storage | undefined {
@@ -167,7 +175,26 @@ export function recordGameResult(gameId: GameId, score: number, storage?: Storag
     games: {
       ...current.games,
       [gameId]: {
+        ...progress,
         highScore: Math.max(progress.highScore, score),
+        gamesPlayed: progress.gamesPlayed + 1,
+        lastPlayedAt: playedAt.toISOString(),
+      },
+    },
+  }, storage)
+}
+
+export function recordColorLinksResult(completionSeconds: number, storage?: Storage, playedAt = new Date()): AppStorage {
+  const current = readAppStorage(storage)
+  const progress = current.games.colorLinks
+  const completedAt = Math.max(0, Math.floor(completionSeconds))
+  return saveAppStorage({
+    ...current,
+    games: {
+      ...current.games,
+      colorLinks: {
+        ...progress,
+        bestTimeSeconds: Math.min(progress.bestTimeSeconds ?? Number.POSITIVE_INFINITY, completedAt),
         gamesPlayed: progress.gamesPlayed + 1,
         lastPlayedAt: playedAt.toISOString(),
       },

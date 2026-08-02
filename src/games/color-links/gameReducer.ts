@@ -10,6 +10,7 @@ export type ColorLinksAction =
   | { type: 'resume'; now: number }
   | { type: 'restart'; now: number; board?: ColorLinksBoard }
   | { type: 'reshuffle'; board: ColorLinksBoard }
+  | { type: 'resolve-stranded' }
   | { type: 'finish' }
 
 export function calculateColorLinkScore(matches: readonly MatchGroup[]): number {
@@ -27,7 +28,7 @@ export function createColorLinksState(
     board,
     status,
     score: 0,
-    secondsLeft: COLOR_LINKS_CONFIG.roundSeconds,
+    elapsedSeconds: 0,
     nextTickAt: status === 'playing' ? now + 1_000 : null,
     successfulMoves: 0,
     invalidMoves: 0,
@@ -39,12 +40,10 @@ export function createColorLinksState(
 function advanceTime(state: ColorLinksState, now: number): ColorLinksState {
   if (state.status !== 'playing' || state.nextTickAt === null || now < state.nextTickAt) return state
   const elapsedTicks = Math.floor((now - state.nextTickAt) / 1_000) + 1
-  const secondsLeft = Math.max(0, state.secondsLeft - elapsedTicks)
   return {
     ...state,
-    secondsLeft,
-    status: secondsLeft === 0 ? 'finished' : 'playing',
-    nextTickAt: secondsLeft === 0 ? null : state.nextTickAt + elapsedTicks * 1_000,
+    elapsedSeconds: state.elapsedSeconds + elapsedTicks,
+    nextTickAt: state.nextTickAt + elapsedTicks * 1_000,
   }
 }
 
@@ -54,22 +53,23 @@ function selectCell(state: ColorLinksState, position: CellPosition, now: number)
   if (current.board[position.row]?.[position.column] !== null) return current
   const matches = findMatchesAtCell(current.board, position)
   if (matches.length === 0) {
-    const secondsLeft = Math.max(0, current.secondsLeft - COLOR_LINKS_CONFIG.invalidPenaltySeconds)
     return {
       ...current,
-      secondsLeft,
+      elapsedSeconds: current.elapsedSeconds + COLOR_LINKS_CONFIG.invalidPenaltySeconds,
       invalidMoves: current.invalidMoves + 1,
-      status: secondsLeft === 0 ? 'finished' : 'playing',
-      nextTickAt: secondsLeft === 0 ? null : current.nextTickAt,
     }
   }
   const removedTiles = matches.reduce((total, match) => total + match.tiles.length, 0)
+  const board = removeMatchedTiles(current.board, matches)
+  const completed = board.every((row) => row.every((cell) => cell === null))
   return {
     ...current,
-    board: removeMatchedTiles(current.board, matches),
+    board,
     score: current.score + calculateColorLinkScore(matches),
     successfulMoves: current.successfulMoves + 1,
     removedTiles: current.removedTiles + removedTiles,
+    status: completed ? 'finished' : 'playing',
+    nextTickAt: completed ? null : current.nextTickAt,
   }
 }
 
@@ -107,6 +107,20 @@ export function colorLinksReducer(state: ColorLinksState, action: ColorLinksActi
       return state.status === 'playing'
         ? { ...state, board: action.board, reshuffles: state.reshuffles + 1 }
         : state
+    case 'resolve-stranded': {
+      if (state.status !== 'playing') return state
+      const strandedTiles = state.board.reduce(
+        (total, row) => total + row.filter((cell) => cell !== null).length,
+        0,
+      )
+      return {
+        ...state,
+        board: state.board.map((row) => row.map(() => null)),
+        removedTiles: state.removedTiles + strandedTiles,
+        status: 'finished',
+        nextTickAt: null,
+      }
+    }
     case 'finish':
       return state.status === 'playing' || state.status === 'paused'
         ? { ...state, status: 'finished', nextTickAt: null }

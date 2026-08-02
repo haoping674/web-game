@@ -52,12 +52,22 @@ function ColorPreview() {
   )
 }
 
-function GameCard({ game, highScore, onOpen }: {
+function formatBestTime(seconds: number | undefined): string {
+  if (seconds === undefined) return '--:--'
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
+}
+
+function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
   game: GameDefinition
   highScore: number
+  bestTimeSeconds?: number
   onOpen: () => void
 }) {
   const isFruit = game.id === 'fruitSum'
+  const recordLabel = isFruit ? '本機最高分' : '最快完成'
+  const recordValue = isFruit ? highScore : formatBestTime(bestTimeSeconds)
   return (
     <article className={`game-choice-card game-${game.id}`} style={{ '--card-accent': game.accent } as React.CSSProperties}>
       <button type="button" className="game-card-hitbox" onClick={onOpen} aria-label={`開始 ${game.name}`} />
@@ -65,7 +75,7 @@ function GameCard({ game, highScore, onOpen }: {
         <p className="eyebrow">{game.eyebrow}</p>
         <h2>{game.name}</h2>
         <p>{game.description}</p>
-        <span className="local-record">本機最高分 <strong>{highScore}</strong></span>
+        <span className="local-record">{recordLabel} <strong>{recordValue}</strong></span>
       </div>
       {isFruit ? <FruitPreview /> : <ColorPreview />}
       <button type="button" className="game-start-button" onClick={onOpen}>
@@ -138,6 +148,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
             key={game.id}
             game={game}
             highScore={data.games[game.id].highScore}
+            bestTimeSeconds={data.games[game.id].bestTimeSeconds}
             onOpen={() => onNavigate(game.route)}
           />
         ))}
