@@ -6,7 +6,7 @@ import { HowToPlayDialog } from '../../components/HowToPlayDialog'
 import { IosInstallDialog } from '../../components/IosInstallDialog'
 import { NetworkStatusToast } from '../../components/NetworkStatusToast'
 import { PauseDialog } from '../../components/PauseDialog'
-import { PwaUpdateDialog } from '../../components/PwaUpdateDialog'
+import { PwaUpdateNotice } from '../../components/PwaUpdateNotice'
 import { ResultDialog } from '../../components/ResultDialog'
 import { SettingsDialog } from '../../components/SettingsDialog'
 import { StartScreen } from '../../components/StartScreen'
@@ -20,7 +20,6 @@ import { useGamePauseShortcut } from '../../hooks/useGamePauseShortcut'
 import { useInstallPrompt } from '../../hooks/useInstallPrompt'
 import { useNetworkStatus } from '../../hooks/useNetworkStatus'
 import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
-import { usePwaUpdate } from '../../hooks/usePwaUpdate'
 import {
   recordGameResult,
   resetGameProgress,
@@ -60,10 +59,8 @@ export default function FruitSumGame({
   })
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
   const [resumeAfterTutorial, setResumeAfterTutorial] = useState(false)
-  const [deferUpdate, setDeferUpdate] = useState(false)
   const install = useInstallPrompt()
   const networkNotice = useNetworkStatus()
-  const pwaUpdate = usePwaUpdate()
 
   useEffect(() => {
     setData((current) => {
@@ -194,7 +191,6 @@ export default function FruitSumGame({
     onInstall: install.install,
     onIosInstructions: install.openIosInstructions,
   }
-  const showUpdate = pwaUpdate.updateAvailable && !deferUpdate
 
   return (
     <div className={`app-shell fruit-route-shell${lowStimulusClass}${animationClass}${isGameActive ? ' is-game-active' : ''}`}>
@@ -253,12 +249,7 @@ export default function FruitSumGame({
       ) : null}
       {install.showIosInstructions ? <IosInstallDialog onClose={install.closeIosInstructions} /> : null}
       {game.status !== 'playing' ? <NetworkStatusToast notice={networkNotice} /> : null}
-      <PwaUpdateDialog
-        visible={showUpdate}
-        isGameActive={isGameActive}
-        onUpdate={pwaUpdate.applyUpdate}
-        onLater={() => setDeferUpdate(true)}
-      />
+      <PwaUpdateNotice isGameActive={isGameActive} />
     </div>
   )
 }

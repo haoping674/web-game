@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { PwaUpdateNotice } from '../components/PwaUpdateNotice'
 import { GAME_REGISTRY, type GameDefinition } from './gameRegistry'
 import type { AppStorage } from '../shared/storage/appStorage'
 import { AppHeader } from '../shared/components/AppHeader'
@@ -175,6 +176,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
         <span>ORCHARD ARCADE · LOCAL-FIRST PLAY</span>
         <span>進度只儲存在這台裝置</span>
       </footer>
+      <PwaUpdateNotice isGameActive={false} />
     </main>
   )
 }

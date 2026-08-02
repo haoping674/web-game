@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
+import { PwaUpdateNotice } from '../../components/PwaUpdateNotice'
 import { Timer } from '../../components/Timer'
 import { useGamePauseShortcut } from '../../hooks/useGamePauseShortcut'
 import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
@@ -257,6 +258,7 @@ export default function ColorLinksGame({
           <ColorLinksBoard board={game.board} disabled reducedMotion={reducedMotion} />
           <span className="color-preview-caption">每種顏色都有獨立符號，不只依賴色相辨識。</span>
         </div>
+        <PwaUpdateNotice isGameActive={false} />
       </section>
     )
   }
@@ -331,6 +333,7 @@ export default function ColorLinksGame({
           {shareStatus ? <p className="share-status" role="status">{shareStatus}</p> : null}
         </OverlayDialog>
       ) : null}
+      <PwaUpdateNotice isGameActive={playing || paused} />
     </section>
   )
 }
