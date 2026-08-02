@@ -237,6 +237,10 @@ export default function ColorLinksGame({
           </p>
         </div>
         <div className="color-start-board">
+          <div className="color-board-spec" aria-label="Color Links 棋盤尺寸">
+            <strong>17 × 10</strong>
+            <span>訊號棋盤</span>
+          </div>
           <ColorLinksBoard board={game.board} disabled reducedMotion={reducedMotion} />
           <span className="color-preview-caption">每種顏色都有獨立符號，不只依賴色相辨識。</span>
         </div>

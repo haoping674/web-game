@@ -69,9 +69,9 @@ describe('Color Links board generation and recovery', () => {
     for (const seed of [1, 17, 2026, 88_031]) {
       const board = generateBoard(seededRandom(seed))
       const quality = evaluateBoardQuality(board)
-      expect(board).toHaveLength(8)
-      expect(board.every((row) => row.length === 8)).toBe(true)
-      expect(quality.validMoveCount).toBeGreaterThanOrEqual(5)
+      expect(board).toHaveLength(10)
+      expect(board.every((row) => row.length === 17)).toBe(true)
+      expect(quality.validMoveCount).toBeGreaterThanOrEqual(12)
       expect(quality.filledRatio).toBeGreaterThanOrEqual(0.46)
       expect(quality.filledRatio).toBeLessThanOrEqual(0.7)
       expect(quality.maxColorRatio).toBeLessThanOrEqual(0.36)

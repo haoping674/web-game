@@ -92,8 +92,13 @@ export function ColorLinksBoard({
 }: ColorLinksBoardProps) {
   const rows = board.length
   const columns = board[0]?.length ?? 0
+  const boardSize = `${columns} × ${rows}`
   return (
-    <div className="color-board-frame">
+    <div
+      className="color-board-frame"
+      data-board-size={boardSize}
+      style={{ '--color-columns': columns, '--color-rows': rows } as CSSProperties}
+    >
       <div
         className="color-links-board"
         role="grid"
