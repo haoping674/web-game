@@ -32,7 +32,7 @@ export function generateBalancedBoard({
   }
 
   for (let fallbackAttempt = 1; fallbackAttempt <= balanceConfig.generation.fallbackAttempts; fallbackAttempt += 1) {
-    const board = createFallbackBoard(random, getModeConfig(mode).numberWeights, mode)
+    const board = createFallbackBoard(random, getModeConfig(mode).numberWeights)
     const attempts = balanceConfig.generation.maxAttempts + fallbackAttempt
     const analysis = analyzeBoard(board)
     const structurallyAccepted = isBoardStructureAccepted(analysis, mode)
@@ -51,25 +51,20 @@ function createWeightedBoard(random: RandomSource, weights: readonly NumberWeigh
   )
 }
 
-function createFallbackBoard(random: RandomSource, weights: readonly NumberWeight[], mode: BalanceMode): CellValue[][] {
+function createFallbackBoard(random: RandomSource, weights: readonly NumberWeight[]): CellValue[][] {
   const board = createWeightedBoard(random, weights)
   const rowBands = [[0, 2], [3, 6], [7, 9]] as const
   rowBands.forEach(([minimumRow, maximumRow]) => {
     const row = randomInteger(random, minimumRow, maximumRow)
     const column = randomInteger(random, 0, balanceConfig.columns - 4)
-    if (mode === 'hard') {
-      const pattern = shufflePattern([1, 2, 3, 4], random)
-      pattern.forEach((value, offset) => { board[row]![column + offset] = value })
-    } else {
-      const complement = randomInteger(random, 1, 9)
-      board[row]![column] = complement
-      board[row]![column + 1] = balanceConfig.targetSum - complement
-      const verticalStart = Math.min(balanceConfig.rows - 2, row)
-      const verticalColumn = column + 3
-      const verticalComplement = randomInteger(random, 1, 9)
-      board[verticalStart]![verticalColumn] = verticalComplement
-      board[verticalStart + 1]![verticalColumn] = balanceConfig.targetSum - verticalComplement
-    }
+    const complement = randomInteger(random, 1, 9)
+    board[row]![column] = complement
+    board[row]![column + 1] = balanceConfig.targetSum - complement
+    const verticalStart = Math.min(balanceConfig.rows - 2, row)
+    const verticalColumn = column + 3
+    const verticalComplement = randomInteger(random, 1, 9)
+    board[verticalStart]![verticalColumn] = verticalComplement
+    board[verticalStart + 1]![verticalColumn] = balanceConfig.targetSum - verticalComplement
   })
   return board
 }
@@ -88,15 +83,6 @@ function describeBoard(board: CellValue[][], mode: BalanceMode, attempts: number
       quality,
     },
   }
-}
-
-function shufflePattern(pattern: readonly number[], random: RandomSource): number[] {
-  const next = [...pattern]
-  for (let index = next.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(random() * (index + 1))
-    ;[next[index], next[swap]] = [next[swap]!, next[index]!]
-  }
-  return next
 }
 
 function weightedDigit(random: RandomSource, weights: readonly NumberWeight[]): number {

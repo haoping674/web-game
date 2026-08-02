@@ -79,12 +79,10 @@ function readLegacyFruitProgress(storage: Storage | undefined): {
     if (!isRecord(parsed)) return { progress: DEFAULT_PROGRESS }
     const statisticsByMode = isRecord(parsed.statisticsByMode) ? parsed.statisticsByMode : {}
     const legacyStatistics = isRecord(parsed.statistics) ? parsed.statistics : {}
-    const modes = ['classic', 'quick', 'hard'].map((mode) =>
-      isRecord(statisticsByMode[mode]) ? statisticsByMode[mode] : mode === 'classic' ? legacyStatistics : {},
-    )
+    const classicStatistics = isRecord(statisticsByMode.classic) ? statisticsByMode.classic : legacyStatistics
     const progress = {
-      highScore: Math.max(0, ...modes.map((mode) => finiteNumber(mode.highScore))),
-      gamesPlayed: modes.reduce((total, mode) => total + finiteNumber(mode.gamesPlayed), 0),
+      highScore: finiteNumber(classicStatistics.highScore),
+      gamesPlayed: finiteNumber(classicStatistics.gamesPlayed),
     }
     const settingsRecord = isRecord(parsed.settings) ? parsed.settings : undefined
     if (!settingsRecord) return { progress }

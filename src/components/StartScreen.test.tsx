@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GameSettings, GameStatistics } from '../game/types'
 import { StartScreen } from './StartScreen'
@@ -11,20 +11,18 @@ const install = { canInstall: false, isInstalled: false, ios: false, onInstall: 
 
 afterEach(cleanup)
 
-describe('mode selection', () => {
-  it('offers only the three released modes and reports changes', () => {
-    const onModeChange = vi.fn()
-    render(<StartScreen selectedMode="classic" onModeChange={onModeChange} onStart={vi.fn()} settings={settings} statistics={statistics} onOpenSettings={vi.fn()} onHowToPlay={vi.fn()} onAbout={vi.fn()} install={install} />)
-    expect(screen.getAllByRole('radio')).toHaveLength(3)
-    expect(screen.queryByRole('radio', { name: /Zen/i })).toBeNull()
-    fireEvent.click(screen.getByRole('radio', { name: /快速/ }))
-    expect(onModeChange).toHaveBeenCalledWith('quick')
+describe('Classic start screen', () => {
+  it('shows Classic as the only available mode', () => {
+    render(<StartScreen onStart={vi.fn()} settings={settings} statistics={statistics} onOpenSettings={vi.fn()} onHowToPlay={vi.fn()} onAbout={vi.fn()} install={install} />)
+    expect(screen.queryByRole('radiogroup')).toBeNull()
+    expect(screen.getByText('經典模式')).toBeInTheDocument()
+    expect(screen.queryByText('QUICK')).toBeNull()
+    expect(screen.queryByText('HARD')).toBeNull()
   })
 
-  it('shows the selected mode record and start action', () => {
-    render(<StartScreen selectedMode="hard" onModeChange={vi.fn()} onStart={vi.fn()} settings={settings} statistics={statistics} onOpenSettings={vi.fn()} onHowToPlay={vi.fn()} onAbout={vi.fn()} install={install} />)
-    expect(screen.getByRole('radio', { name: /困難/ })).toBeChecked()
-    expect(screen.getByRole('button', { name: /開始困難模式/ })).toBeInTheDocument()
-    expect(screen.getByText('困難最高分')).toBeInTheDocument()
+  it('shows the Classic record and start action', () => {
+    render(<StartScreen onStart={vi.fn()} settings={settings} statistics={statistics} onOpenSettings={vi.fn()} onHowToPlay={vi.fn()} onAbout={vi.fn()} install={install} />)
+    expect(screen.getByText('經典最高分')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /開始經典模式/ })).toBeInTheDocument()
   })
 })

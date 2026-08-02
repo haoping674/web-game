@@ -52,20 +52,21 @@ describe('moves, combo and hints', () => {
 })
 
 describe('resilient local game data', () => {
-  it('accumulates statistics independently by mode', () => { const next = recordFinishedRound(defaultStoredGameData, 'quick', 12, 12, 4, 6); expect(next.statisticsByMode.quick).toMatchObject({ highScore: 12, lastScore: 12, gamesPlayed: 1, totalCleared: 12, highestCombo: 4, totalScore: 12, bestClearsPerMinute: 6 }); expect(next.statisticsByMode.classic.gamesPlayed).toBe(0) })
+  it('accumulates statistics for Classic mode', () => { const next = recordFinishedRound(defaultStoredGameData, 'classic', 12, 12, 4, 6); expect(next.statisticsByMode.classic).toMatchObject({ highScore: 12, lastScore: 12, gamesPlayed: 1, totalCleared: 12, highestCombo: 4, totalScore: 12, bestClearsPerMinute: 6 }) })
   it('recovers from corrupt and older data', () => { const memory = storage(); memory.setItem('orchard-ten-v2', 'not-json'); expect(readGameData(memory)).toEqual(defaultStoredGameData); memory.setItem('orchard-ten-v2', JSON.stringify({ settings: { soundEnabled: false }, statistics: { highScore: 8 } })); expect(readGameData(memory).statisticsByMode.classic.highScore).toBe(8) })
   it('persists tutorial/settings and clears safely', () => { const memory = storage(); const saved = saveGameData({ ...defaultStoredGameData, tutorialSeen: true, settings: { ...defaultStoredGameData.settings, volume: 0.2 } }, memory); expect(readGameData(memory)).toEqual(saved); expect(clearGameData(memory)).toEqual(defaultStoredGameData); expect(readGameData(memory)).toEqual(defaultStoredGameData) })
   it('creates a fresh state with configured game duration', () => expect(createGameState().secondsLeft).toBe(ROUND_SECONDS))
-  it('starts and restarts the selected timed mode', () => {
-    const selected = gameReducer(createGameState('start', 0), { type: 'set-mode', mode: 'hard' })
-    const started = gameReducer(selected, { type: 'start', now: 100 })
-    expect(started).toMatchObject({ mode: 'hard', secondsLeft: 90, status: 'playing', nextTickAt: 1_100 })
-    expect(gameReducer(started, { type: 'restart', now: 500 })).toMatchObject({ mode: 'hard', secondsLeft: 90, status: 'playing' })
+  it('starts and restarts the Classic timed mode', () => {
+    const started = gameReducer(createGameState('start', 0), { type: 'start', now: 100 })
+    expect(started).toMatchObject({ mode: 'classic', secondsLeft: 120, status: 'playing', nextTickAt: 1_100 })
+    expect(gameReducer(started, { type: 'restart', now: 500 })).toMatchObject({ mode: 'classic', secondsLeft: 120, status: 'playing' })
   })
-  it('uses each mode hint allowance at runtime', () => {
-    const hard = state({ mode: 'hard', board: [[1, 9]] })
-    const once = gameReducer(hard, { type: 'use-hint' })
+  it('uses the Classic hint allowance at runtime', () => {
+    const classic = state({ board: [[1, 9]] })
+    const once = gameReducer(classic, { type: 'use-hint' })
     expect(once.hintsUsed).toBe(1)
-    expect(gameReducer(once, { type: 'use-hint' })).toBe(once)
+    const twice = gameReducer(once, { type: 'use-hint' })
+    const threeTimes = gameReducer(twice, { type: 'use-hint' })
+    expect(gameReducer(threeTimes, { type: 'use-hint' })).toBe(threeTimes)
   })
 })

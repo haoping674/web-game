@@ -7,18 +7,8 @@ import { defaultSettings } from './storage'
 import { getComboSoundProfile } from './soundManager'
 
 describe('mode Combo configuration', () => {
-  it.each([
-    ['classic', [8_000, 7_200, 6_400, 5_600]],
-    ['quick', [6_800, 6_200, 5_600, 5_000]],
-    ['hard', [7_200, 6_400, 5_800, 5_200]],
-  ] as const)('uses the four configured windows for %s', (mode, expected) => {
-    expect([1, 3, 6, 10].map((combo) => getComboWindowMs(mode, combo))).toEqual(expected)
-  })
-
-  it('does not retain another mode window after switching modes', () => {
-    expect(getComboWindowMs('classic', 7)).toBe(6_400)
-    expect(getComboWindowMs('quick', 7)).toBe(5_600)
-    expect(getComboWindowMs('hard', 7)).toBe(5_800)
+  it('uses the configured Classic Combo windows', () => {
+    expect([1, 3, 6, 10].map((combo) => getComboWindowMs('classic', combo))).toEqual([8_000, 7_200, 6_400, 5_600])
   })
 
   it('wakes exactly for either the round tick or Combo expiry', () => {

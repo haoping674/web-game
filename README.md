@@ -20,11 +20,8 @@ Orchard Arcade 是一個包含兩款限時益智遊戲的小型 PWA：
 
 ## 遊戲模式
 
-- Classic：120 秒標準節奏，3 次提示。
-- Quick：60 秒輕快短局，棋盤解法較直覺，2 次提示。
-- Hard：90 秒高壓挑戰，棋盤解法較少，1 次提示。
-- 三種模式各自保存最高分、上次分數與完整統計；既有玩家紀錄會自動移入 Classic。
-- Zen 目前只保留為平衡分析設定，尚未開放玩家選擇。
+- 經典模式：120 秒標準節奏，3 次提示。
+- Orchard Ten 僅提供經典模式；既有 Classic 成績會持續保留。
 
 ## Color Links 規則
 
@@ -58,7 +55,7 @@ Color Links 不共用 Orchard Ten 的 reducer、棋盤狀態或音效主題。�
 ## 本機資料與遷移
 
 - 平台資料使用版本化 key `orchard-arcade-v1`。
-- 原有 `orchard-ten-v2` 詳細模式統計完整保留，首頁會安全讀取並遷移其最高分、遊玩次數及共用偏好。
+- 原有 `orchard-ten-v2` 的 Classic 成績與共用偏好會安全遷移。
 - `fruitSum` 與 `colorLinks` 的最高分、場次及最後遊玩時間分開儲存。
 - 損壞或未知 JSON 只會觸發欄位正規化／安全預設值，不會讓其中一款遊戲覆蓋另一款。
 
@@ -69,7 +66,7 @@ Color Links 不共用 Orchard Ten 的 reducer、棋盤狀態或音效主題。�
 - 首次成功載入並完成 Service Worker 安裝後，首頁與平台 shell 可離線使用。遊戲引擎在首次進入該遊戲後以 Cache First 保存，之後可離線重新整理該遊戲 URL。
 - 網路中斷與恢復時顯示不遮擋棋盤的狀態提示。
 - 新版本下載完成後只顯示更新入口；進行中的回合不會被重新整理。回到首頁或結算後，玩家可選擇立即更新或稍後。
-- 遊戲設定與各模式獨立統計仍存放在 localStorage，並保有版本化資料遷移、正規化與損壞 JSON 防護；不會放進 Cache Storage。
+- 遊戲設定與經典模式統計存放在 localStorage，並保有版本化資料遷移、正規化與損壞 JSON 防護；不會放進 Cache Storage。
 
 ## 安裝方式
 
@@ -112,11 +109,11 @@ npm run preview
 # 凍結版舊生成器：1,000 棋盤基準與 3 種玩家模型
 npm run balance:baseline
 
-# 新生成器；可調整 sample、players、seed、mode
-npm run balance:report -- --sample 1000 --players 300 --seed 20260716 --mode classic
+# 經典模式生成器；可調整 sample、players、seed
+npm run balance:report -- --sample 1000 --players 300 --seed 20260716
 ```
 
-`mode` 支援 `classic`、`quick`、`zen`、`hard`。輸出位於 `reports/balance/`，包含品質、難度、解分布、數字頻率、中後期快照、玩家模型、Combo 規則比較及逐棋盤資料。玩家模型只用於版本間的固定參考，不等同真人行為。
+輸出位於 `reports/balance/`，包含經典模式的品質、難度、解分布、數字頻率、中後期快照、玩家模型、Combo 規則比較及逐棋盤資料。玩家模型只用於版本間的固定參考，不等同真人行為。
 
 PWA 必須以 production build 驗證，因為開發伺服器預設不註冊 Service Worker：
 

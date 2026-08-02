@@ -177,10 +177,10 @@ describe('automatic no-move recovery', () => {
 })
 
 describe('playable mode HUD', () => {
-  it('shows the active mode and its hint allowance', () => {
-    render(gameScreen({ ...playingGame, mode: 'hard', secondsLeft: 90 }))
-    expect(screen.getByText('困難 · HARD')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '提示 1/1' })).toBeInTheDocument()
+  it('shows the Classic mode and its hint allowance', () => {
+    render(gameScreen(playingGame))
+    expect(document.querySelector('.mode-chip')).toHaveTextContent('CLASSIC')
+    expect(document.querySelector('.board-actions button')).toBeInTheDocument()
   })
 
   it('keeps the Combo feedback slot in the HUD and outside the board overlay', () => {

@@ -4,7 +4,6 @@ import { getModeHintLimit, getModeRoundSeconds } from './modes'
 import { getRectangleCells } from './selectionCalculator'
 import { calculateMoveScore } from './scoring'
 import { findValidMove, isValidMove, reshuffleRemaining } from './validMoveFinder'
-import type { PlayableMode } from './modes'
 import type { GameState, GridRect } from './types'
 
 export type GameAction =
@@ -12,15 +11,14 @@ export type GameAction =
   | { type: 'tick'; now: number }
   | { type: 'use-hint' }
   | { type: 'reshuffle' }
-  | { type: 'set-mode'; mode: PlayableMode }
   | { type: 'start'; now: number }
   | { type: 'pause'; now: number }
   | { type: 'resume'; now: number }
   | { type: 'restart'; now: number }
   | { type: 'home' }
 
-export function createGameState(status: GameState['status'] = 'start', now = Date.now(), mode: PlayableMode = 'classic'): GameState {
-  return { mode, board: generateBoard(Math.random, mode), score: 0, clearedFruitCount: 0, secondsLeft: getModeRoundSeconds(mode), nextTickAt: status === 'playing' ? now + 1_000 : null, status, combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
+export function createGameState(status: GameState['status'] = 'start', now = Date.now()): GameState {
+  return { mode: 'classic', board: generateBoard(), score: 0, clearedFruitCount: 0, secondsLeft: getModeRoundSeconds('classic'), nextTickAt: status === 'playing' ? now + 1_000 : null, status, combo: 0, bestCombo: 0, comboDeadline: null, successfulMoves: 0, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -29,12 +27,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'tick': return advancePlayingTime(state, action.now)
     case 'use-hint': return state.status === 'playing' && state.hintsUsed < getModeHintLimit(state.mode) && findValidMove(state.board) ? { ...state, hintsUsed: state.hintsUsed + 1 } : state
     case 'reshuffle': return applyReshuffle(state)
-    case 'set-mode': return state.status === 'start' ? { ...state, mode: action.mode, secondsLeft: getModeRoundSeconds(action.mode) } : state
-    case 'start': return createGameState('playing', action.now, state.mode)
+    case 'start': return createGameState('playing', action.now)
     case 'pause': return pausePlayingTime(state, action.now)
     case 'resume': return state.status === 'paused' ? { ...state, status: 'playing', nextTickAt: state.nextTickAt === null ? null : action.now + state.nextTickAt, comboDeadline: state.comboDeadline === null ? null : action.now + state.comboDeadline } : state
-    case 'restart': return createGameState('playing', action.now, state.mode)
-    case 'home': return createGameState('start', Date.now(), state.mode)
+    case 'restart': return createGameState('playing', action.now)
+    case 'home': return createGameState('start')
     default: return assertNever(action)
   }
 }

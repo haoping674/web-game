@@ -98,8 +98,8 @@ describe('constrained generation and reshuffling', () => {
   })
 
   it('keeps fallback boards random instead of returning one hard-coded board', () => {
-    const first = generateBalancedBoard({ random: createSeededRandom(1), mode: 'quick' })
-    const second = generateBalancedBoard({ random: createSeededRandom(2), mode: 'quick' })
+    const first = generateBalancedBoard({ random: createSeededRandom(1) })
+    const second = generateBalancedBoard({ random: createSeededRandom(2) })
     expect(first.board).not.toEqual(second.board)
   })
 
@@ -109,11 +109,8 @@ describe('constrained generation and reshuffling', () => {
     expect(second).toEqual(first)
   })
 
-  it('returns the configured difficulty for ordinary seeded mode generation', () => {
-    const cases = [['quick', 'Easy'], ['classic', 'Normal'], ['zen', 'Normal'], ['hard', 'Hard']] as const
-    cases.forEach(([mode, difficulty], index) => {
-      expect(generateBalancedBoard({ random: createSeededRandom(100 + index), mode }).metadata.quality.difficulty).toBe(difficulty)
-    })
+  it('returns the configured Classic difficulty for seeded generation', () => {
+    expect(generateBalancedBoard({ random: createSeededRandom(100) }).metadata.quality.difficulty).toBe('Normal')
   })
 
   it('guarantees a move after reshuffling a repairable no-move board', () => {
@@ -176,11 +173,9 @@ describe('hints, combo, scoring, and modes', () => {
     expect(score).toEqual({ total: 9, base: 9, sizeBonus: 0, comboBonus: 0, comboMultiplier: 1 })
   })
 
-  it('keeps each mode configuration independent and explicit', () => {
-    expect(getModeConfig('quick').roundSeconds).toBe(60)
+  it('keeps the Classic configuration explicit', () => {
     expect(getModeConfig('classic').roundSeconds).toBe(120)
-    expect(getModeConfig('zen').roundSeconds).toBeNull()
-    expect(getModeConfig('hard').hintLimit).toBeLessThan(getModeConfig('classic').hintLimit)
+    expect(getModeConfig('classic').hintLimit).toBe(3)
   })
 })
 

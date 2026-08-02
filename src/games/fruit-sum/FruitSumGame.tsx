@@ -201,11 +201,9 @@ export default function FruitSumGame({
       <section className="game-card">
         {game.status === 'start' ? (
           <StartScreen
-            selectedMode={game.mode}
-            onModeChange={(mode) => dispatch({ type: 'set-mode', mode })}
             onStart={startGame}
             settings={data.settings}
-            statistics={data.statisticsByMode[game.mode]}
+            statistics={data.statisticsByMode.classic}
             onOpenSettings={() => setActiveDialog('settings')}
             onHowToPlay={() => setActiveDialog('how-to')}
             onAbout={() => setActiveDialog('about')}
@@ -231,7 +229,7 @@ export default function FruitSumGame({
         {game.status === 'finished' ? (
           <ResultDialog
             game={game}
-            statistics={data.statisticsByMode[game.mode]}
+            statistics={data.statisticsByMode.classic}
             onRestart={restartGame}
             onHome={homeGame}
           />

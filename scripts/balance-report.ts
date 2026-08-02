@@ -6,12 +6,11 @@ import { calculateAccessibility } from '../src/game/boardDifficulty'
 import { PLAYER_MODELS, simulatePlayerRound, summarizePlayerRounds } from '../src/game/playerSimulator'
 import { maximumComboContributionRatio, simulateComboRules } from '../src/game/scoreSimulator'
 import { createSeededRandom } from '../src/game/random'
-import type { BalanceMode } from '../src/game/balanceTypes'
 
 const sampleSize = integerArgument('--sample', 1_000)
 const playerRounds = integerArgument('--players', 300)
 const seed = integerArgument('--seed', 20_260_716)
-const mode = stringArgument('--mode', 'classic') as BalanceMode
+const mode = 'classic'
 const random = createSeededRandom(seed)
 const generated = Array.from({ length: sampleSize }, () => generateBalancedBoard({ random, mode }))
 const report = createBalanceReport(generated.map(({ board }) => board), seed)
@@ -45,11 +44,6 @@ function integerArgument(name: string, fallback: number): number {
   const index = process.argv.indexOf(name)
   const value = index < 0 ? undefined : Number(process.argv[index + 1])
   return Number.isSafeInteger(value) && Number(value) > 0 ? Number(value) : fallback
-}
-
-function stringArgument(name: string, fallback: string): string {
-  const index = process.argv.indexOf(name)
-  return index < 0 ? fallback : process.argv[index + 1] ?? fallback
 }
 
 function countBy(values: readonly string[]): Record<string, number> {

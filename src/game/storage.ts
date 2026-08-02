@@ -6,8 +6,6 @@ export const defaultSettings: GameSettings = { soundEnabled: true, volume: 0.45,
 export const defaultStatistics: GameStatistics = { highScore: 0, lastScore: 0, gamesPlayed: 0, totalCleared: 0, highestCombo: 0, totalScore: 0, bestClearsPerMinute: 0 }
 export const defaultStatisticsByMode: Record<PlayableMode, GameStatistics> = {
   classic: defaultStatistics,
-  quick: { ...defaultStatistics },
-  hard: { ...defaultStatistics },
 }
 export const defaultStoredGameData: StoredGameData = { version: STORAGE_SCHEMA_VERSION, settings: defaultSettings, statisticsByMode: defaultStatisticsByMode, tutorialSeen: false, mobileGestureHintSeen: false }
 
@@ -48,8 +46,6 @@ export function readGameData(storage?: Storage): StoredGameData {
       })(),
       statisticsByMode: {
         classic: normalizeStatistics(statisticsByMode.classic ?? legacyStatistics),
-        quick: normalizeStatistics(statisticsByMode.quick),
-        hard: normalizeStatistics(statisticsByMode.hard),
       },
       tutorialSeen: booleanValue(parsed.tutorialSeen, false),
       mobileGestureHintSeen: booleanValue(parsed.mobileGestureHintSeen, false),

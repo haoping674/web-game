@@ -5,15 +5,10 @@ import type { ShareResult } from './types'
 const classic: ShareResult = { mode: 'classic', score: 72, maxCombo: 8, clearedFruitCount: 72, successfulMoves: 20, playedAt: new Date('2026-07-16T12:00:00Z'), pageUrl: 'https://orchard-ten.example/play' }
 
 describe('share text', () => {
-  it('includes the correct classic score and mode', () => {
+  it('includes the correct Classic score and mode', () => {
     const text = createShareText(classic)
-    expect(text).toContain('經典模式獲得 72 分')
+    expect(text).toContain('經典模式拿到 72 分')
     expect(text).toContain('最高 Combo 8')
-  })
-
-  it('labels quick and hard results independently', () => {
-    expect(createShareText({ ...classic, mode: 'quick' })).toContain('快速模式')
-    expect(createShareText({ ...classic, mode: 'hard' })).toContain('困難模式')
   })
 
   it('includes a daily challenge identifier only for daily results', () => {

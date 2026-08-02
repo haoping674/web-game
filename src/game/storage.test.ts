@@ -21,7 +21,6 @@ describe('readGameData migration', () => {
     expect(data.settings).toEqual({ ...defaultSettings, volume: 1 })
     expect(data.statisticsByMode.classic.highScore).toBe(42)
     expect(data.statisticsByMode.classic.gamesPlayed).toBe(0)
-    expect(data.statisticsByMode.quick.highScore).toBe(0)
   })
 
   it('falls back safely when local JSON is corrupted', () => {

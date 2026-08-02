@@ -38,7 +38,7 @@ describe('platform storage', () => {
       reducedMotion: true,
       effectIntensity: 'reduced',
     })
-    expect(data.games.fruitSum).toMatchObject({ highScore: 42, gamesPlayed: 6 })
+    expect(data.games.fruitSum).toMatchObject({ highScore: 31, gamesPlayed: 2 })
     expect(data.games.colorLinks).toMatchObject({ highScore: 0, gamesPlayed: 0 })
     expect(storage.getItem('orchard-ten-v2')).toBe(legacy)
     expect(storage.getItem(APP_STORAGE_KEY)).not.toBeNull()

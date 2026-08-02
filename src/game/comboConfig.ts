@@ -28,28 +28,6 @@ export const comboConfig = {
     particleScale: 1,
     burstScale: 1,
   },
-  quick: {
-    windows: [
-      { minimumCombo: 10, windowMs: 5_000 },
-      { minimumCombo: 6, windowMs: 5_600 },
-      { minimumCombo: 3, windowMs: 6_200 },
-      { minimumCombo: 1, windowMs: 6_800 },
-    ],
-    clearAnimationMs: 320,
-    particleScale: 0.72,
-    burstScale: 0.84,
-  },
-  hard: {
-    windows: [
-      { minimumCombo: 10, windowMs: 5_200 },
-      { minimumCombo: 6, windowMs: 5_800 },
-      { minimumCombo: 3, windowMs: 6_400 },
-      { minimumCombo: 1, windowMs: 7_200 },
-    ],
-    clearAnimationMs: 380,
-    particleScale: 0.9,
-    burstScale: 1.08,
-  },
 } as const satisfies Record<PlayableMode, ModeComboConfig>
 
 export function getComboConfig(mode: PlayableMode): ModeComboConfig {

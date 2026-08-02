@@ -1,6 +1,6 @@
 import type { CellValue, GridPoint, GridRect } from './types'
 
-export const BALANCE_MODES = ['classic', 'quick', 'zen', 'hard'] as const
+export const BALANCE_MODES = ['classic'] as const
 export type BalanceMode = (typeof BALANCE_MODES)[number]
 export type BoardDifficulty = 'Easy' | 'Normal' | 'Hard'
 
