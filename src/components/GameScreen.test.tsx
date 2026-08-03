@@ -51,6 +51,24 @@ describe('paused board privacy', () => {
 })
 
 describe('selection cancellation', () => {
+  it('uses fixed grid tracks so clearing an entire row cannot resize the board', () => {
+    const fullBoard = Array.from({ length: 10 }, () => Array<number>(17).fill(1))
+    const clearedRowBoard = fullBoard.map((row, index) => index === 4 ? row.map(() => null) : row)
+    const { rerender, container } = render(<GameBoard board={fullBoard} />)
+    const grid = within(container).getByRole('grid')
+
+    expect(grid).toHaveStyle({
+      gridTemplateColumns: 'repeat(17, minmax(0, 1fr))',
+      gridTemplateRows: 'repeat(10, minmax(0, 1fr))',
+    })
+
+    rerender(<GameBoard board={clearedRowBoard} />)
+    expect(grid).toHaveStyle({
+      gridTemplateColumns: 'repeat(17, minmax(0, 1fr))',
+      gridTemplateRows: 'repeat(10, minmax(0, 1fr))',
+    })
+  })
+
   it('supports a vertical single-touch selection', () => {
     const verticalBoard = Array.from({ length: 10 }, () => Array<null | number>(17).fill(null))
     verticalBoard[0]![0] = 4

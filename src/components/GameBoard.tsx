@@ -280,7 +280,12 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
       <div
         ref={boardRef}
         className={`game-board${isPortrait ? ' is-portrait' : ''}`}
-        style={{ gridTemplateColumns: `repeat(${isPortrait ? BOARD_ROWS : BOARD_COLUMNS}, 1fr)` }}
+        style={{
+          // Explicit tracks keep every square the same size while a complete
+          // row is temporarily empty during its exit animation.
+          gridTemplateColumns: `repeat(${isPortrait ? BOARD_ROWS : BOARD_COLUMNS}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${isPortrait ? BOARD_COLUMNS : BOARD_ROWS}, minmax(0, 1fr))`,
+        }}
         role="grid"
         tabIndex={disabled ? -1 : 0}
         aria-label="水果數字棋盤"
