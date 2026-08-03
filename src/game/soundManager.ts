@@ -1,5 +1,5 @@
 type AudioContextConstructor = new () => AudioContext
-type ActiveVoice = { gain: GainNode; oscillators: OscillatorNode[]; timer: number | null }
+type ActiveVoice = { gain: GainNode; oscillators: OscillatorNode[]; toneGains: GainNode[]; timer: number | null }
 type SoundOptions = { enabled: boolean; volume: number; combo: number; lowStimulus: boolean }
 export type ComboSoundProfile = {
   frequencies: readonly number[]
@@ -31,16 +31,25 @@ function getAudioContextConstructor(): AudioContextConstructor | null {
   return window.AudioContext ?? safariWindow.webkitAudioContext ?? null
 }
 
+function disconnectVoice(voice: ActiveVoice): void {
+  try { voice.gain.disconnect() } catch { /* already disconnected */ }
+  voice.toneGains.forEach((toneGain) => {
+    try { toneGain.disconnect() } catch { /* already disconnected */ }
+  })
+}
+
 function fadeVoice(voice: ActiveVoice, fadeSeconds = 0.045): void {
   if (!context) return
   const now = context.currentTime
   try {
     if (voice.timer !== null) window.clearTimeout(voice.timer)
+    voice.timer = null
     voice.gain.gain.cancelScheduledValues(now)
     voice.gain.gain.setTargetAtTime(0.0001, now, Math.max(0.012, fadeSeconds / 4))
     voice.oscillators.forEach((oscillator) => {
       try { oscillator.stop(now + fadeSeconds + 0.03) } catch { /* already stopped */ }
     })
+    voice.timer = window.setTimeout(() => disconnectVoice(voice), (fadeSeconds + 0.08) * 1_000)
   } catch { /* audio may have been detached by the browser */ }
   activeVoices.delete(voice)
 }
@@ -86,30 +95,43 @@ function playProfile(profile: ComboSoundProfile, volume: number): void {
   const now = audioContext.currentTime
   const gain = audioContext.createGain()
   const oscillators: OscillatorNode[] = []
+  const toneGains: GainNode[] = []
   const peak = Math.max(0.0001, Math.min(1, volume) * (profile.milestone ? 0.09 : 0.065))
-  gain.gain.setValueAtTime(0.0001, now)
+  gain.gain.setValueAtTime(peak, now)
   gain.connect(audioContext.destination)
 
   profile.frequencies.forEach((frequency, index) => {
     const oscillator = audioContext.createOscillator()
     const offset = profile.offsets[index] ?? 0
+    const toneGain = audioContext.createGain()
+    const startTime = now + offset
+    const endTime = startTime + profile.duration
+    const attackSeconds = Math.min(0.012, profile.duration / 3)
+    const releaseSeconds = Math.min(0.04, profile.duration / 3)
+    const sustainUntil = Math.max(startTime + attackSeconds, endTime - releaseSeconds)
     oscillator.type = profile.waveform
-    oscillator.frequency.setValueAtTime(frequency, now + offset)
-    oscillator.connect(gain)
-    oscillator.start(now + offset)
-    oscillator.stop(now + offset + profile.duration)
+    oscillator.frequency.setValueAtTime(frequency, startTime)
+    toneGain.gain.setValueAtTime(0.0001, startTime)
+    toneGain.gain.exponentialRampToValueAtTime(1, startTime + attackSeconds)
+    toneGain.gain.setValueAtTime(1, sustainUntil)
+    toneGain.gain.exponentialRampToValueAtTime(0.0001, endTime)
+    oscillator.connect(toneGain)
+    toneGain.connect(gain)
+    oscillator.start(startTime)
+    // Never cut the waveform while its gain is audible: that click is especially
+    // noticeable as a low buzz on small mobile speakers.
+    oscillator.stop(endTime + 0.01)
     oscillators.push(oscillator)
+    toneGains.push(toneGain)
   })
 
   const lastOffset = Math.max(...profile.offsets)
-  gain.gain.exponentialRampToValueAtTime(peak, now + 0.012)
-  gain.gain.setTargetAtTime(0.0001, now + lastOffset + profile.duration * 0.45, 0.045)
-  const voice: ActiveVoice = { gain, oscillators, timer: null }
+  const voice: ActiveVoice = { gain, oscillators, toneGains, timer: null }
   activeVoices.add(voice)
   voice.timer = window.setTimeout(() => {
     activeVoices.delete(voice)
-    try { gain.disconnect() } catch { /* detached by the browser */ }
-  }, (lastOffset + profile.duration + 0.08) * 1_000)
+    disconnectVoice(voice)
+  }, (lastOffset + profile.duration + 0.1) * 1_000)
 }
 
 export function playComboSound({ enabled, volume, combo, lowStimulus }: SoundOptions): void {

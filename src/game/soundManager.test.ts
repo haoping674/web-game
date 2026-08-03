@@ -28,6 +28,31 @@ describe('sound and haptic resilience', () => {
     expect(AudioContextMock).toHaveBeenCalledOnce()
   })
 
+  it('fades each harvest tone to silence before stopping its oscillator', () => {
+    const gainNode = () => ({ gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn(), setTargetAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() })
+    const masterGain = gainNode()
+    const firstToneGain = gainNode()
+    const secondToneGain = gainNode()
+    const firstOscillator = { frequency: { setValueAtTime: vi.fn() }, connect: vi.fn(), start: vi.fn(), stop: vi.fn() }
+    const secondOscillator = { frequency: { setValueAtTime: vi.fn() }, connect: vi.fn(), start: vi.fn(), stop: vi.fn() }
+    const audioContext = {
+      currentTime: 2,
+      state: 'running',
+      destination: {},
+      createGain: vi.fn().mockReturnValueOnce(masterGain).mockReturnValueOnce(firstToneGain).mockReturnValueOnce(secondToneGain),
+      createOscillator: vi.fn().mockReturnValueOnce(firstOscillator).mockReturnValueOnce(secondOscillator),
+    }
+    const AudioContextMock = vi.fn(function AudioContextMock() { return audioContext })
+    Object.defineProperty(window, 'AudioContext', { configurable: true, value: AudioContextMock })
+
+    playComboSound({ enabled: true, volume: 0.5, combo: 1, lowStimulus: false })
+
+    expect(firstToneGain.gain.exponentialRampToValueAtTime).toHaveBeenLastCalledWith(0.0001, 2.16)
+    expect(secondToneGain.gain.exponentialRampToValueAtTime).toHaveBeenLastCalledWith(0.0001, 2.205)
+    expect(firstOscillator.stop).toHaveBeenCalledWith(2.17)
+    expect(secondOscillator.stop).toHaveBeenCalledWith(2.215)
+  })
+
   it('suppresses vibration when disabled or in low-stimulation mode', () => {
     const vibrate = vi.fn(() => true)
     Object.defineProperty(navigator, 'vibrate', { configurable: true, value: vibrate })
