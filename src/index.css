@@ -205,3 +205,12 @@ h1,h2,.platform-wordmark,.game-card-copy h2,.mode-summary strong,.score-snapshot
 .color-paused-board { width:min(100%,900px,calc(100dvh - 100px)); height:auto; max-height:none; }
 @media (max-width:760px) { .color-board-frame { width:min(100%,calc(100dvh - 110px)); max-height:none; } }
 @media (max-width:560px) { .color-board-frame,.color-paused-board { width:min(100%,calc(100dvh - 110px)); max-height:none; } }
+
+/* Match Orchard Ten's compact portrait layout on phones without changing the
+   underlying Color Links grid or its directional matching rules. */
+.color-links-board.is-portrait { grid-template-columns:repeat(var(--color-rows),minmax(0,1fr)); grid-template-rows:repeat(var(--color-columns),minmax(0,1fr)); aspect-ratio:var(--color-rows) / var(--color-columns); }
+.color-links-board.is-portrait .color-board-row { grid-column:var(--color-row-index); grid-row:1 / -1; grid-template-columns:minmax(0,1fr); grid-template-rows:repeat(var(--color-columns),minmax(0,1fr)); }
+@media (max-width:560px) and (orientation:portrait) {
+  .color-board-frame,.color-paused-board { width:min(100%,calc((100dvh - 205px) * 10 / 17)); }
+  .color-paused-board { aspect-ratio:10 / 17; }
+}

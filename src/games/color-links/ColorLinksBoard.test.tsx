@@ -50,4 +50,29 @@ describe('Color Links board accessibility and effects', () => {
     expect(screen.getByTestId('color-effect-layer')).toHaveClass('is-reduced')
     expect(container.querySelector('.color-particle-cluster')).toBeNull()
   })
+
+  it('uses a portrait visual grid and repositions effects on narrow portrait screens', () => {
+    const removeEventListener = vi.fn()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener,
+    }))
+
+    const portraitEffect: ColorLinksEffect = {
+      ...effect,
+      origin: { row: 0, column: 1 },
+    }
+    const { container, unmount } = render(<ColorLinksBoard board={board} effect={portraitEffect} />)
+    expect(container.querySelector('.color-board-frame')).toHaveAttribute('data-layout', 'portrait')
+    expect(screen.getByRole('grid')).toHaveClass('is-portrait')
+    expect(container.querySelector('.color-board-row')).toHaveStyle({ '--color-row-index': '1' })
+    const layer = screen.getByTestId('color-effect-layer')
+    expect(Number.parseFloat(layer.style.getPropertyValue('--origin-x'))).toBeCloseTo(100 / 6)
+    expect(Number.parseFloat(layer.style.getPropertyValue('--origin-y'))).toBe(50)
+
+    unmount()
+    expect(removeEventListener).toHaveBeenCalledWith('change', expect.any(Function))
+    vi.unstubAllGlobals()
+  })
 })

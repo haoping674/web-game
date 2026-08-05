@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import type { CellPosition, ColorId, ColorLinksBoard, MatchGroup } from './types'
 
 export const COLOR_META = {
@@ -29,14 +29,44 @@ function sameCell(left: CellPosition | null | undefined, right: CellPosition): b
   return left?.row === right.row && left.column === right.column
 }
 
-function EffectLayer({ effect, rows, columns, reducedMotion }: {
+function usePortraitLayout(): boolean {
+  const query = '(max-width: 560px) and (orientation: portrait)'
+  const readMatches = () => typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia(query).matches
+  const [isPortrait, setIsPortrait] = useState(readMatches)
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined
+    const media = window.matchMedia(query)
+    const update = () => setIsPortrait(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  return isPortrait
+}
+
+function EffectLayer({ effect, rows, columns, portrait, reducedMotion }: {
   effect: ColorLinksEffect
   rows: number
   columns: number
+  portrait: boolean
   reducedMotion: boolean
 }) {
-  const originX = ((effect.origin.column + 0.5) / columns) * 100
-  const originY = ((effect.origin.row + 0.5) / rows) * 100
+  const positionToPercentages = (position: CellPosition) => portrait
+    ? {
+        x: ((position.row + 0.5) / rows) * 100,
+        y: ((position.column + 0.5) / columns) * 100,
+      }
+    : {
+        x: ((position.column + 0.5) / columns) * 100,
+        y: ((position.row + 0.5) / rows) * 100,
+      }
+  const origin = positionToPercentages(effect.origin)
+  const originX = origin.x
+  const originY = origin.y
   return (
     <div
       className={`color-effect-layer${reducedMotion ? ' is-reduced' : ''}`}
@@ -49,8 +79,9 @@ function EffectLayer({ effect, rows, columns, reducedMotion }: {
       {effect.matches.flatMap((match) => {
         const meta = COLOR_META[match.color]
         return match.tiles.map((tile) => {
-          const targetX = ((tile.column + 0.5) / columns) * 100
-          const targetY = ((tile.row + 0.5) / rows) * 100
+          const target = positionToPercentages(tile)
+          const targetX = target.x
+          const targetY = target.y
           const deltaX = targetX - originX
           const deltaY = targetY - originY
           const length = Math.hypot(deltaX, deltaY)
@@ -92,15 +123,17 @@ export function ColorLinksBoard({
 }: ColorLinksBoardProps) {
   const rows = board.length
   const columns = board[0]?.length ?? 0
+  const portrait = usePortraitLayout()
   const boardSize = `${columns} × ${rows}`
   return (
     <div
       className="color-board-frame"
       data-board-size={boardSize}
+      data-layout={portrait ? 'portrait' : 'landscape'}
       style={{ '--color-columns': columns, '--color-rows': rows } as CSSProperties}
     >
       <div
-        className="color-links-board"
+        className={`color-links-board${portrait ? ' is-portrait' : ''}`}
         role="grid"
         aria-label="Color Links 色彩棋盤"
         aria-rowcount={rows}
@@ -113,6 +146,7 @@ export function ColorLinksBoard({
             className="color-board-row"
             role="row"
             aria-rowindex={rowIndex + 1}
+            style={portrait ? { '--color-row-index': rowIndex + 1 } as CSSProperties : undefined}
           >
             {row.map((cell, column) => {
               const position = { row: rowIndex, column }
@@ -141,7 +175,13 @@ export function ColorLinksBoard({
         ))}
       </div>
       {effect ? (
-        <EffectLayer effect={effect} rows={rows} columns={columns} reducedMotion={reducedMotion} />
+        <EffectLayer
+          effect={effect}
+          rows={rows}
+          columns={columns}
+          portrait={portrait}
+          reducedMotion={reducedMotion}
+        />
       ) : null}
     </div>
   )
