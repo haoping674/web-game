@@ -185,6 +185,18 @@ describe('automatic no-move recovery', () => {
     expect(screen.getByText('偵測到無解，正在自動重排')).toBeInTheDocument()
   })
 
+  it('does not repeat a no-move reshuffle when random values cannot create a move', async () => {
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    const noMoveGame = { ...playingGame, board: [[2, null, 3, 3]], successfulMoves: 4 } satisfies GameState
+    const { rerender } = render(gameScreen(noMoveGame, dispatch))
+    await waitFor(() => expect(dispatch).toHaveBeenCalledWith({ type: 'reshuffle' }))
+
+    rerender(gameScreen({ ...noMoveGame, board: [[3, null, 2, 3]], systemReshuffles: 1 }, dispatch))
+    await Promise.resolve()
+
+    expect(dispatch.mock.calls.filter(([action]) => action.type === 'reshuffle')).toHaveLength(1)
+  })
+
   it('does not auto-refresh a board with fewer than two remaining fruit', async () => {
     const dispatch = vi.fn<(action: GameAction) => void>()
     render(gameScreen({ ...playingGame, board: [[4, null]] }, dispatch))

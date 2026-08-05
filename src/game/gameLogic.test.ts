@@ -30,7 +30,12 @@ describe('selection and board logic', () => {
 describe('moves, combo and hints', () => {
   it('finds a 10 rectangle and never selects cleared cells', () => { const move = findValidMove([[null, 1, 9]]); expect(move).toEqual({ start: { row: 0, column: 1 }, end: { row: 0, column: 2 } }) })
   it('reports no move when none exists', () => expect(findValidMove([[4, 4]])).toBeNull())
-  it('reshuffles remaining fruit into a board with a valid move', () => expect(findValidMove(reshuffleRemaining([[4, 4, 4, 4]]))).not.toBeNull())
+  it('assigns random values only within their existing occupied positions', () => {
+    const board: CellValue[][] = [[2, null, 3, 3]]
+    const reshuffled = reshuffleRemaining(board, () => 0.5)
+    expect(reshuffled).toEqual([[5, null, 5, 5]])
+    expect(findValidMove(reshuffled)).not.toBeNull()
+  })
   it('increments combo in the mode window and clears it only when its timer expires', () => {
     const once = gameReducer(state(), { type: 'select', rect: successRect, now: 100 })
     const twice = gameReducer({ ...once, board }, { type: 'select', rect: successRect, now: 100 + getComboWindowMs('classic', 1) - 1 })

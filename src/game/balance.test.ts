@@ -113,16 +113,18 @@ describe('constrained generation and reshuffling', () => {
     expect(generateBalancedBoard({ random: createSeededRandom(100) }).metadata.quality.difficulty).toBe('Normal')
   })
 
-  it('guarantees a move after reshuffling a repairable no-move board', () => {
-    const reshuffled = reshuffleRemaining([[4, 4, 4, 4]], createSeededRandom(7))
-    expect(findValidMove(reshuffled)).not.toBeNull()
-    expect(reshuffled.flat().filter((value) => value !== null)).toHaveLength(4)
+  it('keeps every occupied position while assigning random values to a no-move board', () => {
+    const board: CellValue[][] = [[2, null, 3, 3]]
+    const reshuffled = reshuffleRemaining(board, createSeededRandom(7))
+    expect(reshuffled.map((row) => row.map((value) => value !== null))).toEqual([[true, false, true, true]])
+    expect(reshuffled.flat().filter((value): value is number => value !== null).every((value) => value >= 1 && value <= 9)).toBe(true)
   })
 
-  it('does not charge player resources for a system no-move reshuffle', () => {
-    const next = gameReducer(playingState([[4, 4, 4, 4]]), { type: 'reshuffle' })
+  it('does not charge player resources or move fruit for a system no-move reshuffle', () => {
+    const next = gameReducer(playingState([[2, null, 3, 3]]), { type: 'reshuffle' })
     expect(next).toMatchObject({ secondsLeft: 120, systemReshuffles: 1 })
-    expect(findValidMove(next.board)).not.toBeNull()
+    expect(next.board.map((row) => row.map((value) => value !== null))).toEqual([[true, false, true, true]])
+    expect(next.board.flat().filter((value): value is number => value !== null).every((value) => value >= 1 && value <= 9)).toBe(true)
   })
 
   it('ignores no-move reshuffle requests when fewer than two fruits remain', () => {

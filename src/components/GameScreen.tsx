@@ -53,7 +53,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   const evaluationTimer = useRef<number | null>(null)
   const previousCombo = useRef(game.combo)
   const gestureHintHandled = useRef(false)
-  const autoReshuffledBoard = useRef<GameState['board'] | null>(null)
+  const autoReshuffleState = useRef<string | null>(null)
   const paused = game.status === 'paused'
   const interactive = game.status === 'playing' && !tutorialOpen
   const hintLimit = getModeHintLimit(game.mode)
@@ -136,12 +136,13 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   }, [hint, interactive])
 
   useEffect(() => {
-    if (!interactive || validMove || remainingFruit < 2 || autoReshuffledBoard.current === game.board) return
-    autoReshuffledBoard.current = game.board
+    const reshuffleState = `${game.successfulMoves}:${game.systemReshuffles}`
+    if (!interactive || validMove || remainingFruit < 2 || autoReshuffleState.current === reshuffleState) return
+    autoReshuffleState.current = `${game.successfulMoves}:${game.systemReshuffles + 1}`
     setHint(null)
     setMessage('棋盤已無可行組合，系統正在免費自動重排。')
     dispatch({ type: 'reshuffle' })
-  }, [dispatch, game.board, interactive, remainingFruit, validMove])
+  }, [dispatch, game.board, game.successfulMoves, game.systemReshuffles, interactive, remainingFruit, validMove])
 
   const handleSelection = (rect: GridRect, sum: number, fruits: readonly FruitParticleOrigin[] = []) => {
     if (!interactive) return
