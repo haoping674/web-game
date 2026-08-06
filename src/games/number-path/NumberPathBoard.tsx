@@ -76,6 +76,7 @@ export function NumberPathBoard({
     if (!target) return undefined
     for (const [key, cell] of cellRefs.current) {
       if (target === cell || cell.contains(target)) {
+        if (cell.disabled) return undefined
         const [row, column] = key.split(':').map(Number)
         return Number.isFinite(row) && Number.isFinite(column) ? { row, column } : undefined
       }
@@ -142,6 +143,7 @@ export function NumberPathBoard({
           const className = [
             'number-path-cell',
             cell.visible ? 'is-clue' : 'is-hidden',
+            cell.blocked ? 'is-blocked' : '',
             connected ? 'is-connected' : '',
             invalidPosition !== null && positionKey(invalidPosition) === key ? 'is-invalid' : '',
             hasPosition(hintCandidates, position) ? 'is-hint-candidate' : '',

@@ -12,9 +12,10 @@ function levelAt(index: number) {
 describe('Number Path fixed-answer rules', () => {
   it('keeps every preset answer complete, non-repeating, and solver-verified', () => {
     NUMBER_PATH_LEVELS.forEach((level) => {
-      expect(level.cells).toHaveLength(level.maxNumber)
-      expect(new Set(level.cells.map((cell) => cell.value)).size).toBe(level.maxNumber)
-      expect(level.cells.map((cell) => cell.value).sort((left, right) => left - right)).toEqual(
+      const playableCells = level.cells.filter((cell) => !cell.blocked)
+      expect(playableCells).toHaveLength(level.maxNumber)
+      expect(new Set(playableCells.map((cell) => cell.value)).size).toBe(level.maxNumber)
+      expect(playableCells.map((cell) => cell.value).sort((left, right) => left - right)).toEqual(
         Array.from({ length: level.maxNumber }, (_, index) => index + 1),
       )
       const result = solveNumberPath(level, { maxSolutions: 2, maxNodes: 80_000 })
@@ -37,6 +38,7 @@ describe('Number Path fixed-answer rules', () => {
 
   it('keeps a route addressable independently from every other game route', () => {
     expect(getNumberPathLevel('path-hard-02')?.difficulty).toBe('hard')
+    expect(getNumberPathLevel('path-hard-03')?.cells.filter((cell) => cell.blocked)).toHaveLength(2)
     expect(getNumberPathLevel('not-a-level')).toBeUndefined()
   })
 })

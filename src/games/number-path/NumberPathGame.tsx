@@ -6,9 +6,11 @@ import { useGamePauseShortcut } from '../../hooks/useGamePauseShortcut'
 import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
 import { recordNumberPathResult, type GlobalSettings } from '../../shared/storage/appStorage'
 import { NumberPathAudio } from './audio'
+import { generatePracticeLevel } from './generator'
 import { numberPathReducer, createNumberPathState } from './gameReducer'
 import { getNumberPathLevel, levelsForDifficulty, NUMBER_PATH_LEVELS } from './levels'
 import { NumberPathBoard } from './NumberPathBoard'
+import { rateNumberPathCompletion } from './rating'
 import {
   findPositionForValue,
   getNeighborPositions,
@@ -23,7 +25,7 @@ import {
   setNumberPathDifficulty,
   setShowSolvedNumbers,
 } from './storage'
-import type { NumberPathDifficulty, NumberPathPosition } from './types'
+import type { NumberPathDifficulty, NumberPathLevel, NumberPathPosition } from './types'
 
 type NumberPathGameProps = {
   globalSettings: GlobalSettings
@@ -45,6 +47,7 @@ function difficultyLabel(difficulty: NumberPathDifficulty): string {
 export default function NumberPathGame({ globalSettings, onProgressChange, platformSettingsOpen }: NumberPathGameProps) {
   const [game, dispatch] = useReducer(numberPathReducer, undefined, createNumberPathState)
   const [progress, setProgress] = useState(readNumberPathProgress)
+  const [practiceLevels, setPracticeLevels] = useState<Readonly<Record<string, NumberPathLevel>>>({})
   const [feedback, setFeedback] = useState('選一關，從公開的 1 開始推理整條路徑。')
   const [invalidPosition, setInvalidPosition] = useState<NumberPathPosition | null>(null)
   const [hintCandidates, setHintCandidates] = useState<readonly NumberPathPosition[]>([])
@@ -55,9 +58,13 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
   const hintTimer = useRef<number | null>(null)
   const lastInvalidAt = useRef(0)
   const recordedCompletion = useRef(false)
+  const practiceSeed = useRef(0)
   const audio = useRef<NumberPathAudio | null>(null)
 
-  const level = useMemo(() => getNumberPathLevel(game.levelId), [game.levelId])
+  const level = useMemo(
+    () => getNumberPathLevel(game.levelId) ?? (game.levelId === null ? undefined : practiceLevels[game.levelId]),
+    [game.levelId, practiceLevels],
+  )
   const playing = game.status === 'playing'
   const paused = game.status === 'paused'
   const effectsOff = globalSettings.effectIntensity === 'off'
@@ -108,7 +115,9 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
   useEffect(() => {
     if (game.status !== 'finished' || !level || recordedCompletion.current) return
     recordedCompletion.current = true
-    setProgress(recordNumberPathCompletion(level.id, game.elapsedSeconds, game.errors, game.hintsUsed))
+    if (NUMBER_PATH_LEVELS.some((candidate) => candidate.id === level.id)) {
+      setProgress(recordNumberPathCompletion(level.id, game.elapsedSeconds, game.errors, game.hintsUsed))
+    }
     recordNumberPathResult(game.elapsedSeconds)
     onProgressChange()
     audio.current?.suspend()
@@ -125,6 +134,18 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
     setInvalidPosition(null)
     setFeedback('從 1 開始；每一步只能走向相鄰的下一個數字。')
     dispatch({ type: 'choose-level', levelId, now: Date.now() })
+  }
+
+  const startPractice = () => {
+    practiceSeed.current += 1
+    const seed = (Date.now() + practiceSeed.current) >>> 0
+    const practiceLevel = generatePracticeLevel(progress.selectedDifficulty, seed)
+    setPracticeLevels((current) => ({ ...current, [practiceLevel.id]: practiceLevel }))
+    recordedCompletion.current = false
+    clearHints()
+    setInvalidPosition(null)
+    setFeedback('從公開的 1 出發，依序連上每一個下一數字。')
+    dispatch({ type: 'choose-level', levelId: practiceLevel.id, now: Date.now() })
   }
 
   const restartLevel = () => {
@@ -279,6 +300,16 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
               )
             })}
           </div>
+          <div className="number-practice-launcher">
+            <div>
+              <span>RANDOM PRACTICE</span>
+              <strong>全新路徑，已通過 Solver 驗證。</strong>
+              <small>練習成績不會影響關卡解鎖。</small>
+            </div>
+            <button type="button" className="primary-button number-primary number-practice-button" onClick={startPractice}>
+              生成{difficultyLabel(progress.selectedDifficulty)}練習關
+            </button>
+          </div>
           <p className="number-select-footnote">每一關均由固定答案與公開提示構成；完成後會解鎖下一關。</p>
         </section>
         <PwaUpdateNotice isGameActive={false} />
@@ -289,12 +320,19 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
   if (!level) return null
   const currentValue = game.path.length
   const levelCompletion = progress.completedByLevel[level.id]
+  const isPracticeLevel = level.id.startsWith('practice-')
+  const completionRating = rateNumberPathCompletion({
+    difficulty: level.difficulty,
+    elapsedSeconds: game.elapsedSeconds,
+    errors: game.errors,
+    hintsUsed: game.hintsUsed,
+  })
 
   return (
     <section className={`number-path-card number-path-play${effectsOff ? ' effects-off' : ''}`}>
       <header className="number-path-topbar">
         <div>
-          <p className="eyebrow">{difficultyLabel(level.difficulty)} · {level.name}</p>
+          <p className="eyebrow">{isPracticeLevel ? 'RANDOM PRACTICE' : difficultyLabel(level.difficulty)} · {level.name}</p>
           <strong>Number Path Puzzle</strong>
         </div>
         <button type="button" className="text-button compact" disabled={paused} onClick={returnToLevels}>選關</button>
@@ -354,6 +392,10 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
           <p className="eyebrow">PATH COMPLETE</p>
           <h2>每一步，都恰好相連。</h2>
           <strong className="result-score number-result-score">{formatTime(game.elapsedSeconds)}</strong>
+          <div className="number-rating" aria-label={`Route grade ${completionRating.grade}`}>
+            <strong>{completionRating.grade}</strong>
+            <div><span>{completionRating.label}</span><small>{completionRating.summary}</small></div>
+          </div>
           <dl className="result-stats">
             <div><dt>完成用時</dt><dd>{formatTime(game.elapsedSeconds)}</dd></div>
             <div><dt>錯誤次數</dt><dd>{game.errors}</dd></div>
@@ -361,7 +403,7 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
             <div><dt>最佳紀錄</dt><dd>{levelCompletion ? formatTime(levelCompletion.bestTimeSeconds) : '--:--'}</dd></div>
           </dl>
           <div className="dialog-actions">
-            <button type="button" className="primary-button number-primary" onClick={nextLevel}>下一關</button>
+            <button type="button" className="primary-button number-primary" onClick={isPracticeLevel ? startPractice : nextLevel}>{isPracticeLevel ? '再生成一關' : '下一關'}</button>
             <button type="button" className="quiet-button" onClick={restartLevel}>再次挑戰</button>
             <button type="button" className="text-button" onClick={returnToLevels}>返回選關</button>
           </div>
