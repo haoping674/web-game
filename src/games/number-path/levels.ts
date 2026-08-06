@@ -93,10 +93,10 @@ export function buildNumberPathLevel({ path, blocked = [], ...blueprint }: PathL
 const BLUEPRINTS = [
   { id: 'path-easy-01', name: '起步繞行', difficulty: 'easy', rows: 4, columns: 4, orientation: 'rows', clueStride: 2 },
   { id: 'path-easy-02', name: '轉角穿梭', difficulty: 'easy', rows: 4, columns: 5, orientation: 'columns', clueStride: 2 },
-  { id: 'path-normal-01', name: '長徑回環', difficulty: 'normal', rows: 4, columns: 5, orientation: 'rows', clueStride: 3 },
-  { id: 'path-normal-02', name: '側向脈絡', difficulty: 'normal', rows: 5, columns: 4, orientation: 'columns', clueStride: 3 },
-  { id: 'path-hard-01', name: '緊密棋局', difficulty: 'hard', rows: 5, columns: 5, orientation: 'rows', clueStride: 3 },
-  { id: 'path-hard-02', name: '交錯潮流', difficulty: 'hard', rows: 5, columns: 5, orientation: 'columns', clueStride: 3 },
+  { id: 'path-normal-01', name: '長徑回環', difficulty: 'normal', rows: 4, columns: 5, orientation: 'rows', clueStride: 2 },
+  { id: 'path-normal-02', name: '側向脈絡', difficulty: 'normal', rows: 5, columns: 4, orientation: 'columns', clueStride: 2 },
+  { id: 'path-hard-01', name: '緊密棋局', difficulty: 'hard', rows: 5, columns: 5, orientation: 'rows', clueStride: 2 },
+  { id: 'path-hard-02', name: '交錯潮流', difficulty: 'hard', rows: 5, columns: 5, orientation: 'columns', clueStride: 2 },
 ] as const satisfies readonly LevelBlueprint[]
 
 const OBSTACLE_BLUEPRINT = {
@@ -105,7 +105,7 @@ const OBSTACLE_BLUEPRINT = {
   difficulty: 'hard',
   rows: 5,
   columns: 5,
-  clueStride: 3,
+  clueStride: 2,
   blocked: [{ row: 1, column: 1 }, { row: 3, column: 3 }],
   path: [
     { row: 0, column: 1 }, { row: 0, column: 0 }, { row: 1, column: 0 }, { row: 2, column: 0 },

@@ -5,14 +5,16 @@ import type { NumberPathDifficulty, NumberPathLevel, NumberPathPosition } from '
 type PracticeSpec = {
   rows: number
   columns: number
-  clueStride: number
+  maximumClueCount: number
+  maximumNodes: number
+  maximumAttempts: number
 }
 
-const PRACTICE_SPECS: Record<NumberPathDifficulty, PracticeSpec> = {
-  easy: { rows: 4, columns: 4, clueStride: 2 },
-  normal: { rows: 4, columns: 5, clueStride: 3 },
-  hard: { rows: 5, columns: 5, clueStride: 4 },
-}
+const PRACTICE_SPECS = {
+  easy: { rows: 4, columns: 4, maximumClueCount: 10, maximumNodes: 80_000, maximumAttempts: 36 },
+  normal: { rows: 4, columns: 5, maximumClueCount: 12, maximumNodes: 100_000, maximumAttempts: 48 },
+  hard: { rows: 5, columns: 5, maximumClueCount: 15, maximumNodes: 140_000, maximumAttempts: 60 },
+} as const satisfies Record<NumberPathDifficulty, PracticeSpec>
 
 type Random = () => number
 
@@ -31,13 +33,24 @@ function positionKey({ row, column }: NumberPathPosition): string {
   return `${row}:${column}`
 }
 
+function samePath(left: readonly NumberPathPosition[], right: readonly NumberPathPosition[]): boolean {
+  return left.length === right.length && left.every((position, index) => {
+    const other = right[index]
+    return other !== undefined && positionKey(position) === positionKey(other)
+  })
+}
+
 function neighbors(position: NumberPathPosition, rows: number, columns: number): NumberPathPosition[] {
-  return [
-    { row: position.row - 1, column: position.column },
-    { row: position.row, column: position.column + 1 },
-    { row: position.row + 1, column: position.column },
-    { row: position.row, column: position.column - 1 },
-  ].filter((candidate) => candidate.row >= 0 && candidate.row < rows && candidate.column >= 0 && candidate.column < columns)
+  return [-1, 0, 1].flatMap((rowOffset) => [-1, 0, 1].map((columnOffset) => ({
+    row: position.row + rowOffset,
+    column: position.column + columnOffset,
+  }))).filter((candidate) => (
+    (candidate.row !== position.row || candidate.column !== position.column)
+    && candidate.row >= 0
+    && candidate.row < rows
+    && candidate.column >= 0
+    && candidate.column < columns
+  ))
 }
 
 function shuffled<T>(values: readonly T[], random: Random): T[] {
@@ -88,6 +101,13 @@ function createHamiltonianPath(rows: number, columns: number, random: Random): N
   return undefined
 }
 
+function createAlternatingClues(maxNumber: number): Set<number> {
+  const visibleValues = new Set<number>()
+  for (let value = 1; value <= maxNumber; value += 2) visibleValues.add(value)
+  visibleValues.add(maxNumber)
+  return visibleValues
+}
+
 function withVisibleValues(level: NumberPathLevel, visibleValues: ReadonlySet<number>): NumberPathLevel {
   return {
     ...level,
@@ -95,32 +115,63 @@ function withVisibleValues(level: NumberPathLevel, visibleValues: ReadonlySet<nu
   }
 }
 
-function solveWithEnoughClues(level: NumberPathLevel, path: readonly NumberPathPosition[], clueStride: number): NumberPathLevel {
-  const visibleValues = new Set<number>([1, level.maxNumber])
-  path.forEach((_, index) => {
-    const value = index + 1
-    if ((value - 1) % clueStride === 0) visibleValues.add(value)
-  })
-  const candidatesToReveal = path.map((_, index) => index + 1).filter((value) => !visibleValues.has(value))
-  let revealIndex = 0
+function distanceToClosestClue(value: number, visibleValues: ReadonlySet<number>): number {
+  return Math.min(...[...visibleValues].map((visibleValue) => Math.abs(value - visibleValue)))
+}
 
-  while (revealIndex <= candidatesToReveal.length) {
-    const candidate = withVisibleValues(level, visibleValues)
-    const result = solveNumberPath(candidate, { maxSolutions: 2, maxNodes: 20_000 })
-    if (!result.stoppedEarly && result.solutions.length === 1) return candidate
-    const nextValue = candidatesToReveal[revealIndex]
-    if (nextValue === undefined) break
-    visibleValues.add(nextValue)
-    revealIndex += 1
+function chooseDiscriminatingClue(
+  intendedPath: readonly NumberPathPosition[],
+  alternativePath: readonly NumberPathPosition[],
+  visibleValues: ReadonlySet<number>,
+): number | undefined {
+  return intendedPath
+    .map((position, index) => ({ value: index + 1, differs: positionKey(position) !== positionKey(alternativePath[index] ?? position) }))
+    .filter((candidate) => candidate.differs && !visibleValues.has(candidate.value))
+    .sort((left, right) => distanceToClosestClue(right.value, visibleValues) - distanceToClosestClue(left.value, visibleValues) || left.value - right.value)[0]
+    ?.value
+}
+
+function chooseLargestUncluedGap(visibleValues: ReadonlySet<number>): number | undefined {
+  const values = [...visibleValues].sort((left, right) => left - right)
+  let best: { from: number; to: number } | undefined
+  for (let index = 1; index < values.length; index += 1) {
+    const from = values[index - 1]
+    const to = values[index]
+    if (from === undefined || to === undefined || to - from < 3) continue
+    if (!best || to - from > best.to - best.from) best = { from, to }
   }
+  if (!best) return undefined
+  const middle = Math.floor((best.from + best.to) / 2)
+  return visibleValues.has(middle) ? undefined : middle
+}
 
-  throw new Error('Unable to validate generated Number Path level')
+function createUniquelySolvableLevel(
+  level: NumberPathLevel,
+  path: readonly NumberPathPosition[],
+  spec: PracticeSpec,
+): NumberPathLevel | undefined {
+  const visibleValues = createAlternatingClues(level.maxNumber)
+
+  while (visibleValues.size <= spec.maximumClueCount) {
+    const candidate = withVisibleValues(level, visibleValues)
+    const result = solveNumberPath(candidate, { maxSolutions: 2, maxNodes: spec.maximumNodes })
+    if (!result.stoppedEarly && result.solutions.length === 1) return candidate
+    if (visibleValues.size === spec.maximumClueCount) return undefined
+
+    const alternative = result.solutions.find((solution) => !samePath(path, solution))
+    const nextClue = alternative
+      ? chooseDiscriminatingClue(path, alternative, visibleValues)
+      : chooseLargestUncluedGap(visibleValues)
+    if (nextClue === undefined) return undefined
+    visibleValues.add(nextClue)
+  }
+  return undefined
 }
 
 export function generatePracticeLevel(difficulty: NumberPathDifficulty, seed: number): NumberPathLevel {
   const spec = PRACTICE_SPECS[difficulty]
   const random = createRandom(seed)
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  for (let attempt = 0; attempt < spec.maximumAttempts; attempt += 1) {
     const path = createHamiltonianPath(spec.rows, spec.columns, random)
     if (!path) continue
     const level = buildNumberPathLevel({
@@ -129,10 +180,11 @@ export function generatePracticeLevel(difficulty: NumberPathDifficulty, seed: nu
       difficulty,
       rows: spec.rows,
       columns: spec.columns,
-      clueStride: spec.clueStride,
+      clueStride: path.length,
       path,
     })
-    return solveWithEnoughClues(level, path, spec.clueStride)
+    const uniquelySolvableLevel = createUniquelySolvableLevel(level, path, spec)
+    if (uniquelySolvableLevel) return uniquelySolvableLevel
   }
-  throw new Error('Unable to generate a Number Path practice level')
+  throw new Error('Unable to generate a uniquely solvable Number Path practice level')
 }

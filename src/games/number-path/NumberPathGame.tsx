@@ -262,7 +262,7 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
           <h1>讓每一個空白，<em>剛好</em>成為下一步。</h1>
           <p>數字早已固定在棋盤中。從 1 出發，依序走到最後一格，覆蓋整條不重複的路徑。</p>
           <ul className="number-rule-chips" aria-label="數字路徑玩法摘要">
-            <li>只走上下左右</li>
+            <li>可走八方向</li>
             <li>從 1 開始</li>
             <li>依序到最後</li>
           </ul>
@@ -303,8 +303,8 @@ export default function NumberPathGame({ globalSettings, onProgressChange, platf
           <div className="number-practice-launcher">
             <div>
               <span>RANDOM PRACTICE</span>
-              <strong>全新路徑，已通過 Solver 驗證。</strong>
-              <small>練習成績不會影響關卡解鎖。</small>
+              <strong>交錯線索，但全盤只有一條完整路徑。</strong>
+              <small>每個正確步驟都是唯一解的一部分；練習成績不影響解鎖。</small>
             </div>
             <button type="button" className="primary-button number-primary number-practice-button" onClick={startPractice}>
               生成{difficultyLabel(progress.selectedDifficulty)}練習關

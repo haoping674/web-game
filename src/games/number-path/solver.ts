@@ -46,7 +46,7 @@ function canStillReachNextClue(
   if (!nextClue) return true
   const steps = nextClue.value - currentValue
   const distance = distanceBetween(current, nextClue.position)
-  return distance <= steps && (steps - distance) % 2 === 0
+  return distance <= steps
 }
 
 export function solveNumberPath(level: NumberPathLevel, options: SolverOptions = {}): NumberPathSolveResult {

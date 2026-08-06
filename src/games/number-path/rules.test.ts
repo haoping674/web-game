@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getNumberPathLevel, NUMBER_PATH_LEVELS } from './levels'
-import { isCorrectNextPosition } from './rules'
+import { getNeighborPositions, isCorrectNextPosition } from './rules'
 import { solveNumberPath } from './solver'
 
 function levelAt(index: number) {
@@ -24,7 +24,7 @@ describe('Number Path fixed-answer rules', () => {
     })
   })
 
-  it('requires 1 first, then only an orthogonally adjacent N + 1', () => {
+  it('requires 1 first, then permits every adjacent direction for N + 1', () => {
     const level = levelAt(0)
     const one = level.cells.find((cell) => cell.value === 1)
     const two = level.cells.find((cell) => cell.value === 2)
@@ -34,6 +34,22 @@ describe('Number Path fixed-answer rules', () => {
     expect(isCorrectNextPosition(level, [], { row: two.row, column: two.column })).toBe(false)
     expect(isCorrectNextPosition(level, [{ row: one.row, column: one.column }], { row: two.row, column: two.column })).toBe(true)
     expect(isCorrectNextPosition(level, [{ row: one.row, column: one.column }], { row: three.row, column: three.column })).toBe(false)
+  })
+
+  it('treats diagonal cells as adjacent and keeps non-neighbor cells invalid', () => {
+    const level = {
+      id: 'diagonal-fixture', name: 'Diagonal fixture', difficulty: 'easy' as const, rows: 3, columns: 3, maxNumber: 3,
+      cells: [
+        { row: 0, column: 0, value: 1, visible: true, blocked: false },
+        { row: 1, column: 1, value: 2, visible: false, blocked: false },
+        { row: 2, column: 2, value: 3, visible: true, blocked: false },
+      ],
+    }
+    const one = { row: 0, column: 0 }
+
+    expect(getNeighborPositions(level, one)).toContainEqual({ row: 1, column: 1 })
+    expect(isCorrectNextPosition(level, [one], { row: 1, column: 1 })).toBe(true)
+    expect(isCorrectNextPosition(level, [one], { row: 2, column: 2 })).toBe(false)
   })
 
   it('keeps a route addressable independently from every other game route', () => {

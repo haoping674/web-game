@@ -17,17 +17,17 @@ export function findPositionForValue(level: NumberPathLevel, value: number): Num
   return cell ? { row: cell.row, column: cell.column } : undefined
 }
 
-export function areOrthogonallyAdjacent(left: NumberPathPosition, right: NumberPathPosition): boolean {
-  return Math.abs(left.row - right.row) + Math.abs(left.column - right.column) === 1
+export function areEightWayAdjacent(left: NumberPathPosition, right: NumberPathPosition): boolean {
+  const rowDistance = Math.abs(left.row - right.row)
+  const columnDistance = Math.abs(left.column - right.column)
+  return (rowDistance !== 0 || columnDistance !== 0) && rowDistance <= 1 && columnDistance <= 1
 }
 
 export function getNeighborPositions(level: NumberPathLevel, position: NumberPathPosition): NumberPathPosition[] {
-  const candidates = [
-    { row: position.row - 1, column: position.column },
-    { row: position.row, column: position.column + 1 },
-    { row: position.row + 1, column: position.column },
-    { row: position.row, column: position.column - 1 },
-  ]
+  const candidates = [-1, 0, 1].flatMap((rowOffset) => [-1, 0, 1].map((columnOffset) => ({
+    row: position.row + rowOffset,
+    column: position.column + columnOffset,
+  }))).filter((candidate) => !samePosition(candidate, position))
   return candidates.filter((candidate) => {
     const cell = findNumberPathCell(level, candidate)
     return cell !== undefined && !cell.blocked
@@ -47,10 +47,10 @@ export function isCorrectNextPosition(
   if (!cell || cell.blocked || isPathPositionUsed(path, position)) return false
   if (path.length === 0) return cell.value === 1
   const last = path.at(-1)
-  if (!last || !areOrthogonallyAdjacent(last, position)) return false
+  if (!last || !areEightWayAdjacent(last, position)) return false
   return cell.value === path.length + 1
 }
 
 export function distanceBetween(left: NumberPathPosition, right: NumberPathPosition): number {
-  return Math.abs(left.row - right.row) + Math.abs(left.column - right.column)
+  return Math.max(Math.abs(left.row - right.row), Math.abs(left.column - right.column))
 }
