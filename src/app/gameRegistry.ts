@@ -1,4 +1,4 @@
-export type GameId = 'fruitSum' | 'colorLinks'
+export type GameId = 'fruitSum' | 'colorLinks' | 'numberPath'
 
 export type GameDefinition = {
   id: GameId
@@ -28,6 +28,15 @@ export const GAME_REGISTRY = [
     route: '/games/color-links',
     status: 'available',
     accent: '#327b77',
+  },
+  {
+    id: 'numberPath',
+    name: 'Number Path Puzzle',
+    eyebrow: 'PATH LOGIC',
+    description: '依照數字提示，推理並走完整條隱藏路徑。',
+    route: '/games/number-path',
+    status: 'available',
+    accent: '#b77a35',
   },
 ] as const satisfies readonly GameDefinition[]
 

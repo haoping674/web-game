@@ -32,6 +32,7 @@ export const DEFAULT_APP_STORAGE: AppStorage = {
   games: {
     fruitSum: DEFAULT_PROGRESS,
     colorLinks: { ...DEFAULT_PROGRESS },
+    numberPath: { ...DEFAULT_PROGRESS },
   },
 }
 
@@ -142,6 +143,7 @@ export function readAppStorage(storage?: Storage): AppStorage {
           gamesPlayed: Math.max(storedFruit.gamesPlayed, legacy.progress.gamesPlayed),
         },
         colorLinks: normalizeProgress(games.colorLinks),
+        numberPath: normalizeProgress(games.numberPath),
       },
     }
   } catch {
@@ -193,6 +195,24 @@ export function recordColorLinksResult(completionSeconds: number, storage?: Stor
     games: {
       ...current.games,
       colorLinks: {
+        ...progress,
+        bestTimeSeconds: Math.min(progress.bestTimeSeconds ?? Number.POSITIVE_INFINITY, completedAt),
+        gamesPlayed: progress.gamesPlayed + 1,
+        lastPlayedAt: playedAt.toISOString(),
+      },
+    },
+  }, storage)
+}
+
+export function recordNumberPathResult(completionSeconds: number, storage?: Storage, playedAt = new Date()): AppStorage {
+  const current = readAppStorage(storage)
+  const progress = current.games.numberPath
+  const completedAt = Math.max(0, Math.floor(completionSeconds))
+  return saveAppStorage({
+    ...current,
+    games: {
+      ...current.games,
+      numberPath: {
         ...progress,
         bestTimeSeconds: Math.min(progress.bestTimeSeconds ?? Number.POSITIVE_INFINITY, completedAt),
         gamesPlayed: progress.gamesPlayed + 1,
