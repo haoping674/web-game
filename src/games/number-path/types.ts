@@ -47,4 +47,5 @@ export type NumberPathProgress = {
   completedByLevel: Readonly<Record<string, NumberPathCompletion>>
   selectedDifficulty: NumberPathDifficulty
   showSolvedNumbers: boolean
+  tutorialSeen: boolean
 }

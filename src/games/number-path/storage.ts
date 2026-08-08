@@ -8,6 +8,7 @@ const DEFAULT_PROGRESS: NumberPathProgress = {
   completedByLevel: {},
   selectedDifficulty: 'easy',
   showSolvedNumbers: false,
+  tutorialSeen: false,
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -68,6 +69,7 @@ export function readNumberPathProgress(storage?: Storage): NumberPathProgress {
       completedByLevel,
       selectedDifficulty: difficultyOrFallback(parsed.selectedDifficulty),
       showSolvedNumbers: parsed.showSolvedNumbers === true,
+      tutorialSeen: parsed.tutorialSeen === true,
     }
   } catch {
     return DEFAULT_PROGRESS
@@ -91,6 +93,11 @@ export function setNumberPathDifficulty(difficulty: NumberPathDifficulty, storag
 export function setShowSolvedNumbers(showSolvedNumbers: boolean, storage?: Storage): NumberPathProgress {
   const current = readNumberPathProgress(storage)
   return saveNumberPathProgress({ ...current, showSolvedNumbers }, storage)
+}
+
+export function setNumberPathTutorialSeen(storage?: Storage): NumberPathProgress {
+  const current = readNumberPathProgress(storage)
+  return saveNumberPathProgress({ ...current, tutorialSeen: true }, storage)
 }
 
 export function recordNumberPathCompletion(

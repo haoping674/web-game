@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { NUMBER_PATH_LEVELS } from './levels'
-import { readNumberPathProgress, recordNumberPathCompletion, setShowSolvedNumbers } from './storage'
+import { readNumberPathProgress, recordNumberPathCompletion, setNumberPathTutorialSeen, setShowSolvedNumbers } from './storage'
 
 function levelAt(index: number): string {
   const id = NUMBER_PATH_LEVELS[index]?.id
@@ -26,5 +26,6 @@ describe('Number Path storage', () => {
     expect(progress.completedByLevel[first]?.bestTimeSeconds).toBe(31)
     expect(progress.unlockedLevelIds).toContain(second)
     expect(setShowSolvedNumbers(true, storage).showSolvedNumbers).toBe(true)
+    expect(setNumberPathTutorialSeen(storage).tutorialSeen).toBe(true)
   })
 })

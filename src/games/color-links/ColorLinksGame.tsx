@@ -5,6 +5,7 @@ import { Timer } from '../../components/Timer'
 import { useGamePauseShortcut } from '../../hooks/useGamePauseShortcut'
 import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
 import {
+  markGameTutorialSeen,
   readAppStorage,
   recordColorLinksResult,
   type GlobalSettings,
@@ -23,6 +24,7 @@ import {
   createColorLinksState,
 } from './gameReducer'
 import { ColorLinksBoard, type ColorLinksEffect } from './ColorLinksBoard'
+import { ColorLinksTutorialDialog } from './ColorLinksTutorialDialog'
 import type { CellPosition, MatchGroup } from './types'
 
 type ColorLinksGameProps = {
@@ -65,6 +67,8 @@ export default function ColorLinksGame({
   const [invalidCell, setInvalidCell] = useState<CellPosition | null>(null)
   const [bestTimeSeconds, setBestTimeSeconds] = useState(() => readAppStorage().games.colorLinks.bestTimeSeconds)
   const [shareStatus, setShareStatus] = useState('')
+  const [tutorialOpen, setTutorialOpen] = useState(false)
+  const [tutorialSeen, setTutorialSeen] = useState(() => readAppStorage().games.colorLinks.tutorialSeen === true)
   const effectId = useRef(0)
   const effectTimer = useRef<number | null>(null)
   const invalidTimer = useRef<number | null>(null)
@@ -150,12 +154,27 @@ export default function ColorLinksGame({
     setInvalidCell(null)
   }
 
-  const startGame = () => {
+  const beginGame = () => {
     clearTransientFeedback()
     recorded.current = false
     setShareStatus('')
     setFeedback('點擊空格，連結兩個以上同色訊號。')
     dispatch({ type: 'start', now: Date.now(), board: generateBoard() })
+  }
+
+  const startGame = () => {
+    if (!tutorialSeen) {
+      setTutorialOpen(true)
+      return
+    }
+    beginGame()
+  }
+
+  const finishTutorial = () => {
+    markGameTutorialSeen('colorLinks')
+    setTutorialSeen(true)
+    setTutorialOpen(false)
+    beginGame()
   }
 
   const restartGame = () => {
@@ -231,7 +250,8 @@ export default function ColorLinksGame({
 
   if (game.status === 'ready') {
     return (
-      <section className={`color-game-card color-start${effectsOff ? ' effects-off' : reducedMotion ? ' effects-reduced' : ''}`}>
+      <>
+        <section className={`color-game-card color-start${effectsOff ? ' effects-off' : reducedMotion ? ' effects-reduced' : ''}`}>
         <div className="color-start-copy">
           <p className="eyebrow">CLEAR THE SIGNAL GRID</p>
           <h1>讓相同色彩，<br />在空白中<em>全數相遇</em>。</h1>
@@ -259,7 +279,9 @@ export default function ColorLinksGame({
           <span className="color-preview-caption">每種顏色都有獨立符號，不只依賴色相辨識。</span>
         </div>
         <PwaUpdateNotice isGameActive={false} />
-      </section>
+        </section>
+        {tutorialOpen ? <ColorLinksTutorialDialog onComplete={finishTutorial} onSkip={finishTutorial} /> : null}
+      </>
     )
   }
 

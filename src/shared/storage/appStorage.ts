@@ -17,6 +17,7 @@ export type GameProgress = {
   bestTimeSeconds?: number
   gamesPlayed: number
   lastPlayedAt?: string
+  tutorialSeen?: boolean
 }
 
 export type AppStorage = {
@@ -62,10 +63,12 @@ function normalizeProgress(value: unknown): GameProgress {
   const bestTimeSeconds = typeof progress.bestTimeSeconds === 'number' && Number.isFinite(progress.bestTimeSeconds)
     ? Math.max(0, Math.floor(progress.bestTimeSeconds))
     : undefined
+  const tutorialSeen = progress.tutorialSeen === true
   return {
     ...normalized,
     ...(bestTimeSeconds === undefined ? {} : { bestTimeSeconds }),
     ...(lastPlayedAt ? { lastPlayedAt } : {}),
+    ...(tutorialSeen ? { tutorialSeen: true } : {}),
   }
 }
 
@@ -218,6 +221,17 @@ export function recordNumberPathResult(completionSeconds: number, storage?: Stor
         gamesPlayed: progress.gamesPlayed + 1,
         lastPlayedAt: playedAt.toISOString(),
       },
+    },
+  }, storage)
+}
+
+export function markGameTutorialSeen(gameId: GameId, storage?: Storage): AppStorage {
+  const current = readAppStorage(storage)
+  return saveAppStorage({
+    ...current,
+    games: {
+      ...current.games,
+      [gameId]: { ...current.games[gameId], tutorialSeen: true },
     },
   }, storage)
 }

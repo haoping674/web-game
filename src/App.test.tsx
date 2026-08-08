@@ -26,6 +26,11 @@ beforeEach(() => {
 
 afterEach(cleanup)
 
+async function startColorLinks(): Promise<void> {
+  fireEvent.click(await screen.findByRole('button', { name: /開始串聯/ }))
+  fireEvent.click(await screen.findByRole('button', { name: '略過說明並開始' }))
+}
+
 describe('platform routing and lazy game lifecycle', () => {
   it('shows both registered games on the home page and routes each card correctly', () => {
     render(<App />)
@@ -55,7 +60,7 @@ describe('platform routing and lazy game lifecycle', () => {
     window.history.replaceState(null, '', '/games/color-links')
     const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout')
     render(<App />)
-    fireEvent.click(await screen.findByRole('button', { name: /開始串聯/ }))
+    await startColorLinks()
     expect(await screen.findByRole('grid', { name: 'Color Links 色彩棋盤' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '遊戲廳' }))
     await waitFor(() => expect(window.location.pathname).toBe('/'))
@@ -66,7 +71,7 @@ describe('platform routing and lazy game lifecycle', () => {
   it('pauses an active game while shared settings owns focus', async () => {
     window.history.replaceState(null, '', '/games/color-links')
     render(<App />)
-    fireEvent.click(await screen.findByRole('button', { name: /開始串聯/ }))
+    await startColorLinks()
     fireEvent.click(screen.getByRole('button', { name: '共用設定' }))
     expect(screen.getByRole('dialog', { name: '共用遊戲設定' })).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: 'Color Links 已暫停' })).toBeNull()

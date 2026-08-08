@@ -12,9 +12,9 @@ export type NumberPathRating = {
 }
 
 const PAR_SECONDS: Record<NumberPathDifficulty, number> = {
-  easy: 42,
-  normal: 68,
-  hard: 94,
+  easy: 64,
+  normal: 104,
+  hard: 152,
 }
 
 export function rateNumberPathCompletion({

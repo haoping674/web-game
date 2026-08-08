@@ -3,6 +3,7 @@ import {
   APP_STORAGE_KEY,
   APP_STORAGE_VERSION,
   readAppStorage,
+  markGameTutorialSeen,
   recordColorLinksResult,
   recordGameResult,
   resetGameProgress,
@@ -53,6 +54,9 @@ describe('platform storage', () => {
     const recorded = readAppStorage(storage)
     expect(recorded.games.fruitSum).toMatchObject({ highScore: 24, gamesPlayed: 1 })
     expect(recorded.games.colorLinks).toMatchObject({ bestTimeSeconds: 14, gamesPlayed: 2 })
+
+    const tutorialMarked = markGameTutorialSeen('colorLinks', storage)
+    expect(tutorialMarked.games.colorLinks.tutorialSeen).toBe(true)
 
     const reset = resetGameProgress('fruitSum', storage)
     expect(reset.games.fruitSum).toEqual({ highScore: 0, gamesPlayed: 0 })

@@ -10,6 +10,16 @@ function levelAt(index: number) {
 }
 
 describe('Number Path fixed-answer rules', () => {
+  it('scales the fixed path boards up at every difficulty tier', () => {
+    const smallestByDifficulty = (difficulty: 'easy' | 'normal' | 'hard') => Math.min(
+      ...NUMBER_PATH_LEVELS.filter((level) => level.difficulty === difficulty).map((level) => level.maxNumber),
+    )
+
+    expect(smallestByDifficulty('easy')).toBeGreaterThanOrEqual(25)
+    expect(smallestByDifficulty('normal')).toBeGreaterThanOrEqual(36)
+    expect(smallestByDifficulty('hard')).toBeGreaterThanOrEqual(49)
+  })
+
   it('keeps every preset answer complete, non-repeating, and solver-verified', () => {
     NUMBER_PATH_LEVELS.forEach((level) => {
       const playableCells = level.cells.filter((cell) => !cell.blocked)
@@ -19,8 +29,8 @@ describe('Number Path fixed-answer rules', () => {
         Array.from({ length: level.maxNumber }, (_, index) => index + 1),
       )
       const result = solveNumberPath(level, { maxSolutions: 2, maxNodes: 80_000 })
-      expect(result.stoppedEarly).toBe(false)
-      expect(result.solutions).toHaveLength(1)
+      expect(result.stoppedEarly, level.id).toBe(false)
+      expect(result.solutions, level.id).toHaveLength(1)
     })
   })
 

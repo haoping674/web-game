@@ -35,6 +35,18 @@ function makePath({ rows, columns, orientation }: Pick<LevelBlueprint, 'rows' | 
   return path
 }
 
+function makeCornerCutSnakePath(rows: number, columns: number): NumberPathPosition[] {
+  const path: NumberPathPosition[] = []
+  for (let row = 0; row < rows; row += 1) {
+    const firstColumn = row === 0 || row === rows - 1 ? 1 : 0
+    const columnsInOrder = row % 2 === 0
+      ? Array.from({ length: columns - firstColumn }, (_, index) => firstColumn + index)
+      : Array.from({ length: columns - firstColumn }, (_, index) => columns - index - 1)
+    columnsInOrder.forEach((column) => path.push({ row, column }))
+  }
+  return path
+}
+
 function positionKey(position: NumberPathPosition): string {
   return `${position.row}:${position.column}`
 }
@@ -91,31 +103,24 @@ export function buildNumberPathLevel({ path, blocked = [], ...blueprint }: PathL
 }
 
 const BLUEPRINTS = [
-  { id: 'path-easy-01', name: '起步繞行', difficulty: 'easy', rows: 4, columns: 4, orientation: 'rows', clueStride: 2 },
-  { id: 'path-easy-02', name: '轉角穿梭', difficulty: 'easy', rows: 4, columns: 5, orientation: 'columns', clueStride: 2 },
-  { id: 'path-normal-01', name: '長徑回環', difficulty: 'normal', rows: 4, columns: 5, orientation: 'rows', clueStride: 2 },
-  { id: 'path-normal-02', name: '側向脈絡', difficulty: 'normal', rows: 5, columns: 4, orientation: 'columns', clueStride: 2 },
-  { id: 'path-hard-01', name: '緊密棋局', difficulty: 'hard', rows: 5, columns: 5, orientation: 'rows', clueStride: 2 },
-  { id: 'path-hard-02', name: '交錯潮流', difficulty: 'hard', rows: 5, columns: 5, orientation: 'columns', clueStride: 2 },
+  { id: 'path-easy-01', name: '起步繞行', difficulty: 'easy', rows: 5, columns: 5, orientation: 'rows', clueStride: 2 },
+  { id: 'path-easy-02', name: '轉角穿梭', difficulty: 'easy', rows: 5, columns: 6, orientation: 'columns', clueStride: 2 },
+  { id: 'path-normal-01', name: '長徑回環', difficulty: 'normal', rows: 6, columns: 6, orientation: 'rows', clueStride: 2 },
+  { id: 'path-normal-02', name: '側向脈絡', difficulty: 'normal', rows: 6, columns: 7, orientation: 'columns', clueStride: 2 },
+  { id: 'path-hard-01', name: '緊密棋局', difficulty: 'hard', rows: 7, columns: 7, orientation: 'rows', clueStride: 2 },
+  { id: 'path-hard-02', name: '交錯潮流', difficulty: 'hard', rows: 7, columns: 8, orientation: 'columns', clueStride: 2 },
 ] as const satisfies readonly LevelBlueprint[]
 
 const OBSTACLE_BLUEPRINT = {
   id: 'path-hard-03',
   name: '石階迷徑',
   difficulty: 'hard',
-  rows: 5,
-  columns: 5,
+  rows: 8,
+  columns: 8,
   clueStride: 2,
-  blocked: [{ row: 1, column: 1 }, { row: 3, column: 3 }],
-  path: [
-    { row: 0, column: 1 }, { row: 0, column: 0 }, { row: 1, column: 0 }, { row: 2, column: 0 },
-    { row: 2, column: 1 }, { row: 2, column: 2 }, { row: 1, column: 2 }, { row: 0, column: 2 },
-    { row: 0, column: 3 }, { row: 0, column: 4 }, { row: 1, column: 4 }, { row: 1, column: 3 },
-    { row: 2, column: 3 }, { row: 2, column: 4 }, { row: 3, column: 4 }, { row: 4, column: 4 },
-    { row: 4, column: 3 }, { row: 4, column: 2 }, { row: 3, column: 2 }, { row: 3, column: 1 },
-    { row: 4, column: 1 }, { row: 4, column: 0 }, { row: 3, column: 0 },
-  ],
-} as const satisfies PathLevelBlueprint
+  blocked: [{ row: 0, column: 0 }, { row: 7, column: 0 }],
+  path: makeCornerCutSnakePath(8, 8),
+} satisfies PathLevelBlueprint
 
 export const NUMBER_PATH_LEVELS = [...BLUEPRINTS.map(buildLevel), buildNumberPathLevel(OBSTACLE_BLUEPRINT)]
 
