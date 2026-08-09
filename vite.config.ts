@@ -42,27 +42,6 @@ export default defineConfig(() => {
           navigateFallback: `${base}index.html`,
           navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
           globPatterns: ['**/*.{html,js,css,svg,png,ico,webmanifest,woff2}'],
-          // Keep game engines out of the install-time app shell. Each engine and
-          // its shared timer hook are cached only after the player opens a game.
-          globIgnores: [
-            'favicon.svg',
-            '**/FruitSumGame-*.js',
-            '**/ColorLinksGame-*.js',
-            '**/usePageVisibilityPause-*.js',
-          ],
-          runtimeCaching: [
-            {
-              urlPattern: ({ request, url }) =>
-                request.destination === 'script'
-                && /\/assets\/(?:FruitSumGame|ColorLinksGame|usePageVisibilityPause)-[^/]+\.js$/.test(url.pathname),
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'orchard-arcade-games-v1',
-                expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 30 },
-                cacheableResponse: { statuses: [0, 200] },
-              },
-            },
-          ],
         },
         devOptions: { enabled: false },
       }),
