@@ -1,4 +1,5 @@
 import type { GameId } from '../../app/gameRegistry'
+import { COLOR_LINKS_CONFIG } from '../../games/color-links/config'
 
 export const APP_STORAGE_KEY = 'orchard-arcade-v1'
 export const APP_STORAGE_VERSION = 1
@@ -19,6 +20,10 @@ export type GameProgress = {
   lastPlayedAt?: string
   tutorialSeen?: boolean
 }
+
+export type ColorLinksResult =
+  | { kind: 'cleared'; completionSeconds: number }
+  | { kind: 'time-limit'; removedTiles: number }
 
 export type AppStorage = {
   version: number
@@ -70,6 +75,16 @@ function normalizeProgress(value: unknown): GameProgress {
     ...(lastPlayedAt ? { lastPlayedAt } : {}),
     ...(tutorialSeen ? { tutorialSeen: true } : {}),
   }
+}
+
+function normalizeColorLinksProgress(value: unknown): GameProgress {
+  const progress = normalizeProgress(value)
+  if (
+    progress.bestTimeSeconds === undefined
+    || progress.bestTimeSeconds <= COLOR_LINKS_CONFIG.timeLimitSeconds
+  ) return progress
+  const { bestTimeSeconds: _obsoleteUnlimitedTime, ...timeLimitedProgress } = progress
+  return timeLimitedProgress
 }
 
 function getStorage(storage?: Storage): Storage | undefined {
@@ -145,7 +160,7 @@ export function readAppStorage(storage?: Storage): AppStorage {
           highScore: Math.max(storedFruit.highScore, legacy.progress.highScore),
           gamesPlayed: Math.max(storedFruit.gamesPlayed, legacy.progress.gamesPlayed),
         },
-        colorLinks: normalizeProgress(games.colorLinks),
+        colorLinks: normalizeColorLinksProgress(games.colorLinks),
         numberPath: normalizeProgress(games.numberPath),
       },
     }
@@ -189,17 +204,30 @@ export function recordGameResult(gameId: GameId, score: number, storage?: Storag
   }, storage)
 }
 
-export function recordColorLinksResult(completionSeconds: number, storage?: Storage, playedAt = new Date()): AppStorage {
+export function recordColorLinksResult(
+  result: ColorLinksResult,
+  storage?: Storage,
+  playedAt = new Date(),
+): AppStorage {
   const current = readAppStorage(storage)
   const progress = current.games.colorLinks
-  const completedAt = Math.max(0, Math.floor(completionSeconds))
+  const outcomeProgress = result.kind === 'cleared'
+    ? {
+        bestTimeSeconds: Math.min(
+          progress.bestTimeSeconds ?? Number.POSITIVE_INFINITY,
+          Math.max(0, Math.floor(result.completionSeconds)),
+        ),
+      }
+    : {
+        highScore: Math.max(progress.highScore, Math.max(0, Math.floor(result.removedTiles))),
+      }
   return saveAppStorage({
     ...current,
     games: {
       ...current.games,
       colorLinks: {
         ...progress,
-        bestTimeSeconds: Math.min(progress.bestTimeSeconds ?? Number.POSITIVE_INFINITY, completedAt),
+        ...outcomeProgress,
         gamesPlayed: progress.gamesPlayed + 1,
         lastPlayedAt: playedAt.toISOString(),
       },

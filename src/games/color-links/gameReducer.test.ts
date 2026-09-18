@@ -49,6 +49,23 @@ describe('Color Links reducer', () => {
     expect(next.elapsedSeconds).toBe(COLOR_LINKS_CONFIG.invalidPenaltySeconds)
   })
 
+  it('ends the round when an invalid click uses the final seconds', () => {
+    const board: ColorLinksBoard = [
+      ['coral', null, 'amber'],
+      [null, null, null],
+      ['teal', null, 'blue'],
+    ]
+    const state = createColorLinksState('playing', 0, board)
+    const almostTimedOut = colorLinksReducer(state, { type: 'tick', now: 29_000 })
+    const timedOut = colorLinksReducer(almostTimedOut, { type: 'select', position: { row: 1, column: 1 }, now: 29_100 })
+    expect(timedOut).toMatchObject({
+      elapsedSeconds: COLOR_LINKS_CONFIG.timeLimitSeconds,
+      status: 'finished',
+      outcome: 'time-limit',
+      nextTickAt: null,
+    })
+  })
+
   it('preserves fractional timer progress across pause and resume', () => {
     const state = createColorLinksState('playing', 1_000, BOARD)
     const paused = colorLinksReducer(state, { type: 'pause', now: 1_250 })
@@ -64,11 +81,23 @@ describe('Color Links reducer', () => {
     expect(next).toMatchObject({ status: 'playing', elapsedSeconds: 3, nextTickAt: 4_000 })
   })
 
+  it('finishes at the 30-second limit and preserves the removed-tile total', () => {
+    const state = createColorLinksState('playing', 0, BOARD)
+    const timedOut = colorLinksReducer(state, { type: 'tick', now: COLOR_LINKS_CONFIG.timeLimitSeconds * 1_000 })
+    expect(timedOut).toMatchObject({
+      elapsedSeconds: COLOR_LINKS_CONFIG.timeLimitSeconds,
+      status: 'finished',
+      outcome: 'time-limit',
+      nextTickAt: null,
+      removedTiles: 0,
+    })
+  })
+
   it('finishes immediately after the final matching colors are removed', () => {
     const board: ColorLinksBoard = [['coral', null, 'coral']]
     const state = createColorLinksState('playing', 0, board)
     const finished = colorLinksReducer(state, { type: 'select', position: { row: 0, column: 1 }, now: 100 })
-    expect(finished).toMatchObject({ status: 'finished', nextTickAt: null, removedTiles: 2 })
+    expect(finished).toMatchObject({ status: 'finished', outcome: 'cleared', nextTickAt: null, removedTiles: 2 })
     expect(finished.board.flat().every((cell) => cell === null)).toBe(true)
     expect(colorLinksReducer(finished, { type: 'select', position: { row: 0, column: 1 }, now: 2_000 })).toBe(finished)
   })
@@ -76,7 +105,7 @@ describe('Color Links reducer', () => {
   it('auto-resolves stranded colors as a completed board', () => {
     const state = createColorLinksState('playing', 0, [['coral', null, 'amber']])
     const finished = colorLinksReducer(state, { type: 'resolve-stranded' })
-    expect(finished).toMatchObject({ status: 'finished', nextTickAt: null, removedTiles: 2 })
+    expect(finished).toMatchObject({ status: 'finished', outcome: 'cleared', nextTickAt: null, removedTiles: 2 })
     expect(finished.board.flat().every((cell) => cell === null)).toBe(true)
   })
 })

@@ -13,8 +13,8 @@ const steps = [
     illustration: 'match',
   },
   {
-    title: '清空整張棋盤',
-    description: '每次成功連結都會留下新空格，創造下一次機會。清除所有色塊即可完成。',
+    title: '30 秒內清空棋盤',
+    description: '每次成功連結都會留下新空格，創造下一次機會。30 秒內清除所有色塊會記錄完成秒數；未完成則記錄消除色塊數。',
     illustration: 'clear',
   },
 ] as const

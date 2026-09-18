@@ -49,18 +49,47 @@ describe('platform storage', () => {
   it('keeps the two games independent when recording and clearing progress', () => {
     const storage = createStorage()
     recordGameResult('fruitSum', 24, storage, new Date('2026-01-01T00:00:00.000Z'))
-    recordColorLinksResult(61, storage, new Date('2026-01-02T00:00:00.000Z'))
-    recordColorLinksResult(14, storage, new Date('2026-01-03T00:00:00.000Z'))
+    recordColorLinksResult({ kind: 'time-limit', removedTiles: 61 }, storage, new Date('2026-01-02T00:00:00.000Z'))
+    recordColorLinksResult({ kind: 'cleared', completionSeconds: 14 }, storage, new Date('2026-01-03T00:00:00.000Z'))
     const recorded = readAppStorage(storage)
     expect(recorded.games.fruitSum).toMatchObject({ highScore: 24, gamesPlayed: 1 })
-    expect(recorded.games.colorLinks).toMatchObject({ bestTimeSeconds: 14, gamesPlayed: 2 })
+    expect(recorded.games.colorLinks).toMatchObject({ highScore: 61, bestTimeSeconds: 14, gamesPlayed: 2 })
 
     const tutorialMarked = markGameTutorialSeen('colorLinks', storage)
     expect(tutorialMarked.games.colorLinks.tutorialSeen).toBe(true)
 
     const reset = resetGameProgress('fruitSum', storage)
     expect(reset.games.fruitSum).toEqual({ highScore: 0, gamesPlayed: 0 })
-    expect(reset.games.colorLinks).toMatchObject({ bestTimeSeconds: 14, gamesPlayed: 2 })
+    expect(reset.games.colorLinks).toMatchObject({ highScore: 61, bestTimeSeconds: 14, gamesPlayed: 2 })
+  })
+
+  it('keeps fastest clears and time-limit elimination records independent', () => {
+    const storage = createStorage()
+    recordColorLinksResult({ kind: 'cleared', completionSeconds: 22 }, storage)
+    recordColorLinksResult({ kind: 'time-limit', removedTiles: 37 }, storage)
+    recordColorLinksResult({ kind: 'cleared', completionSeconds: 25 }, storage)
+    recordColorLinksResult({ kind: 'time-limit', removedTiles: 19 }, storage)
+
+    expect(readAppStorage(storage).games.colorLinks).toMatchObject({
+      bestTimeSeconds: 22,
+      highScore: 37,
+      gamesPlayed: 4,
+    })
+  })
+
+  it('does not surface completion records that exceed the Color Links time limit', () => {
+    const storage = createStorage({
+      [APP_STORAGE_KEY]: JSON.stringify({
+        version: APP_STORAGE_VERSION,
+        globalSettings: { soundEnabled: true, reducedMotion: false, effectIntensity: 'full' },
+        games: {
+          fruitSum: { highScore: 0, gamesPlayed: 0 },
+          colorLinks: { highScore: 41, bestTimeSeconds: 46, gamesPlayed: 3 },
+          numberPath: { highScore: 0, gamesPlayed: 0 },
+        },
+      }),
+    })
+    expect(readAppStorage(storage).games.colorLinks).toEqual({ highScore: 41, gamesPlayed: 3 })
   })
 
   it('falls back safely from corrupted platform and legacy JSON', () => {

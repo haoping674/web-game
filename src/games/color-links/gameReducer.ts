@@ -27,6 +27,7 @@ export function createColorLinksState(
   return {
     board,
     status,
+    outcome: null,
     score: 0,
     elapsedSeconds: 0,
     nextTickAt: status === 'playing' ? now + 1_000 : null,
@@ -40,10 +41,17 @@ export function createColorLinksState(
 function advanceTime(state: ColorLinksState, now: number): ColorLinksState {
   if (state.status !== 'playing' || state.nextTickAt === null || now < state.nextTickAt) return state
   const elapsedTicks = Math.floor((now - state.nextTickAt) / 1_000) + 1
+  const elapsedSeconds = Math.min(
+    COLOR_LINKS_CONFIG.timeLimitSeconds,
+    state.elapsedSeconds + elapsedTicks,
+  )
+  const timedOut = elapsedSeconds >= COLOR_LINKS_CONFIG.timeLimitSeconds
   return {
     ...state,
-    elapsedSeconds: state.elapsedSeconds + elapsedTicks,
-    nextTickAt: state.nextTickAt + elapsedTicks * 1_000,
+    elapsedSeconds,
+    status: timedOut ? 'finished' : 'playing',
+    outcome: timedOut ? 'time-limit' : null,
+    nextTickAt: timedOut ? null : state.nextTickAt + elapsedTicks * 1_000,
   }
 }
 
@@ -53,10 +61,18 @@ function selectCell(state: ColorLinksState, position: CellPosition, now: number)
   if (current.board[position.row]?.[position.column] !== null) return current
   const matches = findMatchesAtCell(current.board, position)
   if (matches.length === 0) {
+    const elapsedSeconds = Math.min(
+      COLOR_LINKS_CONFIG.timeLimitSeconds,
+      current.elapsedSeconds + COLOR_LINKS_CONFIG.invalidPenaltySeconds,
+    )
+    const timedOut = elapsedSeconds >= COLOR_LINKS_CONFIG.timeLimitSeconds
     return {
       ...current,
-      elapsedSeconds: current.elapsedSeconds + COLOR_LINKS_CONFIG.invalidPenaltySeconds,
+      elapsedSeconds,
       invalidMoves: current.invalidMoves + 1,
+      status: timedOut ? 'finished' : 'playing',
+      outcome: timedOut ? 'time-limit' : null,
+      nextTickAt: timedOut ? null : current.nextTickAt,
     }
   }
   const removedTiles = matches.reduce((total, match) => total + match.tiles.length, 0)
@@ -69,6 +85,7 @@ function selectCell(state: ColorLinksState, position: CellPosition, now: number)
     successfulMoves: current.successfulMoves + 1,
     removedTiles: current.removedTiles + removedTiles,
     status: completed ? 'finished' : 'playing',
+    outcome: completed ? 'cleared' : null,
     nextTickAt: completed ? null : current.nextTickAt,
   }
 }
@@ -118,12 +135,19 @@ export function colorLinksReducer(state: ColorLinksState, action: ColorLinksActi
         board: state.board.map((row) => row.map(() => null)),
         removedTiles: state.removedTiles + strandedTiles,
         status: 'finished',
+        outcome: 'cleared',
         nextTickAt: null,
       }
     }
     case 'finish':
       return state.status === 'playing' || state.status === 'paused'
-        ? { ...state, status: 'finished', nextTickAt: null }
+        ? {
+            ...state,
+            elapsedSeconds: Math.min(state.elapsedSeconds, COLOR_LINKS_CONFIG.timeLimitSeconds),
+            status: 'finished',
+            outcome: 'time-limit',
+            nextTickAt: null,
+          }
         : state
     default:
       return assertNever(action)

@@ -83,8 +83,17 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
   onOpen: () => void
 }) {
   const isFruit = game.id === 'fruitSum'
-  const recordLabel = isFruit ? '本機最高分' : '最快完成'
-  const recordValue = isFruit ? highScore : formatBestTime(bestTimeSeconds)
+  const isColorLinks = game.id === 'colorLinks'
+  const recordLabel = isFruit
+    ? '本機最高分'
+    : isColorLinks
+      ? '最快清空 · 時限最高'
+      : '最快完成'
+  const recordValue = isFruit
+    ? highScore
+    : isColorLinks
+      ? `${formatBestTime(bestTimeSeconds)} · ${highScore} 格`
+      : formatBestTime(bestTimeSeconds)
   return (
     <article className={`game-choice-card game-${game.id}`} style={{ '--card-accent': game.accent } as React.CSSProperties}>
       <button type="button" className="game-card-hitbox" onClick={onOpen} aria-label={`開始 ${game.name}`} />
@@ -94,7 +103,7 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
         <p>{game.description}</p>
         <span className="local-record">{recordLabel} <strong>{recordValue}</strong></span>
       </div>
-      {isFruit ? <FruitPreview /> : game.id === 'colorLinks' ? <ColorPreview /> : <NumberPathPreview />}
+      {isFruit ? <FruitPreview /> : isColorLinks ? <ColorPreview /> : <NumberPathPreview />}
       <button type="button" className="game-start-button" onClick={onOpen}>
         開始遊戲 <span aria-hidden="true">↗</span>
       </button>

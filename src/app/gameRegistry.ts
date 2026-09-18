@@ -24,7 +24,7 @@ export const GAME_REGISTRY = [
     id: 'colorLinks',
     name: 'Color Links',
     eyebrow: 'COLOR SIGNAL',
-    description: '點擊空格，連結上下左右的相同色塊。',
+    description: '30 秒內點擊空格，連結上下左右的相同色塊。',
     route: '/games/color-links',
     status: 'available',
     accent: '#327b77',

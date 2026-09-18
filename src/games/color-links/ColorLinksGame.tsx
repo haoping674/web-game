@@ -44,6 +44,10 @@ function formatElapsedTime(seconds: number | undefined): string {
   return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
 }
 
+function remainingSeconds(elapsedSeconds: number): number {
+  return Math.max(0, COLOR_LINKS_CONFIG.timeLimitSeconds - elapsedSeconds)
+}
+
 function usePrefersReducedMotion(): boolean {
   const query = '(prefers-reduced-motion: reduce)'
   const [reduced, setReduced] = useState(() => window.matchMedia(query).matches)
@@ -66,6 +70,7 @@ export default function ColorLinksGame({
   const [effect, setEffect] = useState<ColorLinksEffect | null>(null)
   const [invalidCell, setInvalidCell] = useState<CellPosition | null>(null)
   const [bestTimeSeconds, setBestTimeSeconds] = useState(() => readAppStorage().games.colorLinks.bestTimeSeconds)
+  const [bestRemovedTiles, setBestRemovedTiles] = useState(() => readAppStorage().games.colorLinks.highScore)
   const [shareStatus, setShareStatus] = useState('')
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [tutorialSeen, setTutorialSeen] = useState(() => readAppStorage().games.colorLinks.tutorialSeen === true)
@@ -88,6 +93,8 @@ export default function ColorLinksGame({
   )
   const playing = game.status === 'playing'
   const paused = game.status === 'paused'
+  const clearedWithinLimit = game.outcome === 'cleared'
+  const timeRemaining = remainingSeconds(game.elapsedSeconds)
 
   const getAudio = () => {
     audio.current ??= new ColorLinksAudio()
@@ -137,13 +144,18 @@ export default function ColorLinksGame({
   }, [game.board, playing, remainingTiles, validMoves.length])
 
   useEffect(() => {
-    if (game.status !== 'finished' || recorded.current) return
+    if (game.status !== 'finished' || game.outcome === null || recorded.current) return
     recorded.current = true
-    const next = recordColorLinksResult(game.elapsedSeconds)
+    const next = recordColorLinksResult(
+      game.outcome === 'cleared'
+        ? { kind: 'cleared', completionSeconds: game.elapsedSeconds }
+        : { kind: 'time-limit', removedTiles: game.removedTiles },
+    )
     setBestTimeSeconds(next.games.colorLinks.bestTimeSeconds)
+    setBestRemovedTiles(next.games.colorLinks.highScore)
     onProgressChange()
     audio.current?.suspend()
-  }, [game.elapsedSeconds, game.status, onProgressChange])
+  }, [game.elapsedSeconds, game.outcome, game.removedTiles, game.status, onProgressChange])
 
   const clearTransientFeedback = () => {
     if (effectTimer.current !== null) window.clearTimeout(effectTimer.current)
@@ -158,7 +170,7 @@ export default function ColorLinksGame({
     clearTransientFeedback()
     recorded.current = false
     setShareStatus('')
-    setFeedback('點擊空格，連結兩個以上同色訊號。')
+    setFeedback(`在 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內清空所有色塊。`)
     dispatch({ type: 'start', now: Date.now(), board: generateBoard() })
   }
 
@@ -181,7 +193,7 @@ export default function ColorLinksGame({
     clearTransientFeedback()
     recorded.current = false
     setShareStatus('')
-    setFeedback('新的訊號盤已就緒。')
+    setFeedback(`新的訊號盤已就緒，倒數 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒。`)
     dispatch({ type: 'restart', now: Date.now(), board: generateBoard() })
   }
 
@@ -199,7 +211,7 @@ export default function ColorLinksGame({
       getAudio().playInvalid(globalSettings.soundEnabled, 0.45)
       setEffect(null)
       setInvalidCell(position)
-      setFeedback(`沒有形成連結，加 ${COLOR_LINKS_CONFIG.invalidPenaltySeconds} 秒。`)
+      setFeedback(`沒有形成連結，扣 ${COLOR_LINKS_CONFIG.invalidPenaltySeconds} 秒。`)
       if (invalidTimer.current !== null) window.clearTimeout(invalidTimer.current)
       invalidTimer.current = window.setTimeout(() => {
         invalidTimer.current = null
@@ -231,7 +243,9 @@ export default function ColorLinksGame({
   }
 
   const shareResult = async () => {
-    const text = `我在 Color Links 用時 ${formatElapsedTime(game.elapsedSeconds)} 清空了 ${game.removedTiles} 個色塊。`
+    const text = clearedWithinLimit
+      ? `我在 Color Links 的 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內，用時 ${formatElapsedTime(game.elapsedSeconds)} 清空了所有色塊。`
+      : `我在 Color Links 的 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內消除了 ${game.removedTiles} 個色塊。`
     try {
       if (navigator.share) {
         await navigator.share({ title: 'Color Links 成績', text, url: window.location.href })
@@ -255,12 +269,13 @@ export default function ColorLinksGame({
         <div className="color-start-copy">
           <p className="eyebrow">CLEAR THE SIGNAL GRID</p>
           <h1>讓相同色彩，<br />在空白中<em>全數相遇</em>。</h1>
-          <p>點擊空格，向四個方向尋找最近色塊。兩個以上同色訊號就能完成連結。</p>
+          <p>點擊空格，向四個方向尋找最近色塊。兩個以上同色訊號就能完成連結；在 30 秒內清空棋盤，才會記錄完成秒數。</p>
           <ul className="color-rule-chips" aria-label="玩法摘要">
             <li>只點空格</li>
             <li>同色 ≥ 2</li>
-            <li>清空即結算</li>
-            <li>失誤 +2 秒</li>
+            <li>30 秒倒數</li>
+            <li>逾時記消除數</li>
+            <li>失誤 −2 秒</li>
           </ul>
           <button type="button" className="primary-button color-primary" onClick={startGame}>
             開始串聯 <span aria-hidden="true">→</span>
@@ -297,10 +312,10 @@ export default function ColorLinksGame({
         </button>
       </header>
       <section className="color-hud" aria-label="遊戲資訊">
-        <div><span>色塊</span><strong>{remainingTiles}</strong></div>
-        <div><span>連結</span><strong>{game.successfulMoves}</strong></div>
-        <div><span>最快</span><strong>{formatElapsedTime(bestTimeSeconds)}</strong></div>
-        <div className="timer"><span>用時</span><Timer seconds={game.elapsedSeconds} label="用時" /></div>
+        <div><span>剩餘</span><strong>{remainingTiles}</strong></div>
+        <div><span>消除</span><strong>{game.removedTiles}</strong></div>
+        <div><span>最快清空</span><strong>{formatElapsedTime(bestTimeSeconds)}</strong></div>
+        <div className="timer"><span>倒數</span><Timer seconds={timeRemaining} label="剩餘時間" /></div>
         <button type="button" className="icon-button color-pause-button" aria-label="暫停遊戲" disabled={!playing} onClick={pauseGame}>Ⅱ</button>
       </section>
       {paused ? (
@@ -338,15 +353,18 @@ export default function ColorLinksGame({
 
       {game.status === 'finished' ? (
         <OverlayDialog label="Color Links 遊戲結果" onClose={restartGame}>
-          <p className="eyebrow">SIGNAL COMPLETE</p>
-          <h2>全數色塊已清空</h2>
-          <strong className="result-score color-result-score">{formatElapsedTime(game.elapsedSeconds)}</strong>
+          <p className="eyebrow">{clearedWithinLimit ? 'SIGNAL COMPLETE' : 'TIME LIMIT'}</p>
+          <h2>{clearedWithinLimit ? '全數色塊已清空' : '30 秒時間到'}</h2>
+          <strong className="result-score color-result-score">
+            {clearedWithinLimit ? formatElapsedTime(game.elapsedSeconds) : `${game.removedTiles} 格`}
+          </strong>
+          <p>{clearedWithinLimit ? '已記錄完成秒數。' : '已記錄本局消除色塊數。'}</p>
           <dl className="result-stats">
-            <div><dt>完成用時</dt><dd>{formatElapsedTime(game.elapsedSeconds)}</dd></div>
+            <div><dt>{clearedWithinLimit ? '完成用時' : '消除色塊'}</dt><dd>{clearedWithinLimit ? formatElapsedTime(game.elapsedSeconds) : game.removedTiles}</dd></div>
             <div><dt>移除色塊</dt><dd>{game.removedTiles}</dd></div>
             <div><dt>有效連結</dt><dd>{game.successfulMoves}</dd></div>
             <div><dt>無效點擊</dt><dd>{game.invalidMoves}</dd></div>
-            <div><dt>自動重排</dt><dd>{game.reshuffles}</dd></div>
+            <div><dt>{clearedWithinLimit ? '最快清空' : '時限最高'}</dt><dd>{clearedWithinLimit ? formatElapsedTime(bestTimeSeconds) : `${bestRemovedTiles} 格`}</dd></div>
           </dl>
           <div className="dialog-actions">
             <button type="button" className="primary-button color-primary" onClick={restartGame}>再玩一次</button>

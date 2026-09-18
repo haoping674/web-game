@@ -28,10 +28,12 @@ export type BoardQuality = {
 }
 
 export type ColorLinksStatus = 'ready' | 'playing' | 'paused' | 'finished'
+export type ColorLinksOutcome = 'cleared' | 'time-limit' | null
 
 export type ColorLinksState = {
   board: ColorLinksBoard
   status: ColorLinksStatus
+  outcome: ColorLinksOutcome
   score: number
   elapsedSeconds: number
   nextTickAt: number | null
