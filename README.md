@@ -1,12 +1,13 @@
 # Orchard Arcade
 
-Orchard Arcade 是一個包含三款手機友善小遊戲的 PWA：
+Orchard Arcade 是一個包含四款手機友善遊戲的 PWA：
 
 - **Orchard Ten**：在水果棋盤中框選相鄰方格，讓總和恰好等於 10。
 - **Color Links**：點擊空格，向上、下、左、右尋找最近色塊，連結至少兩個同色訊號。
 - **芽芽小島**：點擊陽光、種植精靈、合成同級居民，透過遠航累積永久產量加成。沒有倒數與失敗條件。
+- **灰燼墓誌（Ashbound）**：原創暗黑地城 Roguelite，三職業、分岔探索、技能冷卻、隨機遺物與死亡傳承，挑戰第十層首領。
 
-兩款遊戲均為獨立原創實作。Orchard Ten 的核心玩法靈感來自 [Fruit Box](https://en.gamesaien.com/game/fruit_box/)；Color Links 的方向搜尋概念受到 [Color Tiles](https://en.gamesaien.com/game/color_tiles/) 啟發。專案不使用參考遊戲的名稱、品牌、版面、美術、字體、音效或素材。
+遊戲均為獨立原創實作。Orchard Ten 的核心玩法靈感來自 [Fruit Box](https://en.gamesaien.com/game/fruit_box/)；Color Links 的方向搜尋概念受到 [Color Tiles](https://en.gamesaien.com/game/color_tiles/) 啟發；灰燼墓誌的分岔探索與技能選擇式戰鬥受到 [Buriedbornes](https://nussygame.com/en/bb1/about/) 啟發。專案不使用參考遊戲的品牌、版面、美術、字體、音效或素材。
 
 ## 資訊架構
 
@@ -15,12 +16,25 @@ Orchard Arcade 是一個包含三款手機友善小遊戲的 PWA：
 ├─ 遊戲選擇首頁
 ├─ /games/fruit-sum
 ├─ /games/color-links
-└─ /games/sprout-island
+├─ /games/sprout-island
+└─ /games/ashbound
 ```
 
 路由使用瀏覽器 History API 的輕量封裝，支援直接 URL、重新整理、返回／前進與 PWA navigation fallback。遊戲資料由集中式 `GAME_REGISTRY` 產生首頁卡片及路由，不在多處重複維護。
 
 ## 遊戲模式
+
+### 灰燼墓誌
+
+- 三個可直接選擇的職業：守墓人、燼火巫、渡魂者；每職業五個起始技能，八種技能可構成重擊、防禦、中毒、汲取與斬殺流派。
+- 十層地城，每層三室。每步二選一，包含戰鬥、精英、營地、祭壇與寶箱；第五、十層最後一室必須挑戰首領。擊敗無晝之王即可通關。
+- 敵人的下次攻擊可見，每第三回合為重擊；有效技能行動後敵人反擊一次。技能冷卻按其他行動遞減、跨戰鬥保留，斬擊始終可用。沒有即時倒數。
+- 中毒每層造成 3 傷害，持續整場戰鬥；獵犬的腐蝕增加承傷，餘燼癒合可清除。守夜當回合減傷 80%。
+- 武器、護甲、遺物各一格。戰利品提供新舊數值比較，可替換或放棄；技能記憶可替換斬擊以外的技能。一般戰鬥提供 1 經驗，精英／首領 2，滿 3 升級並回復 30% 生命。
+- 死亡或主動結束後失去本次裝備與等級，保留 `擊敗數 × 2 + 層數` 魂燼，通關額外 +25。魂燼可購買五級永久傳承，每級 +5 生命、+1 攻擊。
+- 使用獨立的 `orchard-ashbound-v1` 版本化本機存檔，每次行動自動保存，可返回遊戲廳或重新整理續玩；未知／損壞資料安全回退。清除網站資料會刪除進度。
+- 無外部素材或網路服務依賴，SVG 角色為原創向量插畫。支援手機、鍵盤、玩法說明、結束確認與存檔失敗提示。
+- `src/games/ashbound/model.test.ts` 驗證戰鬥、裝備取捨、傳承與存檔；另以三職業各 20 個固定種子模擬完整遠征，確認無卡關且每步可重載。平台整合測試涵蓋進出遊戲與續玩。
 
 ### 芽芽小島
 
@@ -54,7 +68,9 @@ src/
 ├─ app/                         # registry、History router、首頁
 ├─ games/
 │  ├─ fruit-sum/               # 原有水果遊戲的路由包裝
-│  └─ color-links/             # 獨立規則、reducer、UI、音效
+│  ├─ color-links/             # 獨立規則、reducer、UI、音效
+│  ├─ sprout-island/           # 放置成長、合成與遠航
+│  └─ ashbound/                # 地城狀態機、回合戰、存檔與 UI
 ├─ shared/
 │  ├─ components/              # 平台 header、共用設定
 │  └─ storage/                 # 版本化平台資料與遷移
@@ -75,7 +91,7 @@ Color Links 不共用 Orchard Ten 的 reducer、棋盤狀態或音效主題。�
 
 - 支援 Android Chrome 與桌面 Chrome 安裝為獨立 App。
 - iPhone／iPad Safari 提供「分享 → 加入主畫面」的手動安裝說明。
-- 首次成功載入並完成 Service Worker 安裝後，首頁與平台 shell 可離線使用。遊戲引擎在首次進入該遊戲後以 Cache First 保存，之後可離線重新整理該遊戲 URL。
+- 首次成功載入並完成 Service Worker 安裝後，首頁、平台 shell 與四款遊戲的 JS/CSS 已預先快取，可離線進入或重新整理各遊戲 URL。
 - 網路中斷與恢復時顯示不遮擋棋盤的狀態提示。
 - 新版本下載完成後只顯示更新入口；進行中的回合不會被重新整理。回到首頁或結算後，玩家可選擇立即更新或稍後。
 - 遊戲設定與經典模式統計存放在 localStorage，並保有版本化資料遷移、正規化與損壞 JSON 防護；不會放進 Cache Storage。
@@ -95,7 +111,7 @@ Color Links 不共用 Orchard Ten 的 reducer、棋盤狀態或音效主題。�
 本專案使用 `vite-plugin-pwa` 的 `generateSW` 模式，由 Workbox 依 production build 的輸出自動產生 precache manifest。這比手寫攔截器更容易隨每次 Vite 雜湊檔名更新，並能清除過期快取。
 
 - HTML shell、共用 JS/CSS、本機圖片、SVG 與 App icons：由 precache 採 Cache First。
-- `FruitSumGame`、`ColorLinksGame` 及遊戲共用計時 hook：不在首頁安裝時下載，首次進入對應遊戲後才由獨立 runtime cache 保存。
+- 四款遊戲模組與共用 hook：程式碼依路由延遲執行，Service Worker 安裝時會預先快取全部 build 輸出，以便首次離線進入遊戲。
 - 同站內導覽：使用 Workbox navigation fallback 回到同一份 App shell，網路失敗時仍可離線啟動。
 - 本機音效（若日後加入）：納入 build 輸出後會隨 precache 一起下載。
 - 外部連結、分析服務與參考網站：沒有 runtime caching 規則，因此不會被 Service Worker 快取或攔截。

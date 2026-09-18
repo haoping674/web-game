@@ -22,6 +22,14 @@ function createStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe('platform storage', () => {
+  it('adds Ashbound to existing saves without changing other games', () => {
+    const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { fruitSum: { highScore: 42, gamesPlayed: 3 }, sproutIsland: { highScore: 8, gamesPlayed: 2 } } }) })
+    expect(readAppStorage(storage).games.ashbound).toEqual({ highScore: 0, gamesPlayed: 0 })
+    recordGameResult('ashbound', 10, storage)
+    expect(readAppStorage(storage).games.ashbound).toMatchObject({ highScore: 10, gamesPlayed: 1 })
+    expect(readAppStorage(storage).games.fruitSum).toEqual({ highScore: 42, gamesPlayed: 3 })
+    expect(readAppStorage(storage).games.sproutIsland).toEqual({ highScore: 8, gamesPlayed: 2 })
+  })
   it('migrates legacy Orchard Ten progress and shared preferences without deleting the legacy record', () => {
     const legacy = JSON.stringify({
       version: 5,

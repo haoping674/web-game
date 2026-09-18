@@ -68,10 +68,11 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
 }) {
   const isFruit = game.id === 'fruitSum'
   const isSprout = game.id === 'sproutIsland'
-  const recordLabel = isSprout ? '最高精靈等級' : isFruit
+  const isAshbound = game.id === 'ashbound'
+  const recordLabel = isAshbound ? '最深探索紀錄' : isSprout ? '最高精靈等級' : isFruit
     ? '本機最高分'
     : '最快清空 · 時限最高'
-  const recordValue = isSprout ? `Lv. ${highScore || 1}` : isFruit
+  const recordValue = isAshbound ? `地下 ${highScore} 層` : isSprout ? `Lv. ${highScore || 1}` : isFruit
     ? highScore
     : `${formatBestTime(bestTimeSeconds)} · ${highScore} 格`
   return (
@@ -83,7 +84,7 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
         <p>{game.description}</p>
         <span className="local-record">{recordLabel} <strong>{recordValue}</strong></span>
       </div>
-      {isSprout ? <div className="home-preview sprout-preview" aria-hidden="true"><span>✦</span><strong>🌱</strong><i>Lv. ∞</i></div> : isFruit ? <FruitPreview /> : <ColorPreview />}
+      {isAshbound ? <div className="home-preview ash-preview" aria-hidden="true"><span>†</span></div> : isSprout ? <div className="home-preview sprout-preview" aria-hidden="true"><span>✦</span><strong>🌱</strong><i>Lv. ∞</i></div> : isFruit ? <FruitPreview /> : <ColorPreview />}
       <button type="button" className="game-start-button" onClick={onOpen}>
         開始遊戲 <span aria-hidden="true">↗</span>
       </button>
@@ -146,7 +147,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
           <p className="eyebrow">SMALL GAMES · LITTLE EVERYDAY JOYS</p>
           <h1>今天，來玩點<br /><em>讓心情發芽</em>的小遊戲。</h1>
         </div>
-        <p className="home-intro">動動腦，或慢慢養一座小島。三款簡單小遊戲，各自保存進度，隨時回來接著玩。</p>
+        <p className="home-intro">動動腦、慢慢養一座小島，或深入未知地城。四款遊戲，各自保存進度，隨時回來接著玩。</p>
       </section>
       <section className="game-choice-grid" aria-label="選擇遊戲">
         {GAME_REGISTRY.map((game) => (

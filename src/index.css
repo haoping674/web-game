@@ -219,3 +219,6 @@ h1,h2,.platform-wordmark,.game-card-copy h2,.mode-summary strong,.score-snapshot
 .sprout-preview { position:relative; display:grid; place-items:center; aspect-ratio:1; background:#dce6bb; border-radius:45% 55% 42% 48%; border:2px solid #93ad71; box-shadow:0 9px 0 #a4bc86; transform:rotate(-8deg); }
 .sprout-preview strong { font-size:80px; line-height:1; }.sprout-preview>span { position:absolute; right:13%; top:10%; color:#bd8c26; font-size:28px; }.sprout-preview i { position:absolute; bottom:9%; font:700 16px 'DM Mono',monospace; color:#467b48; }
 .game-sproutIsland { background:#f4f4df; }
+.game-ashbound { background: #e0e3d8; }
+.ash-preview { color: #334a41; display: grid; place-items: center; }
+.ash-preview span { font: 100px Georgia, serif; border: 1px solid #839484; border-radius: 90px 90px 0 0; padding: 12px 35px; }

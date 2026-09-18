@@ -32,6 +32,28 @@ async function startColorLinks(): Promise<void> {
 }
 
 describe('platform routing and lazy game lifecycle', () => {
+  it('opens Ashbound, fights, resumes after navigation, and settles retirement once', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '開始 灰燼墓誌' }))
+    fireEvent.click(await screen.findByRole('button', { name: /喚醒守墓人/ }))
+    fireEvent.click(screen.getByRole('button', { name: /亡者迴廊/ }))
+    fireEvent.click(screen.getByRole('button', { name: '破墓重斬' }))
+    expect(screen.getByRole('button', { name: '破墓重斬，冷卻 2 回合' })).toBeDisabled()
+    const saveBefore = localStorage.getItem('orchard-ashbound-v1')
+    fireEvent.click(screen.getByRole('button', { name: '遊戲廳' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始 灰燼墓誌' }))
+    expect(await screen.findByRole('button', { name: '破墓重斬，冷卻 2 回合' })).toBeDisabled()
+    expect(localStorage.getItem('orchard-ashbound-v1')).toBe(saveBefore)
+    fireEvent.click(screen.getByRole('button', { name: '結束這次遠征' }))
+    fireEvent.click(screen.getByRole('button', { name: '繼續遠征' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '結束這次遠征' }))
+    fireEvent.click(screen.getByRole('button', { name: '確認結束並結算' }))
+    expect(screen.getByRole('heading', { name: '此身長眠。餘火不滅。' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /返回墓前/ }))
+    expect(JSON.parse(localStorage.getItem('orchard-ashbound-v1')!).runs).toBe(1)
+    expect(screen.getByRole('button', { name: /喚醒守墓人/ })).toBeInTheDocument()
+  })
   it('opens Sprout Island from the lobby, merges residents, and keeps progress on return', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: '開始 芽芽小島' }))

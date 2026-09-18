@@ -39,6 +39,7 @@ export const DEFAULT_APP_STORAGE: AppStorage = {
     fruitSum: DEFAULT_PROGRESS,
     colorLinks: { ...DEFAULT_PROGRESS },
     sproutIsland: { ...DEFAULT_PROGRESS },
+    ashbound: { ...DEFAULT_PROGRESS },
   },
 }
 
@@ -162,6 +163,7 @@ export function readAppStorage(storage?: Storage): AppStorage {
         },
         colorLinks: normalizeColorLinksProgress(games.colorLinks),
         sproutIsland: normalizeProgress(games.sproutIsland),
+        ashbound: normalizeProgress(games.ashbound),
       },
     }
   } catch {

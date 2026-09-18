@@ -21,7 +21,7 @@ export default defineConfig(() => {
         manifest: {
           name: 'Orchard Arcade',
           short_name: 'Orchard Arcade',
-          description: 'Three little games: Sprout Island, Orchard Ten and Color Links.',
+          description: 'Four games: Ashbound, Sprout Island, Orchard Ten and Color Links.',
           start_url: base,
           scope: base,
           display: 'standalone',

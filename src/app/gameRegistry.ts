@@ -1,4 +1,4 @@
-export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland'
+export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound'
 
 export type GameDefinition = {
   id: GameId
@@ -11,6 +11,15 @@ export type GameDefinition = {
 }
 
 export const GAME_REGISTRY = [
+  {
+    id: 'ashbound',
+    name: '灰燼墓誌',
+    eyebrow: 'ASHBOUND · DESCEND AGAIN',
+    description: '選路、拾取遺物、安排每一回合。帶著餘火，挑戰十層暗黑地城。',
+    route: '/games/ashbound',
+    status: 'available',
+    accent: '#52664f',
+  },
   {
     id: 'sproutIsland',
     name: '芽芽小島',
