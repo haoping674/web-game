@@ -85,7 +85,6 @@ describe('platform storage', () => {
         games: {
           fruitSum: { highScore: 0, gamesPlayed: 0 },
           colorLinks: { highScore: 41, bestTimeSeconds: 46, gamesPlayed: 3 },
-          numberPath: { highScore: 0, gamesPlayed: 0 },
         },
       }),
     })

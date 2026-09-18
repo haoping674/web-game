@@ -53,22 +53,6 @@ function ColorPreview() {
   )
 }
 
-function NumberPathPreview() {
-  return (
-    <div className="home-preview number-path-preview" aria-hidden="true">
-      <div className="preview-number-grid">
-        <span>1</span><i /><i /><span>4</span>
-        <i /><span>6</span><i /><i />
-        <i /><i /><span>11</span><i />
-        <span>16</span><i /><i /><i />
-      </div>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-        <path d="M14 14H86V38H14V62H86V86H14" />
-      </svg>
-    </div>
-  )
-}
-
 function formatBestTime(seconds: number | undefined): string {
   if (seconds === undefined) return '--:--'
   const minutes = Math.floor(seconds / 60)
@@ -83,17 +67,12 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
   onOpen: () => void
 }) {
   const isFruit = game.id === 'fruitSum'
-  const isColorLinks = game.id === 'colorLinks'
   const recordLabel = isFruit
     ? '本機最高分'
-    : isColorLinks
-      ? '最快清空 · 時限最高'
-      : '最快完成'
+    : '最快清空 · 時限最高'
   const recordValue = isFruit
     ? highScore
-    : isColorLinks
-      ? `${formatBestTime(bestTimeSeconds)} · ${highScore} 格`
-      : formatBestTime(bestTimeSeconds)
+    : `${formatBestTime(bestTimeSeconds)} · ${highScore} 格`
   return (
     <article className={`game-choice-card game-${game.id}`} style={{ '--card-accent': game.accent } as React.CSSProperties}>
       <button type="button" className="game-card-hitbox" onClick={onOpen} aria-label={`開始 ${game.name}`} />
@@ -103,7 +82,7 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
         <p>{game.description}</p>
         <span className="local-record">{recordLabel} <strong>{recordValue}</strong></span>
       </div>
-      {isFruit ? <FruitPreview /> : isColorLinks ? <ColorPreview /> : <NumberPathPreview />}
+      {isFruit ? <FruitPreview /> : <ColorPreview />}
       <button type="button" className="game-start-button" onClick={onOpen}>
         開始遊戲 <span aria-hidden="true">↗</span>
       </button>
@@ -163,10 +142,10 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
       <AppHeader onSettings={onSettings} />
       <section className="home-hero">
         <div>
-          <p className="eyebrow">THREE SMALL PUZZLES · ONE QUIET ARCADE</p>
-          <h1>今天想動動<br /><em>數字</em>、<span className="home-inline-signal" aria-hidden="true" /> <em>色彩</em>，還是<em>路徑</em>？</h1>
+          <p className="eyebrow">TWO SMALL PUZZLES · ONE QUIET ARCADE</p>
+          <h1>今天想動動<br /><em>數字</em>，還是 <span className="home-inline-signal" aria-hidden="true" /> <em>色彩</em>？</h1>
         </div>
-        <p className="home-intro">三款短局益智遊戲，各自保存進度。選一張遊戲卡，馬上開始。</p>
+        <p className="home-intro">兩款短局益智遊戲，各自保存進度。選一張遊戲卡，馬上開始。</p>
       </section>
       <section className="game-choice-grid" aria-label="選擇遊戲">
         {GAME_REGISTRY.map((game) => (
