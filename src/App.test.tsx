@@ -32,6 +32,16 @@ async function startColorLinks(): Promise<void> {
 }
 
 describe('platform routing and lazy game lifecycle', () => {
+  it('opens Sprout Island from the lobby, merges residents, and keeps progress on return', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '開始 芽芽小島' }))
+    fireEvent.click(await screen.findByRole('button', { name: '第 1 格，等級 1 豆豆芽' }))
+    fireEvent.click(screen.getByRole('button', { name: '第 2 格，等級 1 豆豆芽，可合成' }))
+    expect(screen.getByRole('button', { name: '第 2 格，等級 2 小葉球' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '遊戲廳' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始 芽芽小島' }))
+    expect(await screen.findByRole('button', { name: '第 2 格，等級 2 小葉球' })).toBeInTheDocument()
+  })
   it('shows both registered games on the home page and routes each card correctly', () => {
     render(<App />)
     expect(screen.getByRole('heading', { name: 'Orchard Ten' })).toBeInTheDocument()

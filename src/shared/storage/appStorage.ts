@@ -38,6 +38,7 @@ export const DEFAULT_APP_STORAGE: AppStorage = {
   games: {
     fruitSum: DEFAULT_PROGRESS,
     colorLinks: { ...DEFAULT_PROGRESS },
+    sproutIsland: { ...DEFAULT_PROGRESS },
   },
 }
 
@@ -160,6 +161,7 @@ export function readAppStorage(storage?: Storage): AppStorage {
           gamesPlayed: Math.max(storedFruit.gamesPlayed, legacy.progress.gamesPlayed),
         },
         colorLinks: normalizeColorLinksProgress(games.colorLinks),
+        sproutIsland: normalizeProgress(games.sproutIsland),
       },
     }
   } catch {

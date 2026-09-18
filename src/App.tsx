@@ -9,6 +9,7 @@ import './index.css'
 
 const FruitSumGame = lazy(() => import('./games/fruit-sum/FruitSumGame'))
 const ColorLinksGame = lazy(() => import('./games/color-links/ColorLinksGame'))
+const SproutIslandGame = lazy(() => import('./games/sprout-island/SproutIslandGame'))
 
 type RouteErrorBoundaryProps = { children: ReactNode; onHome: () => void }
 type RouteErrorBoundaryState = { failed: boolean }
@@ -51,9 +52,9 @@ function App() {
   const [pathname, go] = useAppPathname()
   const [storage, setStorage] = useState<AppStorage>(readAppStorage)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const fruitRoute = GAME_REGISTRY[0].route
-  const colorRoute = GAME_REGISTRY[1].route
-  const knownRoute = pathname === HOME_ROUTE || pathname === fruitRoute || pathname === colorRoute
+  const fruitRoute = '/games/fruit-sum'
+  const colorRoute = '/games/color-links'
+  const knownRoute = pathname === HOME_ROUTE || GAME_REGISTRY.some((game) => game.route === pathname)
 
   useEffect(() => {
     if (!knownRoute) navigate(HOME_ROUTE, { replace: true })
@@ -99,6 +100,8 @@ function App() {
                   onProgressChange={refreshStorage}
                   platformSettingsOpen={settingsOpen}
                 />
+              ) : pathname === '/games/sprout-island' ? (
+                <SproutIslandGame globalSettings={storage.globalSettings} onProgressChange={refreshStorage} />
               ) : null}
             </Suspense>
           </RouteErrorBoundary>

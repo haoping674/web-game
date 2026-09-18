@@ -1,9 +1,10 @@
 # Orchard Arcade
 
-Orchard Arcade 是一個包含兩款限時益智遊戲的小型 PWA：
+Orchard Arcade 是一個包含三款手機友善小遊戲的 PWA：
 
 - **Orchard Ten**：在水果棋盤中框選相鄰方格，讓總和恰好等於 10。
 - **Color Links**：點擊空格，向上、下、左、右尋找最近色塊，連結至少兩個同色訊號。
+- **芽芽小島**：點擊陽光、種植精靈、合成同級居民，透過遠航累積永久產量加成。沒有倒數與失敗條件。
 
 兩款遊戲均為獨立原創實作。Orchard Ten 的核心玩法靈感來自 [Fruit Box](https://en.gamesaien.com/game/fruit_box/)；Color Links 的方向搜尋概念受到 [Color Tiles](https://en.gamesaien.com/game/color_tiles/) 啟發。專案不使用參考遊戲的名稱、品牌、版面、美術、字體、音效或素材。
 
@@ -13,12 +14,23 @@ Orchard Arcade 是一個包含兩款限時益智遊戲的小型 PWA：
 /
 ├─ 遊戲選擇首頁
 ├─ /games/fruit-sum
-└─ /games/color-links
+├─ /games/color-links
+└─ /games/sprout-island
 ```
 
 路由使用瀏覽器 History API 的輕量封裝，支援直接 URL、重新整理、返回／前進與 PWA navigation fallback。遊戲資料由集中式 `GAME_REGISTRY` 產生首頁卡片及路由，不在多處重複維護。
 
 ## 遊戲模式
+
+### 芽芽小島
+
+- 12 格小島；點選兩隻同級精靈即可合成，支援觸控與鍵盤按鈕操作。
+- 精靈每秒自動生產陽光；升級種子可直接種出更高級居民。滿格時可合成或確認送行。
+- 島上最高等級達 Lv. 8 可遠航；重置居民、陽光與種子，保留最高紀錄與星星。每顆星永久增加 1 倍產量，可反覆累積。
+- `orchard-sprout-island-v1` 獨立本機存檔，背景與離線收益最多累積 8 小時；清除瀏覽器資料會移除進度。
+- 資源及永久星星使用 BigInt，避免成長數值超出 Number 精度。尊重系統與平台減少動態效果設定。
+
+### Orchard Ten
 
 - 經典模式：120 秒標準節奏，3 次提示。
 - Orchard Ten 僅提供經典模式；既有 Classic 成績會持續保留。

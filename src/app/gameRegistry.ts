@@ -1,4 +1,4 @@
-export type GameId = 'fruitSum' | 'colorLinks'
+export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland'
 
 export type GameDefinition = {
   id: GameId
@@ -11,6 +11,15 @@ export type GameDefinition = {
 }
 
 export const GAME_REGISTRY = [
+  {
+    id: 'sproutIsland',
+    name: '芽芽小島',
+    eyebrow: 'GROW A LITTLE · DREAM FOREVER',
+    description: '點點陽光，合成精靈。把小小的島，養成無限可能。',
+    route: '/games/sprout-island',
+    status: 'available',
+    accent: '#467b48',
+  },
   {
     id: 'fruitSum',
     name: 'Orchard Ten',
