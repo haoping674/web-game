@@ -80,6 +80,41 @@ src/
 
 Color Links 不共用 Orchard Ten 的 reducer、棋盤狀態或音效主題。平台層只共用導覽、全域音效／動態偏好與各遊戲的摘要進度。
 
+## Neon 線上排行榜
+
+遊戲結束後自動檢查榜單，暫列前 10 名時可自選填寫 1–20 字的公開名字並登錄。首頁的「查看線上排行榜」可切換榜單；不需註冊或登入。
+
+| 榜單 | 成績與排序 |
+| --- | --- |
+| Orchard Ten 經典 | 分數越高越前面 |
+| Color Links 最快清空 | 僅清空回合，遊戲計算的秒數越低越前面（含失誤扣秒） |
+| Color Links 逾時消除 | 僅未清空回合，消除格數越高越前面 |
+| 灰燼墓誌單次魂燼 | 擊敗數 × 2 + 層數 + 通關 25；含永久傳承的遠征 |
+
+同分由較早登錄者優先。榜單未滿時，零分也可入榜；最快清空可為 0 秒。芽芽小島沒有結束條件，維持本機進度。每局成績可佔一名，同名不合併。榜單顯示目前前 10 名，資料庫保留曾經成功登錄的成績以處理重試。
+
+### 本機設定與資料庫初始化
+
+1. 在 Neon 建立 Postgres 資料庫，複製其連線字串。
+2. 複製 `.env.example` 成 `.env.local`，填入 `DATABASE_URL`。**不得使用 `VITE_DATABASE_URL`**，避免密碼進入瀏覽器。
+3. 執行 `npm run db:migrate`，建立 `database/001_leaderboards.sql` 中的資料表、索引與登錄函式。可重複執行；不會清空現有紀錄。
+4. 執行 `npm run dev`；Vite 已提供 `/api/leaderboard` 的本機後端。`npm run preview` 也支援同一 API。
+
+資料庫連線只存在後端，使用 [Neon serverless driver](https://github.com/neondatabase/serverless)。`DATABASE_URL` 未設定或連線失敗時，畫面顯示重試提示，原本遊戲與本機紀錄仍可使用。離線結算不會偷偷排隊上傳；需在結算畫面恢復連線後重試。
+
+### 部署（預設 Vercel）
+
+- Vercel 使用 Vite 專案設定，build 為 `npm run build`、輸出 `dist`；`api/leaderboard.ts` 是 [Node.js Web Handler](https://vercel.com/docs/functions/runtimes/node-js)。
+- 在 Vercel 的環境變數設定 `DATABASE_URL`，並先對相同資料庫執行 `npm run db:migrate`，再部署。Preview 建議使用獨立的 Neon branch。
+- `vercel.json` 保留遊戲路由的 SPA fallback；`/api/` 不會進入 Service Worker navigation fallback，也不快取排行榜。
+- 純 GitHub Pages／只上傳 `dist` 的靜態主機不能執行 API；其他平台需將 `server/leaderboard.ts` 的 Request/Response handler 接到同源 `/api/leaderboard`，並設定伺服器環境變數。
+
+### 排名一致性與限制
+
+`GET /api/leaderboard?board=fruit-classic&score=50` 查榜及暫定資格；`POST /api/leaderboard` 接收 `{ board, score, name, submissionId }`。伺服器驗證榜單、整數範圍、名字與 UUID；資料庫以每榜 advisory transaction lock 在同一交易內重新判定資格、插入並回傳最新榜單。若填寫時被擠出前 10 名，不會寫入或顯示成功。UUID 唯一鍵讓網路重試不會重複登錄，同一 UUID 不可改名或改分。
+
+目前是匿名、信任客戶端分數的休閒排行榜；範圍驗證與入榜判斷不等於防作弊，也沒有帳號唯一性、完整遊戲重播驗證或流量限制。有競賽需求時需另加伺服器驗證與平台限流。測試使用 PGlite 執行同一份 Postgres schema；不代表已驗證真實 Neon 連線或跨連線鎖競爭。
+
 ## 本機資料與遷移
 
 - 平台資料使用版本化 key `orchard-arcade-v1`。

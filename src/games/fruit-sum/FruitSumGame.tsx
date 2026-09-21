@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { AboutDialog } from '../../components/AboutDialog'
 import { Footer } from '../../components/Footer'
 import { GameScreen } from '../../components/GameScreen'
@@ -61,6 +61,7 @@ export default function FruitSumGame({
   const [resumeAfterTutorial, setResumeAfterTutorial] = useState(false)
   const install = useInstallPrompt()
   const networkNotice = useNetworkStatus()
+  const recordedRound = useRef(false)
 
   useEffect(() => {
     setData((current) => {
@@ -92,26 +93,27 @@ export default function FruitSumGame({
   }
 
   useEffect(() => {
-    if (game.status !== 'finished') return
+    if (game.status !== 'finished') { recordedRound.current = false; return }
+    if (recordedRound.current) return
+    recordedRound.current = true
     const clearedPerMinute = clearsPerMinute(
       game.clearedFruitCount,
       getModeRoundSeconds(game.mode) - game.secondsLeft,
     )
-    setData((current) => {
-      const next = recordFinishedRound(
-        current,
-        game.mode,
-        game.score,
-        game.clearedFruitCount,
-        game.bestCombo,
-        clearedPerMinute,
-      )
-      recordGameResult('fruitSum', game.score)
-      saveGameData(next)
-      onProgressChange()
-      return next
-    })
+    const next = recordFinishedRound(
+      data,
+      game.mode,
+      game.score,
+      game.clearedFruitCount,
+      game.bestCombo,
+      clearedPerMinute,
+    )
+    setData(next)
+    recordGameResult('fruitSum', game.score)
+    saveGameData(next)
+    onProgressChange()
   }, [
+    data,
     game.bestCombo,
     game.clearedFruitCount,
     game.mode,

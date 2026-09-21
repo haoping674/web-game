@@ -1,4 +1,5 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import { LeaderboardDialog } from '../shared/leaderboard/LeaderboardDialog'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -93,10 +94,12 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
 }
 
 export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false)
   const shellRef = useRef<HTMLElement>(null)
   const motionEnabled = !data.globalSettings.reducedMotion && data.globalSettings.effectIntensity === 'full'
   const canRunScrollMotion = motionEnabled
     && typeof window.matchMedia === 'function'
+    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
     && document.documentElement.clientHeight > 0
 
   useGSAP(() => {
@@ -147,7 +150,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
           <p className="eyebrow">SMALL GAMES · LITTLE EVERYDAY JOYS</p>
           <h1>今天，來玩點<br /><em>讓心情發芽</em>的小遊戲。</h1>
         </div>
-        <p className="home-intro">動動腦、慢慢養一座小島，或深入未知地城。四款遊戲，各自保存進度，隨時回來接著玩。</p>
+        <div><p className="home-intro">動動腦、慢慢養一座小島，或深入未知地城。四款遊戲，各自保存進度，隨時回來接著玩。</p><button type="button" className="quiet-button home-leaderboard-button" onClick={() => setLeaderboardOpen(true)}>查看線上排行榜 ↗</button></div>
       </section>
       <section className="game-choice-grid" aria-label="選擇遊戲">
         {GAME_REGISTRY.map((game) => (
@@ -180,9 +183,10 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
       </div>
       <footer className="platform-footer">
         <span>ORCHARD ARCADE · LOCAL-FIRST PLAY</span>
-        <span>進度只儲存在這台裝置</span>
+        <span>遊戲進度儲存在本機 · 自選登錄線上前 10 名</span>
       </footer>
       <PwaUpdateNotice isGameActive={false} />
+      {leaderboardOpen ? <LeaderboardDialog onClose={() => setLeaderboardOpen(false)} /> : null}
     </main>
   )
 }

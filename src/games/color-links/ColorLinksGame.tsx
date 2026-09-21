@@ -26,6 +26,7 @@ import {
 import { ColorLinksBoard, type ColorLinksEffect } from './ColorLinksBoard'
 import { ColorLinksTutorialDialog } from './ColorLinksTutorialDialog'
 import type { CellPosition, MatchGroup } from './types'
+import { LeaderboardPanel } from '../../shared/leaderboard/LeaderboardPanel'
 
 type ColorLinksGameProps = {
   globalSettings: GlobalSettings
@@ -366,6 +367,7 @@ export default function ColorLinksGame({
             <div><dt>無效點擊</dt><dd>{game.invalidMoves}</dd></div>
             <div><dt>{clearedWithinLimit ? '最快清空' : '時限最高'}</dt><dd>{clearedWithinLimit ? formatElapsedTime(bestTimeSeconds) : `${bestRemovedTiles} 格`}</dd></div>
           </dl>
+          <LeaderboardPanel board={clearedWithinLimit ? 'color-time' : 'color-removed'} score={clearedWithinLimit ? game.elapsedSeconds : game.removedTiles} />
           <div className="dialog-actions">
             <button type="button" className="primary-button color-primary" onClick={restartGame}>再玩一次</button>
             <button type="button" className="quiet-button share-button" onClick={() => void shareResult()}>分享成績 ↗</button>

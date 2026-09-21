@@ -1,0 +1,26 @@
+.leaderboard-panel { margin: 24px 0; padding-top: 18px; border-top: 1px solid currentColor; text-align: left; width: 100%; min-width: 0; font-size: 14px; }
+.leaderboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.leaderboard-heading h3 { margin: 0; font-size: 16px; }
+.leaderboard-heading > span { flex-shrink: 0; font-size: 11px; letter-spacing: .08em; }
+.leaderboard-panel .leaderboard-rule { font-size: 12px; line-height: 1.7; margin: 8px 0 14px; opacity: .8; }
+.leaderboard-notice { font-weight: 650; line-height: 1.6; }
+.leaderboard-form label { display: block; margin: 10px 0 6px; font-weight: 600; }
+.leaderboard-input-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.leaderboard-input-row input, .leaderboard-selector select { min-width: 0; padding: 10px 12px; font: inherit; color: inherit; border: 1px solid currentColor; border-radius: 8px; background: transparent; }
+.leaderboard-input-row input { flex: 1 1 130px; width: 100%; font-size: 16px; }
+.leaderboard-input-row .primary-button { font-size: 13px; min-height: 44px; padding: 10px 12px; flex: 1 1 auto; }
+.leaderboard-form small { display: block; margin-top: 8px; line-height: 1.6; font-size: 11px; opacity: .8; }
+.leaderboard-list { margin: 16px 0 0; padding: 0; list-style: none; }
+.leaderboard-list li { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent); }
+.leaderboard-rank { opacity: .65; font-variant-numeric: tabular-nums; font-size: 12px; }
+.leaderboard-name { overflow-wrap: anywhere; }
+.leaderboard-list strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.leaderboard-list small { font-size: 11px; font-weight: 400; }
+.leaderboard-selector { display: grid; gap: 8px; text-align: left; margin-top: 20px; }
+.leaderboard-selector select { width: 100%; }
+.leaderboard-error { line-height: 1.6; }
+.leaderboard-error p { margin-bottom: 8px; }
+.leaderboard-empty { padding: 12px 0; line-height: 1.7; }
+.home-leaderboard-button { margin-top: 18px; }
+.ash-game .leaderboard-panel { color: var(--ash-text, #e3e4d5); }
+.ash-game .leaderboard-input-row .primary-button { background: #d8b47d; color: #17201c; }
