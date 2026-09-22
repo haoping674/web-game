@@ -3,7 +3,8 @@ export type SkillId = 'strike' | 'cleave' | 'guard' | 'mend' | 'venom' | 'fire' 
 export type Room = 'battle' | 'elite' | 'rest' | 'shrine' | 'treasure' | 'boss'
 export type Slot = 'weapon' | 'armor' | 'charm'
 export type Gear = { name: string; slot: Slot; power: number; vitality: number; defense: number; leech: number }
-export type Enemy = { name: string; kind: number; hp: number; maxHp: number; attack: number; turn: number; poison: number; elite: boolean }
+export type EnemyTrait = 'none' | 'piercing' | 'withering' | 'armored'
+export type Enemy = { name: string; kind: number; hp: number; maxHp: number; attack: number; turn: number; poison: number; elite: boolean; trait: EnemyTrait; enrages: boolean }
 export type Run = {
   job: Job; floor: number; room: number; level: number; xp: number; hp: number; kills: number; crowns: number;
   skills: SkillId[]; cooldowns: number[]; gear: Gear[]; enemy: Enemy | null;
@@ -44,6 +45,25 @@ export const ROOMS: Record<Room, { name: string; icon: string; description: stri
   boss: { name: '封印之門', icon: '♜', description: '必經首領 · 勝利後恢復生命' },
 }
 export const SLOT_NAMES: Record<Slot, string> = { weapon: '武器', armor: '護甲', charm: '遺物' }
+export const ENEMY_TRAITS: Record<EnemyTrait, { name: string; description: string }> = {
+  none: { name: '無特性', description: '' },
+  piercing: { name: '破甲', description: '蓄力重擊忽略 50% 護甲；守夜仍可減傷 80%。' },
+  withering: { name: '枯萎', description: '交戰時技能與命中回血減少 30%；營地、升級與戰後回復不受影響。' },
+  armored: { name: '骨鎧', description: '直接傷害減少 20%；腐朽的毒素傷害不受影響。' },
+}
+export function depthPressure(floor: number): { healthPercent: number; attackPercent: number } {
+  const depth = Math.max(0, floor - 10)
+  return { healthPercent: depth * 2, attackPercent: Math.round(depth * 1.2) }
+}
+export function encounterTrait(floor: number, room: number): EnemyTrait {
+  return floor <= 10 ? 'none' : (['piercing', 'withering', 'armored'] as const)[(floor - 11 + room) % 3]
+}
+export const ENRAGE_START_TURN = 9
+export function poisonPerStack(state: State): number {
+  const run = state.run
+  const deep = run?.enemy ? run.enemy.enrages : (run?.floor ?? 1) > 10
+  return deep ? Math.max(3, Math.floor(stats(state).power * .06)) : 3
+}
 export const SAVE_KEY = 'orchard-ashbound-v1'
 export const freshState = (): State => ({ version: 1, seed: 1, souls: 0, legacy: 0, best: 0, runs: 0, wins: 0, run: null })
 export const legacyCost = (state: State): number => (state.legacy + 1) * 12
@@ -62,7 +82,10 @@ function roll(state: State, size: number): number {
   return Math.floor((state.seed / 4294967296) * size)
 }
 function log(run: Run, message: string): void { run.log = [message, ...run.log].slice(0, 7) }
-function heal(state: State, amount: number): void { state.run!.hp = Math.min(stats(state).maxHp, state.run!.hp + Math.round(amount)) }
+function heal(state: State, amount: number, inCombat = false): void {
+  const multiplier = inCombat && state.run!.enemy?.trait === 'withering' ? .7 : 1
+  state.run!.hp = Math.min(stats(state).maxHp, state.run!.hp + Math.round(amount * multiplier))
+}
 function paths(state: State): void {
   const run = state.run!
   run.phase = 'path'; run.enemy = null; run.loot = null; run.offeredSkill = null
@@ -104,9 +127,19 @@ function finish(state: State): void {
   state.souls += reward; state.best = Math.max(state.best, run.floor); state.runs++
   log(run, `名字已刻入墓誌。留下 ${reward} 魂燼。`)
 }
-export function intent(enemy: Enemy): { name: string; damage: number; poison: boolean } {
+export function intent(enemy: Enemy): { name: string; damage: number; poison: boolean; armorPierce: number; enragePercent: number } {
   const charged = enemy.turn % 3 === 2
-  return { name: charged ? '蓄力重擊' : enemy.kind === 2 ? '腐蝕爪擊' : '攻擊', damage: Math.round(enemy.attack * (charged ? 1.9 : 1)), poison: enemy.kind === 2 && !charged }
+  const enragePercent = enemy.enrages ? Math.max(0, enemy.turn + 2 - ENRAGE_START_TURN) * 15 : 0
+  return { name: charged ? '蓄力重擊' : enemy.kind === 2 ? '腐蝕爪擊' : '攻擊',
+    damage: Math.round(enemy.attack * (charged ? 1.9 : 1) * (1 + enragePercent / 100)),
+    poison: enemy.kind === 2 && !charged, armorPierce: charged && enemy.trait === 'piercing' ? .5 : 0, enragePercent }
+}
+export function incomingDamage(state: State, blocking = false): number {
+  const run = state.run!
+  if (!run.enemy) return 0
+  const attack = intent(run.enemy)
+  const defense = Math.floor(stats(state).defense * (1 - attack.armorPierce))
+  return Math.max(1, Math.round((Math.max(1, attack.damage - defense) + run.ward) * (blocking ? .2 : 1)))
 }
 export function reducer(current: State, action: Action): State {
   if (action.type === 'start') {
@@ -139,8 +172,11 @@ export function reducer(current: State, action: Action): State {
     else {
       const boss = room === 'boss', elite = room === 'elite' || boss
       const kind = boss ? 3 : roll(state, 3)
-      const maxHp = Math.round((30 + run.floor * 14) * (boss ? 2.2 : elite ? 1.5 : 1))
-      run.enemy = { name: boss ? (run.floor % 10 === 0 ? '無晝之王' : '守鐘巨骸') : ['提燈亡者', '荊棘騎士', '疫骨獵犬'][kind], kind, hp: maxHp, maxHp, attack: Math.round((7 + run.floor * 2) * (elite ? 1.3 : 1)), turn: 0, poison: 0, elite }
+      const pressure = depthPressure(run.floor)
+      const maxHp = Math.round((30 + run.floor * 14) * (boss ? 2.2 : elite ? 1.5 : 1) * (1 + pressure.healthPercent / 100))
+      run.enemy = { name: boss ? (run.floor % 10 === 0 ? '無晝之王' : '守鐘巨骸') : ['提燈亡者', '荊棘騎士', '疫骨獵犬'][kind], kind, hp: maxHp, maxHp,
+        attack: Math.round((7 + run.floor * 2) * (elite ? 1.3 : 1) * (1 + pressure.attackPercent / 100)),
+        turn: 0, poison: 0, elite, trait: encounterTrait(run.floor, run.room), enrages: run.floor > 10 }
       run.phase = 'battle'; run.ward = 0; log(run, `${run.enemy.name} 擋住了去路。`)
     }
     return state
@@ -152,17 +188,22 @@ export function reducer(current: State, action: Action): State {
     run.cooldowns = run.cooldowns.map(n => Math.max(0, n - 1))
     run.cooldowns[action.index] = SKILLS[id].cooldown
     let damage = 0, blocking = false
-    if (id === 'guard') { blocking = true; heal(state, attributes.maxHp * .06) }
-    else if (id === 'mend') { heal(state, attributes.maxHp * .3); run.ward = 0 }
+    if (id === 'guard') { blocking = true; heal(state, attributes.maxHp * .06, true) }
+    else if (id === 'mend') { heal(state, attributes.maxHp * .3, true); run.ward = 0 }
     else {
       const factor = id === 'cleave' ? 2.1 : id === 'fire' ? 2.6 : id === 'venom' ? .5 : id === 'drain' ? 1.3 : id === 'execute' ? (enemy.hp < enemy.maxHp / 2 ? 3 : 1.5) : 1
-      damage = Math.round(attributes.power * factor)
+      damage = Math.round(attributes.power * factor * (enemy.trait === 'armored' ? .8 : 1))
+      const actualDamage = Math.min(enemy.hp, damage)
       enemy.hp = Math.max(0, enemy.hp - damage)
       if (id === 'venom') enemy.poison += 3
-      heal(state, attributes.leech + (id === 'drain' ? damage * .7 : 0))
+      const drained = id === 'drain' ? (enemy.enrages ? Math.min(actualDamage * .7, attributes.maxHp * .15) : damage * .7) : 0
+      heal(state, attributes.leech + drained, true)
     }
     log(run, `你使用${SKILLS[id].name}${damage ? `，造成 ${damage} 傷害` : '，回復生命'}。`)
-    if (enemy.hp > 0 && enemy.poison) { enemy.hp = Math.max(0, enemy.hp - enemy.poison * 3); log(run, `腐朽侵蝕敵人：${enemy.poison * 3} 傷害。`) }
+    if (enemy.hp > 0 && enemy.poison) {
+      const poisonDamage = enemy.poison * poisonPerStack(state)
+      enemy.hp = Math.max(0, enemy.hp - poisonDamage); log(run, `腐朽侵蝕敵人：${poisonDamage} 傷害。`)
+    }
     if (enemy.hp <= 0) {
       run.kills++; run.xp += enemy.elite ? 2 : 1
       if (run.xp >= 3) { run.xp -= 3; run.level++; heal(state, stats(state).maxHp * .3); log(run, `升至 Lv. ${run.level}，攻擊與生命提升，回復 30% 生命。`) }
@@ -175,7 +216,7 @@ export function reducer(current: State, action: Action): State {
       run.ward = 0; reward(state, enemy.elite); return state
     }
     const attack = intent(enemy)
-    const taken = Math.max(1, Math.round((Math.max(1, attack.damage - attributes.defense) + run.ward) * (blocking ? .2 : 1)))
+    const taken = incomingDamage(state, blocking)
     run.hp = Math.max(0, run.hp - taken)
     log(run, `${enemy.name} 使用${attack.name}，你受到 ${taken} 傷害${blocking ? '（守夜減傷）' : ''}。`)
     if (attack.poison) run.ward = Math.min(6, run.ward + 2)
@@ -234,7 +275,13 @@ export function decode(raw: string | null): State {
       if (!Array.isArray(r.log) || r.log.length > 7 || !r.log.every(v => typeof v === 'string' && v.length < 200)) return freshState()
       if (r.loot !== null && !validGear(r.loot) || r.offeredSkill !== null && !key(r.offeredSkill, SKILLS)) return freshState()
       const e = r.enemy
+      // Existing encounters keep their original stats and rules until the next room.
+      if (record(e)) {
+        if (e.trait === undefined) e.trait = 'none'
+        if (e.enrages === undefined) e.enrages = false
+      }
       if (e !== null && (!record(e) || typeof e.name !== 'string' || e.name.length > 80 || !number(e.kind, 3) || !number(e.hp) || !number(e.maxHp) || e.maxHp < 1 || e.hp > e.maxHp || !number(e.attack) || !number(e.turn) || !number(e.poison) || typeof e.elite !== 'boolean')) return freshState()
+      if (record(e) && (!key(e.trait, ENEMY_TRAITS) || typeof e.enrages !== 'boolean')) return freshState()
       if (r.phase === 'battle' && (e === null || (e as Enemy).hp === 0) || r.phase !== 'dead' && r.hp === 0 || r.phase === 'dead' && r.hp !== 0 || r.phase === 'won' && r.floor !== 10) return freshState()
       if (r.offeredSkill && (r.skills as unknown[]).includes(r.offeredSkill)) return freshState()
       if (r.hp > stats(s as State).maxHp) return freshState()

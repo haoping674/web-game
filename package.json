@@ -11,6 +11,7 @@
     "test": "vitest run",
     "balance:baseline": "vite-node scripts/balance-baseline.ts",
     "balance:report": "vite-node scripts/balance-report.ts",
+    "balance:ashbound": "vite-node scripts/ashbound-balance.ts",
     "preview": "vite preview",
     "db:migrate": "node scripts/migrate-database.mjs"
   },

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useState } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
 import { PwaUpdateNotice } from '../../components/PwaUpdateNotice'
 import { readAppStorage, saveAppStorage, type GlobalSettings } from '../../shared/storage/appStorage'
-import { intent, JOBS, legacyCost, readSave, reducer, ROOMS, save, soulReward, SKILLS, SLOT_NAMES, stats, type Gear, type Job } from './model'
+import { depthPressure, encounterTrait, ENEMY_TRAITS, ENRAGE_START_TURN, incomingDamage, intent, JOBS, poisonPerStack, legacyCost, readSave, reducer, ROOMS, save, soulReward, SKILLS, SLOT_NAMES, stats, type Gear, type Job, type SkillId } from './model'
 import './ashbound.css'
 import { LeaderboardPanel } from '../../shared/leaderboard/LeaderboardPanel'
 
@@ -32,6 +32,12 @@ function GearDescription({ gear }: { gear: Gear }) {
   ].filter(Boolean).join(' · ')}</span>
 }
 
+function skillDescription(id: SkillId, deep: boolean, poisonDamage: number): string {
+  if (deep && id === 'drain') return '造成 130% 傷害；回復實際傷害的 70%，最多 15% 最大生命。'
+  if (deep && id === 'venom') return `造成 50% 傷害，疊加 3 層毒；每層每回合 ${poisonDamage} 傷害（隨攻擊成長）。`
+  return SKILLS[id].description
+}
+
 export default function AshboundGame({ globalSettings, onProgressChange }: { globalSettings: GlobalSettings; onProgressChange: () => void }) {
   const [state, dispatch] = useReducer(reducer, undefined, readSave)
   const [job, setJob] = useState<Job>('warden')
@@ -40,6 +46,12 @@ export default function AshboundGame({ globalSettings, onProgressChange }: { glo
   const closeDialog = useCallback(() => setDialog(null), [])
   const run = state.run, attributes = run ? stats(state) : null
   const ended = run?.phase === 'dead' || run?.phase === 'won'
+  const pressure = depthPressure(run?.floor ?? 1)
+  const nextTrait = run ? encounterTrait(run.floor, run.room) : 'none'
+  const enemyIntent = run?.enemy ? intent(run.enemy) : null
+  const deepCombat = !!run?.enemy?.enrages
+  const deepSkills = run?.phase === 'battle' ? deepCombat : (run?.floor ?? 1) > 10
+  const poisonDamage = run ? poisonPerStack(state) : 3
 
   useEffect(() => { setSaved(save(state)) }, [state])
   useEffect(() => {
@@ -69,6 +81,11 @@ export default function AshboundGame({ globalSettings, onProgressChange }: { glo
       </div>
     </div> : <>
       <div className="ash-depth"><span>地下 <strong>{String(run.floor).padStart(2, '0')}</strong> 層 · 無盡遠征</span><div aria-label={`本層第 ${run.room + 1} 個房間`}>{[0, 1, 2].map(i => <i key={i} className={i <= run.room ? 'lit' : ''} />)}</div><span>{run.floor <= 4 ? '遺忘墓園' : run.floor <= 9 ? '沉鐘深所' : '無晝王庭'} · 第 {run.room + 1} 室</span></div>
+      {run.floor > 10 && !ended ? <section className="ash-pressure" aria-label="深層規則">
+        <div><strong>深淵壓迫 · 第 {Math.ceil((run.floor - 10) / 10)} 重</strong><span>本層新遭遇：生命 +{pressure.healthPercent}% · 攻擊 +{pressure.attackPercent}%</span></div>
+        <p>深層敵人從第 {ENRAGE_START_TURN} 回合開始狂怒，當回合攻擊 +15%，往後每回合再 +15%。盡快結束戰鬥。</p>
+        <details><summary>深層生存規則</summary><p>汲取最多回復 15% 最大生命，溢出傷害不回血；毒素每層傷害改為攻擊的 6%（無條件捨去，至少 3）。新敵人帶有破甲、枯萎或骨鎧，進門前可先查看。營地、升級與擊敗首領的回復不受枯萎影響。</p></details>
+      </section> : null}
       <div className="ash-expedition">
         <aside className="ash-character">
           <p className="ash-overline">{JOBS[run.job].title}</p><h2>{JOBS[run.job].name}<small>Lv. {run.level}</small></h2>
@@ -80,27 +97,31 @@ export default function AshboundGame({ globalSettings, onProgressChange }: { glo
           {!ended ? <button type="button" className="ash-small ash-retire" onClick={() => setDialog('retire')}>結束這次遠征</button> : null}
         </aside>
         <div className="ash-stage">
-          {run.phase === 'path' ? <div className="ash-path"><p className="ash-overline">CHOOSE YOUR DESCENT</p><h2>{run.paths[0] === 'boss' ? '門後，有人等了很久。' : '黑暗中，有兩條路。'}</h2><p className="ash-muted">進入房間後無法回頭。只有你的選擇會推動時間。</p><div className="ash-doors">{run.paths.map((room, index) => <button type="button" key={index} onClick={() => dispatch({ type: 'room', index })}><span className="ash-door-number">0{index + 1} / {room === 'elite' || room === 'boss' ? '危險' : '探索'}</span><span className="ash-door-icon">{ROOMS[room].icon}</span><h3>{ROOMS[room].name}</h3><p>{ROOMS[room].description}</p><span className="ash-door-enter">踏入此處 →</span></button>)}</div></div> : null}
+          {run.phase === 'path' ? <div className="ash-path"><p className="ash-overline">CHOOSE YOUR DESCENT</p><h2>{run.paths[0] === 'boss' ? '門後，有人等了很久。' : '黑暗中，有兩條路。'}</h2><p className="ash-muted">進入房間後無法回頭。只有你的選擇會推動時間。</p><div className="ash-doors">{run.paths.map((room, index) => <button type="button" key={index} onClick={() => dispatch({ type: 'room', index })}><span className="ash-door-number">0{index + 1} / {room === 'elite' || room === 'boss' ? '危險' : '探索'}</span><span className="ash-door-icon">{ROOMS[room].icon}</span><h3>{ROOMS[room].name}</h3><p>{ROOMS[room].description}</p>{nextTrait !== 'none' && (room === 'battle' || room === 'elite' || room === 'boss') ? <small className="ash-door-trait"><strong>{ENEMY_TRAITS[nextTrait].name}</strong>{ENEMY_TRAITS[nextTrait].description}</small> : null}<span className="ash-door-enter">踏入此處 →</span></button>)}</div></div> : null}
           {run.phase === 'battle' && run.enemy ? <div className="ash-battle">
             <div className="ash-enemy-heading"><div><p className="ash-overline">{run.enemy.kind === 3 ? 'BOSS / 封印守衛' : run.enemy.elite ? 'ELITE / 精英' : 'ENCOUNTER / 遭遇'}</p><h2>{run.enemy.name}</h2></div><span>{run.enemy.hp} / {run.enemy.maxHp}<small>敵人生命</small></span></div>
             <meter className="ash-health enemy-health" min={0} max={run.enemy.maxHp} value={run.enemy.hp} aria-label="敵人生命" />
+            {run.enemy.trait !== 'none' || deepCombat ? <div className="ash-threat">
+              {run.enemy.trait !== 'none' ? <p><strong>{ENEMY_TRAITS[run.enemy.trait].name}</strong> · {ENEMY_TRAITS[run.enemy.trait].description}</p> : null}
+              {deepCombat ? <p>第 {run.enemy.turn + 1} 回合 · {enemyIntent!.enragePercent ? `狂怒：本回合攻擊 +${enemyIntent!.enragePercent}%` : `距狂怒還有 ${ENRAGE_START_TURN - run.enemy.turn - 1} 回合`}</p> : null}
+            </div> : null}
             <Effigy kind={run.enemy.kind} />
-            <div className="ash-intent"><span>下一步</span><strong>{intent(run.enemy).name}</strong><span>原始傷害 {intent(run.enemy).damage}{intent(run.enemy).poison ? ' · 附加腐蝕' : ''}</span></div>
-            {run.enemy.poison || run.ward ? <p className="ash-status">{run.enemy.poison ? `敵人中毒 ${run.enemy.poison} 層（每回合 ${run.enemy.poison * 3} 傷害）` : ''}{run.ward ? ` ／ 你被腐蝕：承傷 +${run.ward}，癒合可清除` : ''}</p> : null}
+            <div className="ash-intent"><span>下一步</span><strong>{enemyIntent!.name}</strong><span>原始傷害 {enemyIntent!.damage}{enemyIntent!.poison ? ' · 附加腐蝕' : ''}</span><span>預計承傷 {incomingDamage(state)} · 守夜承傷 {incomingDamage(state, true)}</span></div>
+            {run.enemy.poison || run.ward ? <p className="ash-status">{run.enemy.poison ? `敵人中毒 ${run.enemy.poison} 層（每回合 ${run.enemy.poison * poisonDamage} 傷害）` : ''}{run.ward ? ` ／ 你被腐蝕：承傷 +${run.ward}，癒合可清除` : ''}</p> : null}
           </div> : null}
           {run.phase === 'loot' ? <div className="ash-choice-panel"><p className="ash-overline">WHAT THE DEAD LEAVE BEHIND</p><span className="ash-large-symbol">{run.loot ? '▱' : '✦'}</span><h2>{run.loot ? '亡者的餘物' : '一段陌生的記憶'}</h2>{run.loot ? <>
             <div className="ash-loot-comparison"><div><small>發現 · {SLOT_NAMES[run.loot.slot]}</small><h3>{run.loot.name}</h3><GearDescription gear={run.loot} /></div><div><small>目前裝備</small>{run.gear.find(g => g.slot === run.loot!.slot) ? <><h3>{run.gear.find(g => g.slot === run.loot!.slot)!.name}</h3><GearDescription gear={run.gear.find(g => g.slot === run.loot!.slot)!} /></> : <h3>空置</h3>}</div></div>
             <div className="ash-actions"><button type="button" className="ash-primary" onClick={() => dispatch({ type: 'loot', equip: true })}>裝備遺物</button><button type="button" onClick={() => dispatch({ type: 'loot', equip: false })}>留下遺物</button></div>
-          </> : run.offeredSkill ? <><h3>{SKILLS[run.offeredSkill].name}</h3><p className="ash-muted">{SKILLS[run.offeredSkill].description} 冷卻 {SKILLS[run.offeredSkill].cooldown} 回合。</p><p>替換一項技能；斬擊永久保留。</p><div className="ash-learn">{run.skills.slice(1).map((id, index) => <button type="button" key={id} onClick={() => dispatch({ type: 'learn', index: index + 1 })}>替換 {SKILLS[id].name}<small>{SKILLS[id].description}</small></button>)}</div><button type="button" className="ash-small" onClick={() => dispatch({ type: 'continue' })}>放下記憶，繼續前進 →</button></> : <button type="button" onClick={() => dispatch({ type: 'continue' })}>繼續前進</button>}</div> : null}
+          </> : run.offeredSkill ? <><h3>{SKILLS[run.offeredSkill].name}</h3><p className="ash-muted">{skillDescription(run.offeredSkill, deepSkills, poisonDamage)} 冷卻 {SKILLS[run.offeredSkill].cooldown} 回合。</p><p>替換一項技能；斬擊永久保留。</p><div className="ash-learn">{run.skills.slice(1).map((id, index) => <button type="button" key={id} onClick={() => dispatch({ type: 'learn', index: index + 1 })}>替換 {SKILLS[id].name}<small>{skillDescription(id, deepSkills, poisonDamage)}</small></button>)}</div><button type="button" className="ash-small" onClick={() => dispatch({ type: 'continue' })}>放下記憶，繼續前進 →</button></> : <button type="button" onClick={() => dispatch({ type: 'continue' })}>繼續前進</button>}</div> : null}
           {run.phase === 'shrine' ? <div className="ash-choice-panel"><p className="ash-overline">A BARGAIN WITH THE NAMELESS</p><span className="ash-large-symbol">◇</span><h2>「留下血，帶走力量。」</h2><p className="ash-muted">獻出 {run.hp - Math.ceil(run.hp * .8)} 點當前生命，等級提升 1。<br />本次遠征增加 3 攻擊與 9 生命上限。</p><div className="ash-actions"><button type="button" className="ash-primary" onClick={() => dispatch({ type: 'shrine', accept: true })}>接受契約</button><button type="button" onClick={() => dispatch({ type: 'shrine', accept: false })}>無事離開</button></div></div> : null}
           {ended ? <div className="ash-choice-panel ash-ending"><p className="ash-overline">{run.phase === 'won' ? 'THE FIRST LIGHT' : 'ANOTHER NAME IN ASH'}</p><span className="ash-large-symbol">{run.phase === 'won' ? '☀' : '†'}</span><h2>{run.phase === 'won' ? '終於，看見黎明。' : '此身長眠。餘火不滅。'}</h2><p className="ash-muted">{run.phase === 'won' ? '無晝之王倒下了。你帶著亡者的名字，走向地表。' : '墓穴收下了你的軀殼。留下的魂燼，將為下一位旅人點燈。'}</p><div className="ash-end-stats"><span>抵達<strong>{run.floor} 層</strong></span><span>擊敗<strong>{run.kills} 名</strong></span><span>留下魂燼<strong>+{soulReward(run)}</strong></span></div><LeaderboardPanel board="ashbound-souls" score={soulReward(run)} resultKey={`ashbound-${state.runs}-${state.seed}-${run.job}`} /><button type="button" className="ash-primary" onClick={() => dispatch({ type: 'camp' })}>返回墓前 · 傳承與重生 →</button></div> : null}
         </div>
       </div>
-      {!ended ? <div className="ash-skillbar"><div className="ash-skillbar-label"><span>選擇行動</span><small>{run.phase === 'battle' ? '使用技能後，敵人反擊一次。' : '技能僅可在戰鬥中使用。'} 冷卻按你的行動減少。</small></div><div className="ash-combat-readout" aria-live="polite">{run.phase === 'battle' && run.enemy ? <><span>你的生命 <strong>{run.hp}/{attributes!.maxHp}</strong></span><span>敵人 <strong>{run.enemy.hp}/{run.enemy.maxHp}</strong></span><span>下回合：{intent(run.enemy).name} · {intent(run.enemy).damage}</span></> : null}</div><div className="ash-skills">{run.skills.map((id, index) => <button type="button" key={`${index}-${id}`} disabled={run.phase !== 'battle' || run.cooldowns[index] > 0} onClick={() => dispatch({ type: 'skill', index })} aria-label={`${SKILLS[id].name}${run.cooldowns[index] ? `，冷卻 ${run.cooldowns[index]} 回合` : ''}`}><span className="ash-skill-icon">{SKILLS[id].icon}</span><strong>{SKILLS[id].name}</strong><small>{SKILLS[id].description}</small><span className="ash-cooldown">{run.cooldowns[index] ? `等待 ${run.cooldowns[index]} 回合` : SKILLS[id].cooldown ? `冷卻 ${SKILLS[id].cooldown} 回合` : '無冷卻'}</span></button>)}</div></div> : null}
+      {!ended ? <div className="ash-skillbar"><div className="ash-skillbar-label"><span>選擇行動</span><small>{run.phase === 'battle' ? '使用技能後，敵人反擊一次。' : '技能僅可在戰鬥中使用。'} 冷卻按你的行動減少。</small></div><div className="ash-combat-readout" aria-live="polite">{run.phase === 'battle' && run.enemy ? <><span>你的生命 <strong>{run.hp}/{attributes!.maxHp}</strong></span><span>敵人 <strong>{run.enemy.hp}/{run.enemy.maxHp}</strong></span><span>第 {run.enemy.turn + 1} 回合：{enemyIntent!.name} · 預計承傷 {incomingDamage(state)} / 守夜 {incomingDamage(state, true)}{enemyIntent!.enragePercent ? ` · 狂怒 +${enemyIntent!.enragePercent}%` : ''}</span></> : null}</div><div className="ash-skills">{run.skills.map((id, index) => <button type="button" key={`${index}-${id}`} disabled={run.phase !== 'battle' || run.cooldowns[index] > 0} onClick={() => dispatch({ type: 'skill', index })} aria-label={`${SKILLS[id].name}${run.cooldowns[index] ? `，冷卻 ${run.cooldowns[index]} 回合` : ''}`}><span className="ash-skill-icon">{SKILLS[id].icon}</span><strong>{SKILLS[id].name}</strong><small>{skillDescription(id, deepSkills, poisonDamage)}</small><span className="ash-cooldown">{run.cooldowns[index] ? `等待 ${run.cooldowns[index]} 回合` : SKILLS[id].cooldown ? `冷卻 ${SKILLS[id].cooldown} 回合` : '無冷卻'}</span></button>)}</div></div> : null}
       <div className="ash-log"><p className="ash-overline">CHRONICLE / 行動紀錄</p><div role="log" aria-label="行動紀錄" aria-live="polite" aria-relevant="additions text">{run.log.map((entry, index) => <p key={`${entry}-${index}`} className={index === 0 ? 'latest' : ''}><span aria-hidden="true">{index === 0 ? '›' : '·'}</span>{entry}</p>)}</div></div>
     </>}
     <footer className="ash-footer"><span>{saved ? '每一步自動儲存 · 可隨時離開再回來' : '無法寫入存檔，離開頁面會遺失進度'}</span><span>回合制 / 無倒數 / {globalSettings.soundEnabled ? '靜謐墓穴' : '音效已關閉'}</span></footer>
-    {dialog === 'help' ? <OverlayDialog label="灰燼墓誌遊玩指南" onClose={closeDialog}><p className="eyebrow">ASHBOUND FIELD NOTES</p><h2>帶一點火，走得更遠。</h2><ol className="ash-help"><li><strong>選路。</strong>每層三個房間；每五層最後一室是必經首領，每十層迎戰無晝之王。營地能回血，精英掉落更好的遺物。</li><li><strong>看敵人意圖。</strong>技能會消耗一回合，敵人隨後反擊。敵人每第三回合重擊，適時使用守夜減傷。擊殺敵人後不會被反擊。</li><li><strong>安排冷卻。</strong>使用其他技能會讓冷卻減少；斬擊永遠可用。冷卻會延續到下場戰鬥，營地重置。</li><li><strong>打造流派。</strong>毒素在你每次行動後傷害敵人；汲取可回血。癒合可清除獵犬造成的腐蝕。裝備同部位會替換，技能最多五格。</li><li><strong>死亡與重生。</strong>遠征死亡會失去本局裝備與等級，保留魂燼。用魂燼升級餘火，再次挑戰。沒有回合或層數上限；擊敗首領後仍可繼續深入，敵人與遺物會隨層數變強。每擊敗一次無晝之王，結算額外 +25 魂燼；死亡或主動結束遠征時領取。</li></ol><p>存檔只在這台裝置。重新整理可續玩，清除瀏覽器資料會移除進度。</p><button type="button" className="primary-button" onClick={closeDialog}>我準備好了</button></OverlayDialog> : null}
+    {dialog === 'help' ? <OverlayDialog label="灰燼墓誌遊玩指南" onClose={closeDialog}><p className="eyebrow">ASHBOUND FIELD NOTES</p><h2>帶一點火，走得更遠。</h2><ol className="ash-help"><li><strong>選路。</strong>每層三個房間；每五層最後一室是必經首領，每十層迎戰無晝之王。營地能回血，精英掉落更好的遺物。</li><li><strong>看敵人意圖。</strong>技能會消耗一回合，敵人隨後反擊。敵人每第三回合重擊，適時使用守夜減傷。擊殺敵人後不會被反擊。</li><li><strong>安排冷卻。</strong>使用其他技能會讓冷卻減少；斬擊永遠可用。冷卻會延續到下場戰鬥，營地重置。</li><li><strong>打造流派。</strong>毒素在你每次行動後傷害敵人；汲取可回血。癒合可清除獵犬造成的腐蝕。裝備同部位會替換，技能最多五格。</li><li><strong>深層生存。</strong>第 11 層起，敵人額外生命每層 +2%、攻擊每層約 +1.2%，並帶有可預覽的破甲、枯萎或骨鎧。第 9 回合起狂怒，攻擊 +15%，往後每回合再 +15%。守夜可抵擋破甲重擊，毒素可繞過骨鎧；枯萎使戰鬥回血減少 30%，可透過營地整備。深層汲取每次最多回復 15% 最大生命，毒素每層傷害隨攻擊的 6% 成長，至少 3。</li><li><strong>死亡與重生。</strong>遠征死亡會失去本局裝備與等級，保留魂燼。用魂燼升級餘火，再次挑戰。沒有回合或層數上限；擊敗首領後仍可繼續深入，敵人與遺物會隨層數變強。每擊敗一次無晝之王，結算額外 +25 魂燼；死亡或主動結束遠征時領取。</li></ol><p>存檔只在這台裝置。重新整理可續玩，清除瀏覽器資料會移除進度。</p><button type="button" className="primary-button" onClick={closeDialog}>我準備好了</button></OverlayDialog> : null}
     {dialog === 'retire' ? <OverlayDialog label="結束遠征" onClose={closeDialog}><h2>將此身留在墓穴？</h2><p>結束後無法繼續這次遠征，會結算魂燼並保留傳承。只想休息的話，直接返回遊戲廳即可自動存檔。</p><button type="button" className="primary-button" onClick={() => { dispatch({ type: 'retire' }); closeDialog() }}>確認結束並結算</button><button type="button" className="text-button" onClick={closeDialog}>繼續遠征</button></OverlayDialog> : null}
     <PwaUpdateNotice isGameActive={!!run && !ended} />
   </section>

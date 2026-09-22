@@ -44,6 +44,15 @@
 .ash-depth > div { display: flex; gap: 10px; }
 .ash-depth i { width: 7px; height: 7px; border: 1px solid #6b756b; transform: rotate(45deg); }
 .ash-depth .lit { background: var(--ash-gold); border-color: var(--ash-gold); }
+.ash-pressure { padding: 15px 18px; margin-bottom: 18px; border: 1px solid #756044; background: #27261e; font-size: 12px; line-height: 1.8; }
+.ash-pressure > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; }
+.ash-pressure strong, .ash-threat strong, .ash-door-trait strong { color: var(--ash-gold); }
+.ash-pressure span, .ash-pressure p { color: #c3c9b7; }
+.ash-pressure summary { cursor: pointer; color: var(--ash-gold); padding: 10px 0; }
+.ash-pressure summary:focus-visible { outline: 2px solid var(--ash-gold); outline-offset: 3px; }
+.ash-door-trait { display: block; font-size: 11px; line-height: 1.8; color: #c3c9b7; }
+.ash-door-trait strong { display: block; }
+.ash-threat { padding: 10px 12px; margin-top: 14px; border-left: 2px solid var(--ash-gold); background: #292a22; font-size: 12px; line-height: 1.8; color: #c3c9b7; }
 .ash-expedition { display: grid; grid-template-columns: 230px 1fr; border: 1px solid var(--ash-line); min-height: 470px; }
 .ash-character { padding: 24px 20px; background: #192320; border-right: 1px solid var(--ash-line); }
 .ash-character h2 { margin: 8px 0 23px; font-size: 25px; display: flex; align-items: center; justify-content: space-between; }
