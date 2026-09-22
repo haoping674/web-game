@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && npm run check:api-build && vite build",
+    "check:api-build": "node scripts/verify-api-build.mjs",
     "lint": "oxlint",
     "test": "vitest run",
     "balance:baseline": "vite-node scripts/balance-baseline.ts",

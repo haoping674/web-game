@@ -105,6 +105,7 @@ Color Links 不共用 Orchard Ten 的 reducer、棋盤狀態或音效主題。�
 ### 部署（預設 Vercel）
 
 - Vercel 使用 Vite 專案設定，build 為 `npm run build`、輸出 `dist`；`api/leaderboard.ts` 是 [Node.js Web Handler](https://vercel.com/docs/functions/runtimes/node-js)。
+- 根目錄 `tsconfig.json` 另外設定 NodeNext 與 `rewriteRelativeImportExtensions`，讓 Vercel 編譯後的相對匯入指向 `.js`。Vercel 不會自動套用 Vite 的 TypeScript project references；`npm run build` 會以獨立 Node 程序檢查編譯後的 API 能否啟動，亦可單獨執行 `npm run check:api-build`。
 - 在 Vercel 的環境變數設定 `DATABASE_URL`，並先對相同資料庫執行 `npm run db:migrate`，再部署。Preview 建議使用獨立的 Neon branch。
 - `vercel.json` 保留遊戲路由的 SPA fallback；`/api/` 不會進入 Service Worker navigation fallback，也不快取排行榜。
 - 純 GitHub Pages／只上傳 `dist` 的靜態主機不能執行 API；其他平台需將 `server/leaderboard.ts` 的 Request/Response handler 接到同源 `/api/leaderboard`，並設定伺服器環境變數。
