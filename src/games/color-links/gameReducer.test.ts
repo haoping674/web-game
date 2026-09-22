@@ -104,8 +104,25 @@ describe('Color Links reducer', () => {
 
   it('auto-resolves stranded colors as a completed board', () => {
     const state = createColorLinksState('playing', 0, [['coral', null, 'amber']])
-    const finished = colorLinksReducer(state, { type: 'resolve-stranded' })
+    const finished = colorLinksReducer(state, { type: 'resolve-stranded', now: 100 })
     expect(finished).toMatchObject({ status: 'finished', outcome: 'cleared', nextTickAt: null, removedTiles: 2 })
     expect(finished.board.flat().every((cell) => cell === null)).toBe(true)
+  })
+
+  it('does not auto-clear a blocked pair that can still be rearranged', () => {
+    const state = createColorLinksState('playing', 0, [['coral', 'coral', null]])
+    expect(colorLinksReducer(state, { type: 'resolve-stranded', now: 100 })).toBe(state)
+  })
+
+  it('does not award a clear or reshuffle after the deadline', () => {
+    const state = createColorLinksState('playing', 0, [['coral', null, 'amber']])
+    for (const action of [
+      { type: 'resolve-stranded', now: 30_000 },
+      { type: 'reshuffle', board: BOARD, now: 30_000 },
+    ] as const) {
+      const next = colorLinksReducer(state, action)
+      expect(next).toMatchObject({ status: 'finished', outcome: 'time-limit', removedTiles: 0 })
+      expect(next.board).toEqual(state.board)
+    }
   })
 })

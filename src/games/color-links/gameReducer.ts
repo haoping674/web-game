@@ -9,8 +9,8 @@ export type ColorLinksAction =
   | { type: 'pause'; now: number }
   | { type: 'resume'; now: number }
   | { type: 'restart'; now: number; board?: ColorLinksBoard }
-  | { type: 'reshuffle'; board: ColorLinksBoard }
-  | { type: 'resolve-stranded' }
+  | { type: 'reshuffle'; board: ColorLinksBoard; now: number }
+  | { type: 'resolve-stranded'; now: number }
   | { type: 'finish' }
 
 export function calculateColorLinkScore(matches: readonly MatchGroup[]): number {
@@ -120,20 +120,22 @@ export function colorLinksReducer(state: ColorLinksState, action: ColorLinksActi
             nextTickAt: state.nextTickAt === null ? null : action.now + state.nextTickAt,
           }
         : state
-    case 'reshuffle':
-      return state.status === 'playing'
-        ? { ...state, board: action.board, reshuffles: state.reshuffles + 1 }
-        : state
+    case 'reshuffle': {
+      const current = advanceTime(state, action.now)
+      return current.status === 'playing'
+        ? { ...current, board: action.board, reshuffles: current.reshuffles + 1 }
+        : current
+    }
     case 'resolve-stranded': {
-      if (state.status !== 'playing') return state
-      const strandedTiles = state.board.reduce(
-        (total, row) => total + row.filter((cell) => cell !== null).length,
-        0,
-      )
+      const current = advanceTime(state, action.now)
+      if (current.status !== 'playing') return current
+      const colors = current.board.flat().filter((cell) => cell !== null)
+      if (new Set(colors).size !== colors.length) return current
+      const strandedTiles = colors.length
       return {
-        ...state,
-        board: state.board.map((row) => row.map(() => null)),
-        removedTiles: state.removedTiles + strandedTiles,
+        ...current,
+        board: current.board.map((row) => row.map(() => null)),
+        removedTiles: current.removedTiles + strandedTiles,
         status: 'finished',
         outcome: 'cleared',
         nextTickAt: null,

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
+import { COLOR_LINKS_CONFIG } from './config'
 
 const steps = [
   {
@@ -14,7 +15,7 @@ const steps = [
   },
   {
     title: '30 秒內清空棋盤',
-    description: '每次成功連結都會留下新空格，創造下一次機會。30 秒內清除所有色塊會記錄完成秒數；未完成則記錄消除色塊數。',
+    description: `每局固定 ${COLOR_LINKS_CONFIG.initialTileCount} 塊。無路可走時會自動重排，最後無法配對的零星色塊會自動收尾。30 秒內清空會記錄完成秒數；未完成則記錄消除數。`,
     illustration: 'clear',
   },
 ] as const

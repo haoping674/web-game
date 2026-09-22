@@ -106,39 +106,25 @@ export function evaluateBoardQuality(board: ColorLinksBoard): BoardQuality {
   }
 }
 
-function randomColor(random: () => number): ColorId {
-  return COLOR_IDS[Math.min(COLOR_IDS.length - 1, Math.floor(random() * COLOR_IDS.length))] ?? COLOR_IDS[0]
-}
-
 function createCandidate(random: () => number): ColorLinksBoard {
-  return Array.from({ length: COLOR_LINKS_CONFIG.rows }, () =>
-    Array.from({ length: COLOR_LINKS_CONFIG.columns }, () =>
-      random() < COLOR_LINKS_CONFIG.targetFilledRatio ? randomColor(random) : null,
-    ),
+  const { rows, columns, initialTileCount } = COLOR_LINKS_CONFIG
+  const cells = shuffle([
+    ...Array.from({ length: initialTileCount }, (_, index) => COLOR_IDS[index % COLOR_IDS.length]!),
+    ...Array<null>(rows * columns - initialTileCount).fill(null),
+  ], random)
+  return Array.from({ length: rows }, (_, row) =>
+    cells.slice(row * columns, (row + 1) * columns),
   )
 }
 
 function createFallbackBoard(): ColorLinksBoard {
   const board: ColorLinksBoard = Array.from({ length: COLOR_LINKS_CONFIG.rows }, (_, row) =>
     Array.from({ length: COLOR_LINKS_CONFIG.columns }, (_, column) =>
-      (row + column) % 2 === 0 ? COLOR_IDS[(row * 3 + column) % COLOR_IDS.length] ?? COLOR_IDS[0] : null,
+      column < 15 && column % 3 !== 1
+        ? COLOR_IDS[(row + Math.floor(column / 3)) % COLOR_IDS.length]!
+        : null,
     ),
   )
-  const anchors = [
-    { row: 2, column: 2, color: COLOR_IDS[0] },
-    { row: 2, column: 5, color: COLOR_IDS[1] },
-    { row: 5, column: 2, color: COLOR_IDS[2] },
-    { row: 5, column: 5, color: COLOR_IDS[3] },
-  ] as const
-  for (const anchor of anchors) {
-    const row = board[anchor.row]
-    const upper = board[anchor.row - 1]
-    const lower = board[anchor.row + 1]
-    if (!row || !upper || !lower) continue
-    row[anchor.column] = null
-    upper[anchor.column] = anchor.color
-    lower[anchor.column] = anchor.color
-  }
   return board
 }
 
@@ -174,7 +160,7 @@ function shuffle<T>(values: readonly T[], random: () => number): T[] {
 export function reshuffleRemainingTiles(
   board: ColorLinksBoard,
   random: () => number = Math.random,
-): { board: ColorLinksBoard; regenerated: boolean } {
+): { board: ColorLinksBoard; stranded: boolean } {
   const positions: CellPosition[] = []
   const colors: ColorId[] = []
   board.forEach((row, rowIndex) => {
@@ -184,6 +170,9 @@ export function reshuffleRemainingTiles(
       colors.push(cell)
     })
   })
+  // Only singleton colors are truly unmatchable; a blocked pair can be relocated.
+  const pairedColor = colors.find((color, index) => colors.indexOf(color) !== index)
+  if (pairedColor === undefined) return { board, stranded: true }
   for (let attempt = 0; attempt < 60; attempt += 1) {
     const next: ColorLinksBoard = board.map((row) => row.map(() => null))
     const shuffled = shuffle(colors, random)
@@ -191,9 +180,37 @@ export function reshuffleRemainingTiles(
       const color = shuffled[index]
       if (color !== undefined && next[position.row]) next[position.row]![position.column] = color
     })
-    if (findAllValidMoves(next).length > 0) return { board: next, regenerated: false }
+    if (findAllValidMoves(next).length > 0) return { board: next, stranded: false }
   }
-  return { board: generateBoard(random), regenerated: true }
+  // Reserve an empty origin and two adjacent neighbors, then redistribute all
+  // remaining tiles. This guarantees a legal move without adding/removing tiles.
+  for (let row = 0; row < board.length; row += 1) {
+    for (let column = 0; column < (board[row]?.length ?? 0); column += 1) {
+      const neighbors = DIRECTIONS.map((direction) => {
+        const [dr, dc] = DIRECTION_DELTAS[direction]
+        return { row: row + dr, column: column + dc }
+      }).filter((position) => inBounds(board, position.row, position.column))
+      const [first, second] = neighbors
+      if (!first || !second) continue
+      const next: ColorLinksBoard = board.map((cells) => cells.map(() => null))
+      next[first.row]![first.column] = pairedColor
+      next[second.row]![second.column] = pairedColor
+      const remaining = [...colors]
+      remaining.splice(remaining.indexOf(pairedColor), 1)
+      remaining.splice(remaining.indexOf(pairedColor), 1)
+      const slots: CellPosition[] = []
+      next.forEach((cells, r) => cells.forEach((cell, c) => {
+        if (cell === null && !(r === row && c === column)) slots.push({ row: r, column: c })
+      }))
+      if (remaining.length > slots.length) continue
+      shuffle(slots, random).forEach((position, index) => {
+        const color = remaining[index]
+        if (color !== undefined) next[position.row]![position.column] = color
+      })
+      return { board: next, stranded: false }
+    }
+  }
+  throw new Error('Color Links recovery requires an empty origin with two neighbors')
 }
 
 export function removeMatchedTiles(board: ColorLinksBoard, matches: readonly MatchGroup[]): ColorLinksBoard {

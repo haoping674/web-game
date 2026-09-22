@@ -135,12 +135,12 @@ export default function ColorLinksGame({
   useEffect(() => {
     if (!playing || validMoves.length > 0 || remainingTiles === 0) return
     const reshuffled = reshuffleRemainingTiles(game.board)
-    if (reshuffled.regenerated) {
-      dispatch({ type: 'resolve-stranded' })
+    if (reshuffled.stranded) {
+      dispatch({ type: 'resolve-stranded', now: Date.now() })
       setFeedback('剩餘訊號無法再形成連結，已自動收束並完成棋盤。')
       return
     }
-    dispatch({ type: 'reshuffle', board: reshuffled.board })
+    dispatch({ type: 'reshuffle', board: reshuffled.board, now: Date.now() })
     setFeedback('沒有可行連結，系統已免費重新編織剩餘色塊。')
   }, [game.board, playing, remainingTiles, validMoves.length])
 
@@ -270,7 +270,7 @@ export default function ColorLinksGame({
         <div className="color-start-copy">
           <p className="eyebrow">CLEAR THE SIGNAL GRID</p>
           <h1>讓相同色彩，<br />在空白中<em>全數相遇</em>。</h1>
-          <p>點擊空格，向四個方向尋找最近色塊。兩個以上同色訊號就能完成連結；在 30 秒內清空棋盤，才會記錄完成秒數。</p>
+          <p>每局固定 {COLOR_LINKS_CONFIG.initialTileCount} 個色塊。點擊空格，連結四個方向最近的同色訊號；無路可走時自動重排，最後無法配對的零星色塊會自動收尾。在 30 秒內清空棋盤，才會記錄完成秒數。</p>
           <ul className="color-rule-chips" aria-label="玩法摘要">
             <li>只點空格</li>
             <li>同色 ≥ 2</li>
@@ -329,7 +329,7 @@ export default function ColorLinksGame({
           board={game.board}
           disabled={!playing}
           invalidCell={invalidCell}
-          effect={effect}
+          effect={playing ? effect : null}
           reducedMotion={reducedMotion}
           onSelect={handleSelect}
         />
