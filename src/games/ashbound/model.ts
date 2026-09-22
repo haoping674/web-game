@@ -5,7 +5,7 @@ export type Slot = 'weapon' | 'armor' | 'charm'
 export type Gear = { name: string; slot: Slot; power: number; vitality: number; defense: number; leech: number }
 export type Enemy = { name: string; kind: number; hp: number; maxHp: number; attack: number; turn: number; poison: number; elite: boolean }
 export type Run = {
-  job: Job; floor: number; room: number; level: number; xp: number; hp: number; kills: number;
+  job: Job; floor: number; room: number; level: number; xp: number; hp: number; kills: number; crowns: number;
   skills: SkillId[]; cooldowns: number[]; gear: Gear[]; enemy: Enemy | null;
   phase: 'path' | 'battle' | 'loot' | 'shrine' | 'dead' | 'won'; paths: Room[];
   loot: Gear | null; offeredSkill: SkillId | null; log: string[]; ward: number;
@@ -47,6 +47,7 @@ export const SLOT_NAMES: Record<Slot, string> = { weapon: '武器', armor: '護�
 export const SAVE_KEY = 'orchard-ashbound-v1'
 export const freshState = (): State => ({ version: 1, seed: 1, souls: 0, legacy: 0, best: 0, runs: 0, wins: 0, run: null })
 export const legacyCost = (state: State): number => (state.legacy + 1) * 12
+export const soulReward = (run: Run): number => run.kills * 2 + run.floor + run.crowns * 25
 export function stats(state: State): { maxHp: number; power: number; defense: number; leech: number } {
   const run = state.run!
   return {
@@ -77,6 +78,7 @@ function advance(state: State): void {
   const run = state.run!
   run.room++
   if (run.room === 3) { run.floor++; run.room = 0; log(run, `踏入第 ${run.floor} 層。更深處仍有呼吸聲。`) }
+  state.best = Math.max(state.best, run.floor)
   paths(state)
 }
 function gear(state: State, elite: boolean): Gear {
@@ -95,12 +97,12 @@ function reward(state: State, elite: boolean): void {
   run.offeredSkill = roll(state, 2) === 0 ? (Object.keys(SKILLS) as SkillId[])[1 + roll(state, 7)] : null
   if (run.offeredSkill && run.skills.includes(run.offeredSkill)) run.offeredSkill = null
 }
-function finish(state: State, won: boolean): void {
+function finish(state: State): void {
   const run = state.run!
-  run.phase = won ? 'won' : 'dead'; run.hp = won ? run.hp : 0
-  const reward = run.kills * 2 + run.floor + (won ? 25 : 0)
-  state.souls += reward; state.best = Math.max(state.best, run.floor); state.runs++; if (won) state.wins++
-  log(run, `${won ? '封印破碎，黎明重臨。' : '名字已刻入墓誌。'}留下 ${reward} 魂燼。`)
+  run.phase = 'dead'; run.hp = 0
+  const reward = soulReward(run)
+  state.souls += reward; state.best = Math.max(state.best, run.floor); state.runs++
+  log(run, `名字已刻入墓誌。留下 ${reward} 魂燼。`)
 }
 export function intent(enemy: Enemy): { name: string; damage: number; poison: boolean } {
   const charged = enemy.turn % 3 === 2
@@ -111,7 +113,7 @@ export function reducer(current: State, action: Action): State {
     if (current.run && !['dead', 'won'].includes(current.run.phase)) return current
     const state: State = { ...current, seed: action.seed >>> 0, run: {
       job: action.job, floor: 1, room: 0, level: 1, xp: 0, hp: JOBS[action.job].hp + current.legacy * 5,
-      kills: 0, skills: [...JOBS[action.job].skills], cooldowns: [0, 0, 0, 0, 0], gear: [], enemy: null,
+      kills: 0, crowns: 0, skills: [...JOBS[action.job].skills], cooldowns: [0, 0, 0, 0, 0], gear: [], enemy: null,
       phase: 'path', paths: [], loot: null, offeredSkill: null, log: ['你在沒有名字的墓前醒來。'], ward: 0,
     } }
     paths(state); return state
@@ -124,7 +126,7 @@ export function reducer(current: State, action: Action): State {
   const state = structuredClone(current), run = state.run!
   if (action.type === 'camp') return ['dead', 'won'].includes(run.phase) ? { ...state, run: null } : current
   if (['dead', 'won'].includes(run.phase)) return current
-  if (action.type === 'retire') { finish(state, false); return state }
+  if (action.type === 'retire') { finish(state); return state }
   if (action.type === 'room' && run.phase === 'path') {
     const room = run.paths[action.index]
     if (!room) return current
@@ -138,7 +140,7 @@ export function reducer(current: State, action: Action): State {
       const boss = room === 'boss', elite = room === 'elite' || boss
       const kind = boss ? 3 : roll(state, 3)
       const maxHp = Math.round((30 + run.floor * 14) * (boss ? 2.2 : elite ? 1.5 : 1))
-      run.enemy = { name: boss ? (run.floor === 10 ? '無晝之王' : '守鐘巨骸') : ['提燈亡者', '荊棘騎士', '疫骨獵犬'][kind], kind, hp: maxHp, maxHp, attack: Math.round((7 + run.floor * 2) * (elite ? 1.3 : 1)), turn: 0, poison: 0, elite }
+      run.enemy = { name: boss ? (run.floor % 10 === 0 ? '無晝之王' : '守鐘巨骸') : ['提燈亡者', '荊棘騎士', '疫骨獵犬'][kind], kind, hp: maxHp, maxHp, attack: Math.round((7 + run.floor * 2) * (elite ? 1.3 : 1)), turn: 0, poison: 0, elite }
       run.phase = 'battle'; run.ward = 0; log(run, `${run.enemy.name} 擋住了去路。`)
     }
     return state
@@ -165,7 +167,10 @@ export function reducer(current: State, action: Action): State {
       run.kills++; run.xp += enemy.elite ? 2 : 1
       if (run.xp >= 3) { run.xp -= 3; run.level++; heal(state, stats(state).maxHp * .3); log(run, `升至 Lv. ${run.level}，攻擊與生命提升，回復 30% 生命。`) }
       log(run, `${enemy.name} 已倒下。`)
-      if (enemy.kind === 3 && run.floor === 10) { finish(state, true); return state }
+      if (enemy.kind === 3 && run.floor % 10 === 0) {
+        run.crowns++; state.wins++
+        log(run, '無晝之王倒下，深淵仍未見底。結算時額外獲得 25 魂燼。')
+      }
       if (enemy.kind === 3) { heal(state, stats(state).maxHp * .5); log(run, '鐘聲止息。首領封印回復了 50% 生命。') }
       run.ward = 0; reward(state, enemy.elite); return state
     }
@@ -175,7 +180,7 @@ export function reducer(current: State, action: Action): State {
     log(run, `${enemy.name} 使用${attack.name}，你受到 ${taken} 傷害${blocking ? '（守夜減傷）' : ''}。`)
     if (attack.poison) run.ward = Math.min(6, run.ward + 2)
     enemy.turn++
-    if (run.hp <= 0) finish(state, false)
+    if (run.hp <= 0) finish(state)
     return state
   }
   if (action.type === 'shrine' && run.phase === 'shrine') {
@@ -206,18 +211,21 @@ export function reducer(current: State, action: Action): State {
 
 // Validate the complete persisted shape before permitting it back into the reducer.
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
-const number = (v: unknown, max = 1e9): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= max
+const number = (v: unknown, max = Number.MAX_SAFE_INTEGER): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v <= max
 const key = <T extends object>(v: unknown, table: T): v is keyof T => typeof v === 'string' && Object.hasOwn(table, v)
 function validGear(v: unknown): v is Gear {
-  return record(v) && typeof v.name === 'string' && v.name.length < 80 && key(v.slot, SLOT_NAMES) && ['power', 'vitality', 'defense', 'leech'].every(k => number(v[k], 1000))
+  return record(v) && typeof v.name === 'string' && v.name.length < 80 && key(v.slot, SLOT_NAMES) && ['power', 'vitality', 'defense', 'leech'].every(k => number(v[k]))
 }
 export function decode(raw: string | null): State {
   try {
     const s: unknown = JSON.parse(raw ?? 'null')
-    if (!record(s) || s.version !== 1 || !number(s.seed, 4294967295) || !number(s.souls) || !number(s.legacy, 5) || !number(s.best, 10) || !number(s.runs) || !number(s.wins) || s.wins > s.runs) return freshState()
+    if (!record(s) || s.version !== 1 || !number(s.seed, 4294967295) || !number(s.souls) || !number(s.legacy, 5) || !number(s.best) || !number(s.runs) || !number(s.wins)) return freshState()
     const r = s.run
     if (r !== null) {
-      if (!record(r) || !key(r.job, JOBS) || !number(r.floor, 10) || r.floor < 1 || !number(r.room, 2) || !number(r.level, 100) || r.level < 1 || !number(r.xp, 2) || !number(r.hp, 10000) || !number(r.kills, 30) || !number(r.ward, 6)) return freshState()
+      if (!record(r) || !key(r.job, JOBS) || !number(r.floor) || r.floor < 1 || !number(r.room, 2) || !number(r.level) || r.level < 1 || !number(r.xp, 2) || !number(r.hp) || !number(r.kills) || !number(r.ward, 6)) return freshState()
+      // Original ten-floor saves did not track kings defeated within a run.
+      if (r.crowns === undefined) r.crowns = r.phase === 'won' ? 1 : 0
+      if (!number(r.crowns) || r.crowns > Math.floor(r.floor / 10) || r.crowns > s.wins) return freshState()
       if (!['path', 'battle', 'loot', 'shrine', 'dead', 'won'].includes(String(r.phase))) return freshState()
       if (!Array.isArray(r.skills) || r.skills.length !== 5 || r.skills[0] !== 'strike' || !r.skills.every(v => key(v, SKILLS)) || new Set(r.skills).size !== 5) return freshState()
       if (!Array.isArray(r.cooldowns) || r.cooldowns.length !== 5 || !r.cooldowns.every(v => number(v, 4))) return freshState()
@@ -226,7 +234,7 @@ export function decode(raw: string | null): State {
       if (!Array.isArray(r.log) || r.log.length > 7 || !r.log.every(v => typeof v === 'string' && v.length < 200)) return freshState()
       if (r.loot !== null && !validGear(r.loot) || r.offeredSkill !== null && !key(r.offeredSkill, SKILLS)) return freshState()
       const e = r.enemy
-      if (e !== null && (!record(e) || typeof e.name !== 'string' || e.name.length > 80 || !number(e.kind, 3) || !number(e.hp, 10000) || !number(e.maxHp, 10000) || e.maxHp < 1 || e.hp > e.maxHp || !number(e.attack, 1000) || !number(e.turn) || !number(e.poison) || typeof e.elite !== 'boolean')) return freshState()
+      if (e !== null && (!record(e) || typeof e.name !== 'string' || e.name.length > 80 || !number(e.kind, 3) || !number(e.hp) || !number(e.maxHp) || e.maxHp < 1 || e.hp > e.maxHp || !number(e.attack) || !number(e.turn) || !number(e.poison) || typeof e.elite !== 'boolean')) return freshState()
       if (r.phase === 'battle' && (e === null || (e as Enemy).hp === 0) || r.phase !== 'dead' && r.hp === 0 || r.phase === 'dead' && r.hp !== 0 || r.phase === 'won' && r.floor !== 10) return freshState()
       if (r.offeredSkill && (r.skills as unknown[]).includes(r.offeredSkill)) return freshState()
       if (r.hp > stats(s as State).maxHp) return freshState()

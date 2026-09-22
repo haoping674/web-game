@@ -52,6 +52,23 @@ describe('leaderboard API and actual PostgreSQL schema', () => {
     expect(await store.list('fruit-classic')).toEqual([])
     expect((await store.list('ashbound-souls'))[0].score).toBe(95)
   })
+  it('accepts endless expedition scores above the former cap through the API and database', async () => {
+    const response = await handleLeaderboard(post(input(12345, 'ashbound-souls')), store)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ accepted: true, entries: [{ score: 12345 }] })
+  })
+  it('upgrades the old score constraint without losing scores and can be rerun', async () => {
+    await store.submit(input(95, 'ashbound-souls'))
+    await db.exec(`ALTER TABLE arcade_scores DROP CONSTRAINT arcade_scores_check;
+      ALTER TABLE arcade_scores ADD CONSTRAINT arcade_scores_check
+      CHECK (CASE WHEN board = 'color-time' THEN score BETWEEN 0 AND 30
+        WHEN board = 'ashbound-souls' THEN score BETWEEN 1 AND 95 ELSE score BETWEEN 0 AND 170 END)`)
+    const migration = await readFile('database/001_leaderboards.sql', 'utf8')
+    await db.exec(migration)
+    await db.exec(migration)
+    await store.submit(input(12345, 'ashbound-souls'))
+    expect((await store.list('ashbound-souls')).map(entry => entry.score)).toEqual([12345, 95])
+  })
   it('rechecks eligibility if another player fills the tenth place after the initial check', async () => {
     for (let i = 0; i < 9; i++) await store.submit(input(100))
     expect(await (await handleLeaderboard(get('fruit-classic', '50'), store)).json()).toMatchObject({ eligible: true, rank: 10 })
@@ -73,7 +90,7 @@ describe('leaderboard API and actual PostgreSQL schema', () => {
   it.each([
     { board: 'sprout-island' }, { score: 171 }, { score: -1 }, { score: 1.5 }, { score: '70' },
     { name: '   ' }, { name: '名字'.repeat(11) }, { name: '<script>' }, { name: 'a\u202Eb' }, { name: 'a\nb' },
-    { submissionId: 'invalid' }, { board: 'color-time', score: 31 }, { board: 'ashbound-souls', score: 96 },
+    { submissionId: 'invalid' }, { board: 'color-time', score: 31 }, { board: 'ashbound-souls', score: 2147483648 },
   ])('rejects invalid input before touching the database: %j', async change => {
     const submit = vi.fn()
     const response = await handleLeaderboard(post({ ...input(70), ...change }), { ...store, submit })

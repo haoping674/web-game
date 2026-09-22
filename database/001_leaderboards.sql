@@ -6,10 +6,15 @@ CREATE TABLE IF NOT EXISTS arcade_scores (
   player_name text NOT NULL CHECK (char_length(btrim(player_name)) BETWEEN 1 AND 20),
   score integer NOT NULL,
   sort_score integer GENERATED ALWAYS AS (CASE WHEN board = 'color-time' THEN score ELSE -score END) STORED,
-  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  CHECK (CASE WHEN board = 'color-time' THEN score BETWEEN 0 AND 30
-    WHEN board = 'ashbound-souls' THEN score BETWEEN 1 AND 95 ELSE score BETWEEN 0 AND 170 END)
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
+-- statement-breakpoint
+-- Replace the original ten-floor cap on existing databases as well as fresh ones.
+ALTER TABLE arcade_scores DROP CONSTRAINT IF EXISTS arcade_scores_check;
+-- statement-breakpoint
+ALTER TABLE arcade_scores ADD CONSTRAINT arcade_scores_check
+  CHECK (CASE WHEN board = 'color-time' THEN score BETWEEN 0 AND 30
+    WHEN board = 'ashbound-souls' THEN score BETWEEN 1 AND 2147483647 ELSE score BETWEEN 0 AND 170 END);
 -- statement-breakpoint
 CREATE INDEX IF NOT EXISTS arcade_scores_ranking ON arcade_scores (board, sort_score, created_at, id);
 
@@ -27,7 +32,7 @@ BEGIN
     OR p_score IS NULL OR p_name IS NULL OR p_submission IS NULL
     OR char_length(btrim(p_name)) NOT BETWEEN 1 AND 20 OR p_name ~ '[[:cntrl:]<>]'
     OR NOT (CASE WHEN p_board = 'color-time' THEN p_score BETWEEN 0 AND 30
-      WHEN p_board = 'ashbound-souls' THEN p_score BETWEEN 1 AND 95 ELSE p_score BETWEEN 0 AND 170 END)
+      WHEN p_board = 'ashbound-souls' THEN p_score BETWEEN 1 AND 2147483647 ELSE p_score BETWEEN 0 AND 170 END)
   THEN RAISE EXCEPTION 'Invalid leaderboard submission'; END IF;
 
   -- Serialize qualification + insertion per board. The following statements see
