@@ -47,27 +47,25 @@ describe('leaderboard API and actual PostgreSQL schema', () => {
   it('keeps all boards separate, with fastest time ascending including zero', async () => {
     for (const score of [20, 10, 0]) await store.submit(input(score, 'color-time'))
     await store.submit(input(80, 'color-removed'))
-    await store.submit(input(95, 'ashbound-souls'))
     expect((await store.list('color-time')).map(entry => entry.score)).toEqual([0, 10, 20])
     expect(await store.list('fruit-classic')).toEqual([])
-    expect((await store.list('ashbound-souls'))[0].score).toBe(95)
+    expect((await store.list('color-removed'))[0].score).toBe(80)
   })
-  it('accepts endless expedition scores above the former cap through the API and database', async () => {
-    const response = await handleLeaderboard(post(input(12345, 'ashbound-souls')), store)
-    expect(response.status).toBe(200)
-    expect(await response.json()).toMatchObject({ accepted: true, entries: [{ score: 12345 }] })
+  it('rejects retired Ashbound reads and writes before touching the database', async () => {
+    const retiredStore = { list: vi.fn(), submit: vi.fn() }
+    expect((await handleLeaderboard(get('ashbound-souls'), retiredStore)).status).toBe(400)
+    expect((await handleLeaderboard(post({ ...input(95), board: 'ashbound-souls' }), retiredStore)).status).toBe(400)
+    expect(retiredStore.list).not.toHaveBeenCalled()
+    expect(retiredStore.submit).not.toHaveBeenCalled()
   })
-  it('upgrades the old score constraint without losing scores and can be rerun', async () => {
-    await store.submit(input(95, 'ashbound-souls'))
-    await db.exec(`ALTER TABLE arcade_scores DROP CONSTRAINT arcade_scores_check;
-      ALTER TABLE arcade_scores ADD CONSTRAINT arcade_scores_check
-      CHECK (CASE WHEN board = 'color-time' THEN score BETWEEN 0 AND 30
-        WHEN board = 'ashbound-souls' THEN score BETWEEN 1 AND 95 ELSE score BETWEEN 0 AND 170 END)`)
+  it('preserves historical Ashbound scores while disabling submissions and can be rerun', async () => {
+    await db.query("INSERT INTO arcade_scores (board, submission_id, player_name, score) VALUES ('ashbound-souls', $1, '玩家', 12345)", [randomUUID()])
     const migration = await readFile('database/001_leaderboards.sql', 'utf8')
     await db.exec(migration)
     await db.exec(migration)
-    await store.submit(input(12345, 'ashbound-souls'))
-    expect((await store.list('ashbound-souls')).map(entry => entry.score)).toEqual([12345, 95])
+    expect((await db.query("SELECT score FROM arcade_scores WHERE board = 'ashbound-souls'")).rows).toEqual([{ score: 12345 }])
+    await expect(db.query("SELECT arcade_submit_score('ashbound-souls', 95, '玩家', $1::uuid)", [randomUUID()])).rejects.toThrow('Invalid leaderboard submission')
+    expect(await store.submit(input(50))).toMatchObject({ accepted: true })
   })
   it('rechecks eligibility if another player fills the tenth place after the initial check', async () => {
     for (let i = 0; i < 9; i++) await store.submit(input(100))

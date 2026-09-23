@@ -22,5 +22,3 @@
 .leaderboard-error p { margin-bottom: 8px; }
 .leaderboard-empty { padding: 12px 0; line-height: 1.7; }
 .home-leaderboard-button { margin-top: 18px; }
-.ash-game .leaderboard-panel { color: var(--ash-text, #e3e4d5); }
-.ash-game .leaderboard-input-row .primary-button { background: #d8b47d; color: #17201c; }

@@ -24,6 +24,7 @@ def check_ui(browser, width):
     console_errors = []
     submissions = []
     boards = {}
+    requested_boards = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.on('console', lambda message: console_errors.append(message.text) if message.type == 'error' else None)
     cdp = context.new_cdp_session(page)
@@ -40,6 +41,7 @@ def check_ui(browser, width):
             result = {'entries': rows, 'accepted': True, 'eligible': True, 'rank': 1}
         else:
             query = parse_qs(urlparse(request.url).query)
+            requested_boards.append(query['board'][0])
             rows = boards.get(query['board'][0], [])
             result = {'entries': rows, 'eligible': 'score' in query, 'rank': 1 if 'score' in query else None}
         route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
@@ -57,24 +59,24 @@ def check_ui(browser, width):
     page.get_by_role('button', name='喚醒守墓人').click()
     page.get_by_role('button', name='結束這次遠征', exact=True).click()
     page.get_by_role('button', name='確認結束並結算').click()
-    name = page.get_by_role('textbox', name='排行榜名字')
-    expect(name).to_be_visible()
-    name.fill('小芽與她的二十字測試名字🌱')
-    page.locator('.leaderboard-panel').screenshot(path=str(OUTPUT / f'entry-{width}.png'))
-    page.get_by_role('button', name='儲存名字與成績').click()
-    expect(page.get_by_text('成績已登錄！目前第 1 名。')).to_be_visible()
-    assert submissions[0]['board'] == 'ashbound-souls' and submissions[0]['score'] == 1
-    page.locator('.leaderboard-panel').screenshot(path=str(OUTPUT / f'saved-{width}.png'))
+    expect(page.get_by_role('heading', name='此身長眠。餘火不滅。')).to_be_visible()
+    expect(page.get_by_text('留下魂燼')).to_be_visible()
+    expect(page.locator('.leaderboard-panel')).to_have_count(0)
+    expect(page.get_by_role('textbox', name='排行榜名字')).to_have_count(0)
+    assert 'ashbound-souls' not in requested_boards
+    assert not submissions
+    page.locator('.ash-ending').screenshot(path=str(OUTPUT / f'ash-ended-{width}.png'))
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Horizontal overflow'
     # Inspect actual DOM layout via the Chrome DevTools Protocol.
     root = cdp.send('DOM.getDocument')['root']['nodeId']
-    panel = cdp.send('DOM.querySelector', {'nodeId': root, 'selector': '.leaderboard-panel'})['nodeId']
+    panel = cdp.send('DOM.querySelector', {'nodeId': root, 'selector': '.ash-ending'})['nodeId']
     box = cdp.send('DOM.getBoxModel', {'nodeId': panel})['model']
     assert box['width'] <= width
     page.get_by_role('button', name='遊戲廳', exact=True).click()
     page.get_by_role('button', name='查看線上排行榜 ↗').click()
-    page.get_by_label('選擇榜單').select_option('ashbound-souls')
-    expect(page.get_by_text('小芽與她的二十字測試名字🌱')).to_be_visible()
+    expect(page.get_by_label('選擇榜單').locator('option')).to_have_count(3)
+    expect(page.locator('option[value="ashbound-souls"]')).to_have_count(0)
+    expect(page.get_by_role('heading', name='Orchard Ten · 經典分數')).to_be_visible()
     expect(page.get_by_role('textbox')).to_have_count(0)
     page.screenshot(path=str(OUTPUT / f'lobby-{width}.png'), full_page=True)
     page.get_by_role('button', name='關閉對話框').click()
@@ -90,7 +92,7 @@ def check_ui(browser, width):
     page.get_by_role('textbox', name='排行榜名字').fill('色彩玩家')
     page.get_by_role('button', name='儲存名字與成績').click()
     expect(page.get_by_text('成績已登錄！目前第 1 名。')).to_be_visible()
-    assert submissions[1]['board'] == 'color-removed' and submissions[1]['score'] == 0
+    assert submissions[0]['board'] == 'color-removed' and submissions[0]['score'] == 0
     # Navigate into Orchard Ten; Playwright's installed clock persists across navigation.
     page.goto(BASE + '/games/fruit-sum', wait_until='networkidle')
     page.get_by_role('button', name='開始經典模式').click()
@@ -101,12 +103,12 @@ def check_ui(browser, width):
     page.get_by_role('textbox', name='排行榜名字').fill('水果玩家')
     page.get_by_role('button', name='儲存名字與成績').click()
     expect(page.get_by_text('成績已登錄！目前第 1 名。')).to_be_visible()
-    assert submissions[2]['board'] == 'fruit-classic' and submissions[2]['score'] == 0
+    assert submissions[1]['board'] == 'fruit-classic' and submissions[1]['score'] == 0
     page.get_by_role('dialog').screenshot(path=str(OUTPUT / f'fruit-ended-{width}.png'))
     assert not errors, errors
     assert not console_errors, console_errors
     context.close()
-    return {'width': width, 'pageErrors': errors, 'consoleErrors': console_errors, 'leaderboardWidth': box['width'], 'submissions': len(submissions)}
+    return {'width': width, 'pageErrors': errors, 'consoleErrors': console_errors, 'ashEndingWidth': box['width'], 'submissions': len(submissions)}
 
 
 with sync_playwright() as p:

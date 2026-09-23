@@ -28,11 +28,11 @@ DECLARE
   v_existing arcade_scores%ROWTYPE;
   v_entries jsonb;
 BEGIN
-  IF p_board NOT IN ('fruit-classic', 'color-time', 'color-removed', 'ashbound-souls') OR p_board IS NULL
+  -- Ashbound is retired; existing rows remain as historical records.
+  IF p_board NOT IN ('fruit-classic', 'color-time', 'color-removed') OR p_board IS NULL
     OR p_score IS NULL OR p_name IS NULL OR p_submission IS NULL
     OR char_length(btrim(p_name)) NOT BETWEEN 1 AND 20 OR p_name ~ '[[:cntrl:]<>]'
-    OR NOT (CASE WHEN p_board = 'color-time' THEN p_score BETWEEN 0 AND 30
-      WHEN p_board = 'ashbound-souls' THEN p_score BETWEEN 1 AND 2147483647 ELSE p_score BETWEEN 0 AND 170 END)
+    OR NOT (CASE WHEN p_board = 'color-time' THEN p_score BETWEEN 0 AND 30 ELSE p_score BETWEEN 0 AND 170 END)
   THEN RAISE EXCEPTION 'Invalid leaderboard submission'; END IF;
 
   -- Serialize qualification + insertion per board. The following statements see
