@@ -295,6 +295,10 @@ export default function ColorLinksGame({
           <ColorLinksBoard board={game.board} disabled reducedMotion={reducedMotion} />
           <span className="color-preview-caption">每種顏色都有獨立符號，不只依賴色相辨識。</span>
         </div>
+        <div className="color-start-leaderboards" role="group" aria-label="Color Links 線上排行榜">
+          <LeaderboardPanel board="color-time" />
+          <LeaderboardPanel board="color-removed" />
+        </div>
         <PwaUpdateNotice isGameActive={false} />
         </section>
         {tutorialOpen ? <ColorLinksTutorialDialog onComplete={finishTutorial} onSkip={finishTutorial} /> : null}
