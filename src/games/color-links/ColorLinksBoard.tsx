@@ -1,4 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { BoardCountdown } from '../../components/BoardCountdown'
+import { getCountdownPhase } from '../../components/countdown'
 import type { CellPosition, ColorId, ColorLinksBoard, MatchGroup } from './types'
 
 export const COLOR_META = {
@@ -22,6 +24,7 @@ type ColorLinksBoardProps = {
   invalidCell?: CellPosition | null
   effect?: ColorLinksEffect | null
   reducedMotion?: boolean
+  countdownSeconds?: number
   onSelect?: (position: CellPosition) => void
 }
 
@@ -119,8 +122,10 @@ export function ColorLinksBoard({
   invalidCell = null,
   effect = null,
   reducedMotion = false,
+  countdownSeconds,
   onSelect,
 }: ColorLinksBoardProps) {
+  const countdownPhase = countdownSeconds === undefined ? undefined : getCountdownPhase(countdownSeconds, !disabled)
   const rows = board.length
   const columns = board[0]?.length ?? 0
   const portrait = usePortraitLayout()
@@ -128,10 +133,12 @@ export function ColorLinksBoard({
   return (
     <div
       className="color-board-frame"
+      data-countdown-phase={countdownPhase}
       data-board-size={boardSize}
       data-layout={portrait ? 'portrait' : 'landscape'}
       style={{ '--color-columns': columns, '--color-rows': rows } as CSSProperties}
     >
+      {countdownSeconds !== undefined && countdownPhase !== undefined ? <BoardCountdown seconds={countdownSeconds} phase={countdownPhase} animated={!reducedMotion} /> : null}
       <div
         className={`color-links-board${portrait ? ' is-portrait' : ''}`}
         role="grid"

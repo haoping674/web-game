@@ -17,6 +17,7 @@ import { ComboIndicator } from './ComboIndicator'
 import { NetworkStatusToast } from './NetworkStatusToast'
 import { PausedBoardPlaceholder } from './PausedBoardPlaceholder'
 import { Timer } from './Timer'
+import { getCountdownPhase } from './countdown'
 
 type GameScreenProps = {
   game: GameState
@@ -197,14 +198,14 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       <section className="hud" aria-label="遊戲資訊">
         <div><span>分數</span><strong>{String(game.score).padStart(3, '0')}</strong></div>
         <ComboIndicator combo={game.combo} bestCombo={game.bestCombo} comboDeadline={game.comboDeadline} status={game.status} mode={game.mode} evaluation={comboEvaluation} />
-        <div className="timer"><span>時間</span><Timer seconds={game.secondsLeft} urgent={game.secondsLeft <= 10} /></div>
+        <div className="timer"><span>時間</span><Timer seconds={game.secondsLeft} phase={getCountdownPhase(game.secondsLeft, interactive)} /></div>
         <button type="button" className="icon-button" aria-label="暫停遊戲" disabled={!interactive} onClick={onPause}>Ⅱ</button>
       </section>
       {game.status === 'playing' ? <>
         <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || !validMove || game.hintsUsed >= hintLimit} onClick={useHint}>提示 {hintLimit - game.hintsUsed}/{hintLimit}</button><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
         <NetworkStatusToast notice={networkNotice} inline />
         {gestureHintVisible ? <p className="mobile-gesture-hint" role="status">棋盤內單指框選，雙指可移動畫面。</p> : null}
-        <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} />
+        <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} countdownSeconds={game.secondsLeft} />
         <p className="selection-status" aria-live="polite">{message}</p>
         {settings.showSelectionHelp && <p className="shortcut-tip">拖曳可框選；鍵盤可用方向鍵移動，按 Enter 設定矩形兩端。</p>}
       </> : paused ? <>

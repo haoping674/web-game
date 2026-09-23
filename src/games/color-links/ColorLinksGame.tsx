@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { OverlayDialog } from '../../components/OverlayDialog'
 import { PwaUpdateNotice } from '../../components/PwaUpdateNotice'
 import { Timer } from '../../components/Timer'
+import { getCountdownPhase } from '../../components/countdown'
 import { useGamePauseShortcut } from '../../hooks/useGamePauseShortcut'
 import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
 import {
@@ -316,7 +317,7 @@ export default function ColorLinksGame({
         <div><span>剩餘</span><strong>{remainingTiles}</strong></div>
         <div><span>消除</span><strong>{game.removedTiles}</strong></div>
         <div><span>最快清空</span><strong>{formatElapsedTime(bestTimeSeconds)}</strong></div>
-        <div className="timer"><span>倒數</span><Timer seconds={timeRemaining} label="剩餘時間" /></div>
+        <div className="timer"><span>倒數</span><Timer seconds={timeRemaining} label="剩餘時間" phase={getCountdownPhase(timeRemaining, playing)} /></div>
         <button type="button" className="icon-button color-pause-button" aria-label="暫停遊戲" disabled={!playing} onClick={pauseGame}>Ⅱ</button>
       </section>
       {paused ? (
@@ -329,6 +330,7 @@ export default function ColorLinksGame({
           board={game.board}
           disabled={!playing}
           invalidCell={invalidCell}
+          countdownSeconds={timeRemaining}
           effect={playing ? effect : null}
           reducedMotion={reducedMotion}
           onSelect={handleSelect}

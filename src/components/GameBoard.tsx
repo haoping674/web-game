@@ -6,6 +6,8 @@ import type { CellValue, GridPoint, GridRect } from '../game/types'
 import { getFruitTheme, type FruitParticleOrigin } from '../game/fruitParticles'
 import { FruitCell } from './FruitCell'
 import { ParticleLayer } from './ParticleLayer'
+import { BoardCountdown } from './BoardCountdown'
+import { getCountdownPhase } from './countdown'
 
 type GameBoardProps = {
   board: CellValue[][]
@@ -14,6 +16,7 @@ type GameBoardProps = {
   hint?: GridRect | null
   clearEffect?: ComboClearEffect | null
   effectLevel?: EffectLevel
+  countdownSeconds?: number
 }
 
 type BoardPoint = { point: GridPoint; inside: boolean }
@@ -33,7 +36,8 @@ function usePortraitBoard() {
   return isPortrait
 }
 
-export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null, clearEffect = null, effectLevel = 'full' }: GameBoardProps) {
+export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null, clearEffect = null, effectLevel = 'full', countdownSeconds }: GameBoardProps) {
+  const countdownPhase = countdownSeconds === undefined ? undefined : getCountdownPhase(countdownSeconds, !disabled)
   const boardRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<number | null>(null)
   const invalidTimerRef = useRef<number | null>(null)
@@ -276,7 +280,8 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
   }
 
   return (
-    <div className={`board-frame${multiPointerBlocked ? ' is-multi-pointer' : ''}`}>
+    <div className={`board-frame${multiPointerBlocked ? ' is-multi-pointer' : ''}`} data-countdown-phase={countdownPhase}>
+      {countdownSeconds !== undefined && countdownPhase !== undefined ? <BoardCountdown seconds={countdownSeconds} phase={countdownPhase} animated={effectLevel === 'full'} /> : null}
       <div
         ref={boardRef}
         className={`game-board${isPortrait ? ' is-portrait' : ''}`}

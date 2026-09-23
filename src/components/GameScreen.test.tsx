@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { GameAction } from '../game/gameReducer'
 import type { GameSettings, GameState } from '../game/types'
 import { GameBoard } from './GameBoard'
@@ -10,6 +10,8 @@ import { GameScreen } from './GameScreen'
 const settings: GameSettings = { soundEnabled: false, volume: 0.5, animationsEnabled: true, animationIntensity: 'full', lowStimulus: false, hapticsEnabled: false, showSelectionHelp: true }
 const board = [[1, 9], [null, 2]]
 const playingGame: GameState = { mode: 'classic', board, score: 12, clearedFruitCount: 12, secondsLeft: 42, nextTickAt: Date.now() + 1_000, status: 'playing', combo: 2, bestCombo: 3, comboDeadline: Date.now() + 2_000, successfulMoves: 1, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
+
+afterEach(cleanup)
 
 beforeAll(() => {
   Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', { configurable: true, value: vi.fn(() => null) })
@@ -207,6 +209,39 @@ describe('automatic no-move recovery', () => {
 })
 
 describe('playable mode HUD', () => {
+  it('keeps keyboard selection working in the last second and clears cues on pause, finish, and restart', () => {
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    const lastSecond = { ...playingGame, secondsLeft: 1 }
+    const { container, rerender } = render(gameScreen(lastSecond, dispatch))
+    expect(container.querySelector('.board-frame')).toHaveAttribute('data-countdown-phase', 'critical')
+    expect(container.querySelector('.timer-countdown')).toHaveAttribute('data-countdown-phase', 'critical')
+    const grid = screen.getByRole('grid')
+    fireEvent.keyDown(grid, { key: 'Enter' })
+    fireEvent.keyDown(grid, { key: 'ArrowRight' })
+    fireEvent.keyDown(grid, { key: 'Enter' })
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'select', rect: { start: { row: 0, column: 0 }, end: { row: 0, column: 1 } } }))
+    rerender(gameScreen({ ...lastSecond, status: 'paused' }, dispatch))
+    expect(container.querySelector('.board-countdown-ring')).toBeNull()
+    rerender(gameScreen({ ...lastSecond, status: 'finished' }, dispatch))
+    expect(container.querySelector('.board-countdown-ring')).toBeNull()
+    rerender(gameScreen({ ...playingGame, secondsLeft: 120 }, dispatch))
+    expect(container.querySelector('.board-frame')).toHaveAttribute('data-countdown-phase', 'idle')
+    expect(container.querySelector('.board-countdown-announcement')).toBeEmptyDOMElement()
+  })
+
+  it.each([
+    { lowStimulus: true },
+    { animationsEnabled: false },
+    { animationIntensity: 'reduced' as const },
+    { animationIntensity: 'off' as const },
+  ])('keeps a static critical cue with motion settings %j', (overrides) => {
+    const props = gameScreen({ ...playingGame, secondsLeft: 4 }).props
+    const { container } = render(<GameScreen {...props} settings={{ ...settings, ...overrides }} />)
+    expect(container.querySelector('.board-frame')).toHaveAttribute('data-countdown-phase', 'critical')
+    expect(container.querySelector('.board-countdown-ring')).toHaveAttribute('data-animated', 'false')
+    expect(container.querySelector('.board-countdown-badge')).toHaveTextContent('剩 4 秒')
+  })
+
   it('shows the Classic mode and its hint allowance', () => {
     render(gameScreen(playingGame))
     expect(document.querySelector('.mode-chip')).toHaveTextContent('CLASSIC')

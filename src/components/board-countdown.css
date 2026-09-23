@@ -1,0 +1,77 @@
+/* Reserve the label's space for the entire round, including on narrow screens. */
+.board-frame[data-countdown-phase],
+.color-board-frame[data-countdown-phase] {
+  margin-top: 28px;
+  overflow: visible;
+  --countdown-ink: #8a581b;
+  --countdown-line: #b88335;
+}
+
+.board-frame[data-countdown-phase='critical'],
+.color-board-frame[data-countdown-phase='critical'] {
+  --countdown-ink: #a53f32;
+  --countdown-line: #bd5546;
+}
+
+.board-countdown-ring {
+  position: absolute;
+  inset: -2px;
+  z-index: 7;
+  border: 2px solid var(--countdown-line);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+}
+
+[data-countdown-phase='warning'] > .board-countdown-ring,
+[data-countdown-phase='critical'] > .board-countdown-ring { opacity: 1; }
+
+[data-countdown-phase='critical'] > .board-countdown-ring[data-animated='true'] {
+  animation: board-countdown-breathe 1s ease-in-out infinite;
+}
+
+.board-countdown-badge {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  height: 20px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  color: var(--countdown-ink);
+  background: #fffdf6;
+  font: 700 11px/16px 'Noto Sans TC', sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+[data-countdown-phase='critical'] > .board-countdown-badge { visibility: visible; }
+
+.timer-countdown[data-countdown-phase='warning'] { color: #8a581b; }
+.timer-countdown[data-countdown-phase='critical'] { color: #a53f32; }
+
+.board-countdown-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Keep particles clipped while the countdown sits outside the frame. */
+.color-board-frame[data-countdown-phase] > .color-effect-layer {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+@keyframes board-countdown-breathe { 50% { opacity: .45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-countdown-phase] > .board-countdown-ring { animation: none; }
+}
