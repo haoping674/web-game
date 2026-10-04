@@ -8,6 +8,7 @@ export type SlideState = {
   board: SlideBoard
   seed: number
   arrivals: Arrival[]
+  waveCount: number
   untilWaveMs: number
   elapsedMs: number
   lastTickAt: number
@@ -35,7 +36,7 @@ function planArrivals(board: SlideBoard, count: number, seed: number) {
     const [index] = empty.splice(Math.floor(rng.next() * empty.length), 1)
     arrivals.push({ index: index!, value: 1 + Math.floor(rng.next() * 9) })
   }
-  return { arrivals, seed: rng.seed() }
+  return { arrivals, waveCount: count, seed: rng.seed() }
 }
 
 export function waveSettings(elapsedMs: number) {
@@ -120,6 +121,10 @@ function advance(state: SlideState, now: number): SlideState {
     lastTickAt: Math.max(now, state.lastTickAt), untilWaveMs: state.untilWaveMs - delta,
   }
   while (next.untilWaveMs <= 0 && next.status === 'playing') {
+    if (next.board.filter(value => value === null).length <= next.waveCount) {
+      next = { ...next, status: 'ended', untilWaveMs: 0 }
+      break
+    }
     const board = [...next.board]
     for (const arrival of next.arrivals) {
       // A player may move into a preview cell. Find another empty cell instead.
@@ -127,10 +132,12 @@ function advance(state: SlideState, now: number): SlideState {
       if (index === -1) break
       board[index] = arrival.value
     }
+    // Clearing before the deadline can rescue a board with too few preview slots.
+    const extra = planArrivals(board, next.waveCount - next.arrivals.length, next.seed)
+    for (const arrival of extra.arrivals) board[arrival.index] = arrival.value
     const waveTime = next.elapsedMs + next.untilWaveMs
     const settings = waveSettings(waveTime)
-    next = { ...next, board, untilWaveMs: next.untilWaveMs + settings.intervalMs, ...planArrivals(board, settings.count, next.seed) }
-    if (!board.includes(null)) next.status = 'ended'
+    next = { ...next, board, untilWaveMs: next.untilWaveMs + settings.intervalMs, ...planArrivals(board, settings.count, extra.seed) }
   }
   return next
 }

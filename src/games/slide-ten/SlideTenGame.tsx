@@ -121,7 +121,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
               <p className="eyebrow">SLIDE TEN · 試玩版</p>
               <h1>滑一下，<br /><em>剛好湊十。</em></h1>
               <p>自己創造配對，把快滿的果園救回來。<br />熟悉的 170 格棋盤，這次由你搬動水果。</p>
-              <ol><li>滑動一顆水果，沿直線移動。</li><li>同一直線依序湊十就消除，中間有空格也可以。</li><li>每幾秒補入一批水果，塞滿就結束。</li></ol>
+              <ol><li>滑動一顆水果，沿直線移動。</li><li>同一直線依序湊十就消除，中間有空格也可以。</li><li>倒數歸零時，空格必須多於下一批水果數量。</li></ol>
               <button type="button" className="primary-button" onClick={start}>開始滑滑湊十 <span aria-hidden="true">↗</span></button>
               <p className="slide-best">本機最高分 <strong>{highScore}</strong></p>
               <button type="button" className="text-button" onClick={() => setLeaderboardOpen(true)}>查看線上排行榜 ↗</button>
@@ -143,7 +143,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
             <div className="hud slide-hud">
               <div><span>消除顆數</span><strong data-testid="slide-score">{game.score}</strong></div>
               <div className="slide-matches"><span>消除次數</span><strong>{game.pairs} 次</strong></div>
-              <div className="timer"><span>下一批 · {game.arrivals.length} 顆</span><strong className={warning ? 'slide-urgent' : ''}>{(game.untilWaveMs / 1000).toFixed(1)}s</strong></div>
+              <div className="timer"><span>下一批 · {game.waveCount} 顆</span><strong className={warning ? 'slide-urgent' : ''}>{(game.untilWaveMs / 1000).toFixed(1)}s</strong></div>
               <button type="button" className="icon-button" aria-label="暫停遊戲" disabled={!playing} onClick={pause}>Ⅱ</button>
             </div>
             <div className="slide-capacity"><span>果園空位 <strong>{BOARD_SIZE - occupied}</strong> / {BOARD_SIZE}</span><div role="meter" aria-label="棋盤佔用比例" aria-valuemin={0} aria-valuemax={BOARD_SIZE} aria-valuenow={occupied}><i className={occupied / BOARD_SIZE > .8 ? 'is-danger' : ''} style={{ width: `${occupied / BOARD_SIZE * 100}%` }} /></div><span>已玩 {formatTime(game.elapsedMs)}</span></div>
@@ -179,8 +179,8 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
           </div>
         )}
         {game.status === 'paused' && !platformSettingsOpen && !helpOpen ? <OverlayDialog label="滑滑湊十已暫停" onClose={resume}><p className="eyebrow">TAKE A LITTLE BREAK</p><h2>果園已暫停</h2><p>補入倒數會等你回來。</p><button type="button" className="primary-button" onClick={resume}>繼續遊戲</button><button type="button" className="text-button" onClick={start}>重新開始</button></OverlayDialog> : null}
-        {helpOpen ? <OverlayDialog label="滑滑湊十玩法說明" onClose={() => setHelpOpen(false)}><p className="eyebrow">SLIDE · MATCH · MAKE ROOM</p><h2>滑到一起，剛好湊十。</h2><p>滑動單顆水果，會沿直線滑到底。遇到水果時，沿滑動方向跳過空格，依序累加同一直線上的水果，總和剛好為 10 就整組消除。例如 5 → 2 → 空格 → 3，三顆一起消除。不能跳過有數字的水果；總和超過 10，或到邊界仍不足 10，就停在第一顆前面。每消除一顆得 1 分，分數就是消除水果的總顆數。</p><p>也可以點選水果，再按棋盤下方方向按鈕，或使用鍵盤方向鍵。單純搬動水果不加分。</p><p>每批補入前 1 秒，空格會顯示即將長出的數字。棋盤塞滿就結束；每 20 秒補入速度與數量提高。</p><button type="button" className="primary-button" onClick={() => setHelpOpen(false)}>了解了</button></OverlayDialog> : null}
-        {game.status === 'ended' ? <OverlayDialog label="滑滑湊十遊戲結束"><p className="eyebrow">THE ORCHARD IS FULL</p><h2>果園滿了，再滑一局？</h2><p>你清出了 {game.removedFruits} 格空間，守住果園 {formatTime(game.elapsedMs)}。</p><div className="slide-result"><span>本局得分<strong>{game.score}</strong></span><span>消除次數<strong>{game.pairs}</strong></span><span>本機最高<strong>{highScore}</strong></span></div><LeaderboardPanel key={roundKey.current} board="slide-cleared" score={game.score} resultKey={`slide-ten-count:${roundKey.current}`} /><button type="button" className="primary-button" onClick={start}>再玩一次</button><button type="button" className="text-button" onClick={() => navigate(HOME_ROUTE)}>返回遊戲廳</button></OverlayDialog> : null}
+        {helpOpen ? <OverlayDialog label="滑滑湊十玩法說明" onClose={() => setHelpOpen(false)}><p className="eyebrow">SLIDE · MATCH · MAKE ROOM</p><h2>滑到一起，剛好湊十。</h2><p>滑動單顆水果，會沿直線滑到底。遇到水果時，沿滑動方向跳過空格，依序累加同一直線上的水果，總和剛好為 10 就整組消除。例如 5 → 2 → 空格 → 3，三顆一起消除。不能跳過有數字的水果；總和超過 10，或到邊界仍不足 10，就停在第一顆前面。每消除一顆得 1 分，分數就是消除水果的總顆數。</p><p>也可以點選水果，再按棋盤下方方向按鈕，或使用鍵盤方向鍵。單純搬動水果不加分。</p><p>每批補入前 1 秒，空格會顯示即將長出的數字。倒數歸零時，若空格小於或等於下一批水果數量，就結束遊戲；每 20 秒補入速度與數量提高。</p><button type="button" className="primary-button" onClick={() => setHelpOpen(false)}>了解了</button></OverlayDialog> : null}
+        {game.status === 'ended' ? <OverlayDialog label="滑滑湊十遊戲結束"><p className="eyebrow">MAKE ROOM FOR THE NEXT WAVE</p><h2>空位不夠，再滑一局？</h2><p>你清出了 {game.removedFruits} 格空間，守住果園 {formatTime(game.elapsedMs)}。</p><div className="slide-result"><span>本局得分<strong>{game.score}</strong></span><span>消除次數<strong>{game.pairs}</strong></span><span>本機最高<strong>{highScore}</strong></span></div><LeaderboardPanel key={roundKey.current} board="slide-cleared" score={game.score} resultKey={`slide-ten-count:${roundKey.current}`} /><button type="button" className="primary-button" onClick={start}>再玩一次</button><button type="button" className="text-button" onClick={() => navigate(HOME_ROUTE)}>返回遊戲廳</button></OverlayDialog> : null}
       </section>
       {leaderboardOpen ? <LeaderboardDialog initialBoard="slide-cleared" onClose={() => setLeaderboardOpen(false)} /> : null}
       <PwaUpdateNotice isGameActive={game.status === 'playing' || game.status === 'paused'} />

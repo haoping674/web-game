@@ -136,6 +136,7 @@ describe('Slide Ten clock and scoring', () => {
   it('adds exactly one batch on time and relocates previews without overwriting moved fruit', () => {
     let state = playing(emptyBoard())
     state.arrivals = [{ index: 2, value: 7 }, { index: 5, value: 3 }]
+    state.waveCount = 2
     state.board[2] = 9
     state = slideReducer(state, { type: 'tick', now: 4999 })
     expect(state.board.filter(value => value !== null)).toHaveLength(1)
@@ -144,12 +145,48 @@ describe('Slide Ten clock and scoring', () => {
     expect(state.board.filter(value => value !== null)).toHaveLength(3)
     expect(state.untilWaveMs).toBe(4000)
   })
-  it('ends when the board fills and refuses further input', () => {
+  it('ends when space is insufficient and refuses further input', () => {
     const board: SlideBoard = Array(BOARD_SIZE).fill(5); board[0] = null
     let state = { ...playing(board), arrivals: [{ index: 0, value: 5 }] }
     state = slideReducer(state, { type: 'tick', now: 5000 })
     expect(state.status).toBe('ended')
+    expect(state.board[0]).toBeNull()
+    expect(state.untilWaveMs).toBe(0)
     expect(slideReducer(state, { type: 'slide', from: 1, direction: 'right', now: 5100 })).toBe(state)
+  })
+  it.each([0, 1, 3, 4])('ends without a partial batch when only %i spaces remain for four fruits', (spaces) => {
+    const board: SlideBoard = Array(BOARD_SIZE).fill(9)
+    board.fill(null, 0, spaces)
+    const state = playing(board)
+    expect(slideReducer(state, { type: 'tick', now: 4999 }).status).toBe('playing')
+    const ended = slideReducer(state, { type: 'tick', now: 5000 })
+    expect(ended.status).toBe('ended')
+    expect(ended.board).toEqual(board)
+  })
+  it('adds the full batch when spaces exceed its count by one', () => {
+    const board: SlideBoard = Array(BOARD_SIZE).fill(9); board.fill(null, 0, 5)
+    const state = slideReducer(playing(board), { type: 'tick', now: 5000 })
+    expect(state.status).toBe('playing')
+    expect(state.board.filter(value => value === null)).toHaveLength(1)
+  })
+  it('allows a clear before the deadline to rescue even an incomplete preview', () => {
+    const board: SlideBoard = Array(BOARD_SIZE).fill(9); board.fill(null, 0, 4)
+    board[4] = 4; board[5] = 6
+    let state = { ...playing(board), arrivals: [{ index: 0, value: 7 }] }
+    expect(state.waveCount).toBe(4)
+    state = slideReducer(state, { type: 'slide', from: 4, direction: 'right', now: 4999 })
+    state = slideReducer(state, { type: 'tick', now: 5000 })
+    expect(state.status).toBe('playing')
+    expect(state.score).toBe(2)
+    expect(state.board.filter(value => value === null)).toHaveLength(2)
+  })
+  it('rejects a last-second clear at the deadline when space is insufficient', () => {
+    const board: SlideBoard = Array(BOARD_SIZE).fill(9); board.fill(null, 0, 4)
+    board[4] = 4; board[5] = 6
+    const state = slideReducer(playing(board), { type: 'slide', from: 4, direction: 'right', now: 5000 })
+    expect(state.status).toBe('ended')
+    expect(state.score).toBe(0)
+    expect(state.board).toEqual(board)
   })
   it('processes missed clock ticks and resets all state for a fresh round', () => {
     let state = playing(emptyBoard())
