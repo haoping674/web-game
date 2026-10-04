@@ -1,4 +1,4 @@
-export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound'
+export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen'
 
 export type GameDefinition = {
   id: GameId
@@ -11,6 +11,15 @@ export type GameDefinition = {
 }
 
 export const GAME_REGISTRY = [
+  {
+    id: 'slideTen',
+    name: '滑滑湊十',
+    eyebrow: 'SLIDE TEN · MAKE ROOM',
+    description: '滑動水果，撞出剛好 10。趁新水果長出前，替果園清出空間。',
+    route: '/games/slide-ten',
+    status: 'available',
+    accent: '#82604a',
+  },
   {
     id: 'ashbound',
     name: '灰燼墓誌',

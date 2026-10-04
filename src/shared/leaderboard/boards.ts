@@ -1,5 +1,6 @@
 export const LEADERBOARD_LIMIT = 10
 export const BOARDS = {
+  'slide-cleared': { title: '滑滑湊十 · 消除數', unit: '顆', ascending: false, min: 0, max: 2147483647, rule: '每消除一顆水果計 1 分，依消除顆數由高到低排名。' },
   'fruit-classic': { title: 'Orchard Ten · 經典分數', unit: '分', ascending: false, min: 0, max: 170, rule: '分數越高越前面。' },
   'color-time': { title: 'Color Links · 最快清空', unit: '秒', ascending: true, min: 0, max: 30, rule: '限時內清空才列入，秒數越少越前面（包含失誤扣秒）。' },
   'color-removed': { title: 'Color Links · 逾時消除', unit: '格', ascending: false, min: 0, max: 170, rule: '未清空的回合依消除格數排名，越多越前面。' },

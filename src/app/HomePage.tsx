@@ -1,15 +1,27 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { LeaderboardDialog } from '../shared/leaderboard/LeaderboardDialog'
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { PwaUpdateNotice } from '../components/PwaUpdateNotice'
 import { GAME_REGISTRY, type GameDefinition } from './gameRegistry'
 import type { AppStorage } from '../shared/storage/appStorage'
 import { AppHeader } from '../shared/components/AppHeader'
+import './home.css'
 
-if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-  gsap.registerPlugin(useGSAP, ScrollTrigger)
+const GAME_CATEGORIES = { fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險' } as const
+const FILTERS = ['全部遊戲', '動動腦', '慢慢養', '去冒險'] as const
+const HERO_FRUIT = [2, 4, 6, 3, 1, 5, 1, 3, 2, 7, 4, 8, 6, 2, 9, 3, 5, 1, 4, 6, 7, 2, 8, 3, 1]
+
+function ArcadePreview() {
+  return (
+    <div className="arcade-preview" aria-hidden="true">
+      <div className="arcade-window-bar"><span><i /><i /><i /></span><span>ORCHARD TEN</span><span>01 / {String(GAME_REGISTRY.length).padStart(2, '0')}</span></div>
+      <div className="arcade-window-body">
+        <div className="arcade-score"><span>一點小挑戰</span><strong>剛剛好，湊成 10。</strong><span className="arcade-score-note">4 + 6 = <b>10</b> ✓</span></div>
+        <div className="arcade-fruit-board">{HERO_FRUIT.map((value, index) => <span key={index} className={`arcade-fruit fruit-tone-${index % 4}${index === 1 || index === 2 ? ' is-picked' : ''}`}>{value}</span>)}</div>
+        <div className="arcade-window-bottom"><span>框選數字 · 收穫好心情</span><span>✦ +10</span></div>
+      </div>
+      <span className="arcade-sticker">快樂，就這麼簡單。<span>JUST ONE MORE ROUND ↗</span></span>
+    </div>
+  )
 }
 
 type HomePageProps = {
@@ -18,13 +30,12 @@ type HomePageProps = {
   onSettings: () => void
 }
 
-function FruitPreview() {
+function FruitPreview({ slide = false }: { slide?: boolean }) {
   return (
-    <div className="home-preview fruit-preview" aria-hidden="true">
+    <div className={`home-preview fruit-preview${slide ? ' slide-preview' : ''}`} aria-hidden="true">
       <span className="preview-fruit fruit-a">4</span>
       <span className="preview-fruit fruit-b">6</span>
-      <span className="preview-fruit fruit-c">2</span>
-      <i className="preview-selection" />
+      {slide ? <span className="preview-slide-arrow">→</span> : <><span className="preview-fruit fruit-c">2</span><i className="preview-selection" /></>}
       <em>10!</em>
     </div>
   )
@@ -67,7 +78,7 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
   bestTimeSeconds?: number
   onOpen: () => void
 }) {
-  const isFruit = game.id === 'fruitSum'
+  const isFruit = game.id === 'fruitSum' || game.id === 'slideTen'
   const isSprout = game.id === 'sproutIsland'
   const isAshbound = game.id === 'ashbound'
   const recordLabel = isAshbound ? '最深探索紀錄' : isSprout ? '最高精靈等級' : isFruit
@@ -80,80 +91,43 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
     <article className={`game-choice-card game-${game.id}`} style={{ '--card-accent': game.accent } as React.CSSProperties}>
       <button type="button" className="game-card-hitbox" onClick={onOpen} aria-label={`開始 ${game.name}`} />
       <div className="game-card-copy">
-        <p className="eyebrow">{game.eyebrow}</p>
+        <p className="eyebrow"><span>{GAME_CATEGORIES[game.id]}</span> / {game.id === 'slideTen' ? '滑動配對 · 試玩版' : isAshbound ? '回合策略' : isSprout ? '合成養成' : isFruit ? '數字益智' : '色彩消除'}</p>
         <h2>{game.name}</h2>
         <p>{game.description}</p>
         <span className="local-record">{recordLabel} <strong>{recordValue}</strong></span>
       </div>
-      {isAshbound ? <div className="home-preview ash-preview" aria-hidden="true"><span>†</span></div> : isSprout ? <div className="home-preview sprout-preview" aria-hidden="true"><span>✦</span><strong>🌱</strong><i>Lv. ∞</i></div> : isFruit ? <FruitPreview /> : <ColorPreview />}
-      <button type="button" className="game-start-button" onClick={onOpen}>
-        開始遊戲 <span aria-hidden="true">↗</span>
-      </button>
+      {isAshbound ? <div className="home-preview ash-preview" aria-hidden="true"><span>†</span></div> : isSprout ? <div className="home-preview sprout-preview" aria-hidden="true"><span>✦</span><strong>🌱</strong><i>Lv. ∞</i></div> : isFruit ? <FruitPreview slide={game.id === 'slideTen'} /> : <ColorPreview />}
+      <span className="game-start-button" aria-hidden="true">開始遊戲 <span>↗</span></span>
     </article>
   )
 }
 
 export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false)
-  const shellRef = useRef<HTMLElement>(null)
-  const motionEnabled = !data.globalSettings.reducedMotion && data.globalSettings.effectIntensity === 'full'
-  const canRunScrollMotion = motionEnabled
-    && typeof window.matchMedia === 'function'
-    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    && document.documentElement.clientHeight > 0
-
-  useGSAP(() => {
-    if (!canRunScrollMotion) return undefined
-
-    const cards = gsap.utils.toArray<HTMLElement>('.game-choice-card')
-    gsap.from('.home-hero > *', {
-      y: 28,
-      autoAlpha: 0,
-      duration: 0.78,
-      stagger: 0.12,
-      ease: 'power3.out',
-    })
-    gsap.from(cards, {
-      y: 72,
-      scale: 0.94,
-      autoAlpha: 0,
-      duration: 0.9,
-      stagger: 0.14,
-      ease: 'power3.out',
-      scrollTrigger: {
-        trigger: '.game-choice-grid',
-        start: 'top 82%',
-        toggleActions: 'play none none reverse',
-      },
-    })
-    cards.forEach((card, index) => {
-      gsap.to(card, {
-        y: index % 2 === 0 ? -12 : 12,
-        scrollTrigger: {
-          trigger: card,
-          start: 'top bottom',
-          end: 'bottom top',
-          scrub: 0.8,
-        },
-      })
-    })
-    const marquee = shellRef.current?.querySelector<HTMLElement>('.home-marquee-track')
-    if (marquee) gsap.to(marquee, { xPercent: -50, duration: 24, ease: 'none', repeat: -1 })
-    return undefined
-  }, { scope: shellRef, dependencies: [canRunScrollMotion] })
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('全部遊戲')
+  const games = GAME_REGISTRY.filter((game) => filter === '全部遊戲' || GAME_CATEGORIES[game.id] === filter)
 
   return (
-    <main ref={shellRef} className="platform-shell home-shell">
+    <main className={`platform-shell home-shell arcade-home${data.globalSettings.reducedMotion || data.globalSettings.effectIntensity !== 'full' ? ' home-reduced-motion' : ''}`}>
+      <a className="home-skip-link" href="#game-library">跳到遊戲列表</a>
       <AppHeader onSettings={onSettings} />
       <section className="home-hero">
-        <div>
-          <p className="eyebrow">SMALL GAMES · LITTLE EVERYDAY JOYS</p>
-          <h1>今天，來玩點<br /><em>讓心情發芽</em>的小遊戲。</h1>
+        <div className="home-hero-copy">
+          <p className="eyebrow"><span className="home-status-dot" /> YOUR LITTLE PLAY BREAK</p>
+          <h1>把日常暫停，<br /><em>快樂玩一下。</em></h1>
+          <p className="home-intro">收一籃水果、養一座小島，或來一場地城冒險。<br className="home-desktop-break" />留一點時間，給單純的快樂。</p>
+          <div className="home-hero-actions"><button type="button" className="home-play-button" onClick={() => onNavigate('/games/fruit-sum')}>來玩 Orchard Ten <span aria-hidden="true">↗</span></button><a href="#game-library">逛逛遊戲廳 <span aria-hidden="true">↓</span></a></div>
+          <p className="home-hero-note"><span>✦</span> 打開就能玩 <i /> 進度自動存於本機</p>
         </div>
-        <div><p className="home-intro">動動腦、慢慢養一座小島，或深入未知地城。四款遊戲，各自保存進度，隨時回來接著玩。</p><button type="button" className="quiet-button home-leaderboard-button" onClick={() => setLeaderboardOpen(true)}>查看線上排行榜 ↗</button></div>
+        <ArcadePreview />
+      </section>
+      <section id="game-library" className="home-library-heading" aria-labelledby="game-library-title">
+        <div><p className="eyebrow">PICK YOUR NEXT LITTLE JOY</p><h2 id="game-library-title">今天，想玩哪一種？<span>{String(GAME_REGISTRY.length).padStart(2, '0')} 款小遊戲</span></h2></div>
+        <button type="button" className="home-leaderboard-button" onClick={() => setLeaderboardOpen(true)}>線上排行榜 <span aria-hidden="true">↗</span></button>
+        <div className="home-filters" role="group" aria-label="遊戲分類">{FILTERS.map((item) => <button key={item} type="button" aria-pressed={filter === item} onClick={() => setFilter(item)}>{item}{item === '全部遊戲' ? <span>{String(GAME_REGISTRY.length).padStart(2, '0')}</span> : null}</button>)}</div>
       </section>
       <section className="game-choice-grid" aria-label="選擇遊戲">
-        {GAME_REGISTRY.map((game) => (
+        {games.map((game) => (
           <GameCard
             key={game.id}
             game={game}
@@ -163,24 +137,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
           />
         ))}
       </section>
-      <section className="home-play-accordions" aria-label="遊戲操作方式">
-        <article className="home-play-accordion fruit-rhythm">
-          <p>Orchard Ten</p>
-          <strong>框選。湊十。清空。</strong>
-          <span>拖曳任何矩形，尋找剛好為 10 的組合。</span>
-        </article>
-        <article className="home-play-accordion color-rhythm">
-          <p>Color Links</p>
-          <strong>選空格。連同色。得分。</strong>
-          <span>一格串起兩個以上的同色訊號。</span>
-        </article>
-      </section>
-      <div className="home-marquee" aria-hidden="true">
-        <div className="home-marquee-track">
-          <span>THINK IN TEN</span><i>•</i><span>LINK IN COLOR</span><i>•</i><span>THINK IN TEN</span><i>•</i><span>LINK IN COLOR</span><i>•</i>
-          <span>THINK IN TEN</span><i>•</i><span>LINK IN COLOR</span><i>•</i><span>THINK IN TEN</span><i>•</i><span>LINK IN COLOR</span><i>•</i>
-        </div>
-      </div>
+      <aside className="home-closing-note"><span aria-hidden="true">✳</span><p>不用很厲害，也能玩得很開心。<small>每一局，都是留給自己的小休息。</small></p><a href="#game-library">再選一款 <span aria-hidden="true">↑</span></a></aside>
       <footer className="platform-footer">
         <span>ORCHARD ARCADE · LOCAL-FIRST PLAY</span>
         <span>遊戲進度儲存在本機 · 自選登錄線上前 10 名</span>

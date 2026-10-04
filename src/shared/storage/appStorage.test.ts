@@ -22,6 +22,22 @@ function createStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe('platform storage', () => {
+  it('adds Slide Ten to old saves and records its scores independently', () => {
+    const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { fruitSum: { highScore: 42, gamesPlayed: 3 } } }) })
+    expect(readAppStorage(storage).games.slideTen).toEqual({ highScore: 0, gamesPlayed: 0, scoreRule: 'fruit-count' })
+    recordGameResult('slideTen', 180, storage)
+    expect(readAppStorage(storage).games.slideTen).toMatchObject({ highScore: 180, gamesPlayed: 1 })
+    expect(readAppStorage(storage).games.fruitSum).toEqual({ highScore: 42, gamesPlayed: 3 })
+  })
+  it('starts count-based Slide Ten records fresh while preserving play history and other games', () => {
+    const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: {
+      slideTen: { highScore: 950, gamesPlayed: 4 }, fruitSum: { highScore: 42, gamesPlayed: 3 },
+    } }) })
+    expect(readAppStorage(storage).games.slideTen).toMatchObject({ highScore: 0, gamesPlayed: 4, scoreRule: 'fruit-count' })
+    recordGameResult('slideTen', 3, storage)
+    expect(readAppStorage(storage).games.slideTen).toMatchObject({ highScore: 3, gamesPlayed: 5, scoreRule: 'fruit-count' })
+    expect(readAppStorage(storage).games.fruitSum).toEqual({ highScore: 42, gamesPlayed: 3 })
+  })
   it('adds Ashbound to existing saves without changing other games', () => {
     const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { fruitSum: { highScore: 42, gamesPlayed: 3 }, sproutIsland: { highScore: 8, gamesPlayed: 2 } } }) })
     expect(readAppStorage(storage).games.ashbound).toEqual({ highScore: 0, gamesPlayed: 0 })

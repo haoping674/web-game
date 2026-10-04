@@ -11,14 +11,14 @@ beforeEach(() => { localStorage.clear(); vi.stubGlobal('fetch', fetchMock); fetc
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 describe('result leaderboard', () => {
-  it('allows a qualifying player to save a name and score once', async () => {
-    fetchMock.mockResolvedValueOnce(reply(qualified)).mockResolvedValueOnce(reply({ accepted: true, rank: 1, eligible: true, entries: [{ rank: 1, name: '小芽', score: 50 }] }))
-    render(<LeaderboardPanel board="fruit-classic" score={50} />)
+  it.each([['fruit-classic', 50], ['slide-cleared', 500]] as const)('allows a qualifying player to save a name and score once on %s', async (board, score) => {
+    fetchMock.mockResolvedValueOnce(reply(qualified)).mockResolvedValueOnce(reply({ accepted: true, rank: 1, eligible: true, entries: [{ rank: 1, name: '小芽', score }] }))
+    render(<LeaderboardPanel board={board} score={score} />)
     fireEvent.change(await screen.findByRole('textbox', { name: '排行榜名字' }), { target: { value: ' 小芽 ' } })
     fireEvent.click(screen.getByRole('button', { name: '儲存名字與成績' }))
     expect(await screen.findByText('成績已登錄！目前第 1 名。')).toBeInTheDocument()
     const body = JSON.parse(fetchMock.mock.calls[1][1].body)
-    expect(body).toMatchObject({ board: 'fruit-classic', score: 50, name: '小芽' })
+    expect(body).toMatchObject({ board, score, name: '小芽' })
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(localStorage.getItem('orchard-leaderboard-name')).toBe('小芽')
   })

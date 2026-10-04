@@ -26,6 +26,36 @@ beforeEach(async () => { await db.exec('TRUNCATE arcade_scores RESTART IDENTITY'
 afterAll(async () => { await db.close() })
 
 describe('leaderboard API and actual PostgreSQL schema', () => {
+  it('preserves multiplier scores as history and retires their API and submission function', async () => {
+    await db.query("INSERT INTO arcade_scores (board, submission_id, player_name, score) VALUES ('slide-score', $1, '舊玩家', 950)", [randomUUID()])
+    await db.exec(await readFile('database/001_leaderboards.sql', 'utf8'))
+    expect((await db.query("SELECT score FROM arcade_scores WHERE board = 'slide-score'")).rows).toEqual([{ score: 950 }])
+    expect((await handleLeaderboard(get('slide-score'), store)).status).toBe(400)
+    expect((await handleLeaderboard(post({ ...input(950), board: 'slide-score' }), store)).status).toBe(400)
+    await expect(db.query("SELECT arcade_submit_score('slide-score', 950, '玩家', $1::uuid)", [randomUUID()])).rejects.toThrow('Invalid leaderboard submission')
+    expect(await store.submit(input(3, 'slide-cleared'))).toMatchObject({ accepted: true, entries: [{ score: 3 }] })
+  })
+  it('accepts Slide Ten scores above 170, orders them descending, and keeps other boards separate', async () => {
+    for (const score of [15, 180, 1250]) {
+      expect(await (await handleLeaderboard(post(input(score, 'slide-cleared')), store)).json()).toMatchObject({ accepted: true })
+    }
+    const listed = await handleLeaderboard(get('slide-cleared', '500'), store)
+    expect(await listed.json()).toMatchObject({ eligible: true, rank: 2, entries: [{ score: 1250 }, { score: 180 }, { score: 15 }] })
+    expect(await store.list('fruit-classic')).toEqual([])
+    const submission = input(500, 'slide-cleared')
+    await store.submit(submission)
+    await store.submit(submission)
+    expect(await store.list('slide-cleared')).toHaveLength(4)
+  })
+  it('upgrades the previous board constraints without losing scores, and can run twice', async () => {
+    await store.submit(input(50))
+    await db.exec("ALTER TABLE arcade_scores DROP CONSTRAINT arcade_scores_board_check; ALTER TABLE arcade_scores ADD CONSTRAINT arcade_scores_board_check CHECK (board IN ('fruit-classic', 'color-time', 'color-removed', 'ashbound-souls'))")
+    const migration = await readFile('database/001_leaderboards.sql', 'utf8')
+    await db.exec(migration)
+    await db.exec(migration)
+    expect(await store.list('fruit-classic')).toMatchObject([{ score: 50 }])
+    expect(await store.submit(input(500, 'slide-cleared'))).toMatchObject({ accepted: true, rank: 1 })
+  })
   it('starts empty, admits a qualifying score, and returns a public top ten', async () => {
     const empty = await handleLeaderboard(get('fruit-classic', '50'), store)
     expect(await empty.json()).toEqual({ entries: [], rank: 1, eligible: true })
@@ -89,6 +119,7 @@ describe('leaderboard API and actual PostgreSQL schema', () => {
     { board: 'sprout-island' }, { score: 171 }, { score: -1 }, { score: 1.5 }, { score: '70' },
     { name: '   ' }, { name: '名字'.repeat(11) }, { name: '<script>' }, { name: 'a\u202Eb' }, { name: 'a\nb' },
     { submissionId: 'invalid' }, { board: 'color-time', score: 31 }, { board: 'ashbound-souls', score: 2147483648 },
+    { board: 'slide-cleared', score: -1 }, { board: 'slide-cleared', score: 2147483648 }, { board: 'slide-cleared', score: 1.5 },
   ])('rejects invalid input before touching the database: %j', async change => {
     const submit = vi.fn()
     const response = await handleLeaderboard(post({ ...input(70), ...change }), { ...store, submit })

@@ -14,6 +14,7 @@ export type GlobalSettings = {
 }
 
 export type GameProgress = {
+  scoreRule?: 'fruit-count'
   highScore: number
   bestTimeSeconds?: number
   gamesPlayed: number
@@ -40,6 +41,7 @@ export const DEFAULT_APP_STORAGE: AppStorage = {
     colorLinks: { ...DEFAULT_PROGRESS },
     sproutIsland: { ...DEFAULT_PROGRESS },
     ashbound: { ...DEFAULT_PROGRESS },
+    slideTen: { ...DEFAULT_PROGRESS, scoreRule: 'fruit-count' },
   },
 }
 
@@ -86,6 +88,12 @@ function normalizeColorLinksProgress(value: unknown): GameProgress {
   ) return progress
   const { bestTimeSeconds: _obsoleteUnlimitedTime, ...timeLimitedProgress } = progress
   return timeLimitedProgress
+}
+
+function normalizeSlideProgress(value: unknown): GameProgress {
+  const progress = normalizeProgress(value)
+  const usesFruitCount = isRecord(value) && value.scoreRule === 'fruit-count'
+  return { ...progress, highScore: usesFruitCount ? progress.highScore : 0, scoreRule: 'fruit-count' }
 }
 
 function getStorage(storage?: Storage): Storage | undefined {
@@ -164,6 +172,7 @@ export function readAppStorage(storage?: Storage): AppStorage {
         colorLinks: normalizeColorLinksProgress(games.colorLinks),
         sproutIsland: normalizeProgress(games.sproutIsland),
         ashbound: normalizeProgress(games.ashbound),
+        slideTen: normalizeSlideProgress(games.slideTen),
       },
     }
   } catch {

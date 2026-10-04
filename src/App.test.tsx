@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -32,6 +32,51 @@ async function startColorLinks(): Promise<void> {
 }
 
 describe('platform routing and lazy game lifecycle', () => {
+  it('opens Slide Ten, uses the full board, scores a pair, and pauses for shared settings', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '開始 滑滑湊十' }))
+    fireEvent.click(await screen.findByRole('button', { name: /開始滑滑湊十/ }))
+    const board = screen.getByRole('grid', { name: '滑滑湊十水果棋盤' })
+    expect(board).toHaveAttribute('aria-rowcount', '10')
+    expect(board).toHaveAttribute('aria-colcount', '17')
+    expect(board.querySelectorAll('[role=gridcell]')).toHaveLength(170)
+    fireEvent.click(screen.getByRole('button', { name: '第 1 列第 2 格，水果 4' }), { detail: 0 })
+    fireEvent.click(screen.getByRole('button', { name: '向右滑動' }))
+    expect(screen.getByTestId('slide-score')).toHaveTextContent('2')
+    fireEvent.click(screen.getByRole('button', { name: '共用設定' }))
+    expect(screen.getByRole('dialog', { name: '共用遊戲設定' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '滑滑湊十已暫停' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+    expect(screen.getByRole('dialog', { name: '滑滑湊十已暫停' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '繼續遊戲' }))
+    fireEvent.click(screen.getByRole('button', { name: '遊戲廳' }))
+    expect(screen.getByRole('heading', { name: '滑滑湊十' })).toBeInTheDocument()
+  })
+  it('settles Slide Ten once when full and starts a clean replay', async () => {
+    window.history.replaceState(null, '', '/games/slide-ten')
+    render(<App />)
+    const startButton = await screen.findByRole('button', { name: /開始滑滑湊十/ })
+    vi.useFakeTimers()
+    try {
+      fireEvent.click(startButton)
+      fireEvent.click(screen.getByRole('button', { name: '第 1 列第 2 格，水果 4' }), { detail: 0 })
+      fireEvent.click(screen.getByRole('button', { name: '向右滑動' }))
+      act(() => { vi.advanceTimersByTime(160_000) })
+      expect(screen.getByRole('dialog', { name: '滑滑湊十遊戲結束' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: '滑滑湊十 · 消除數' })).toBeInTheDocument()
+      const progress = JSON.parse(localStorage.getItem('orchard-arcade-v1')!).games.slideTen
+      expect(progress).toMatchObject({ highScore: 2, gamesPlayed: 1 })
+      act(() => { vi.advanceTimersByTime(10_000) })
+      expect(JSON.parse(localStorage.getItem('orchard-arcade-v1')!).games.slideTen.gamesPlayed).toBe(1)
+      fireEvent.click(screen.getByRole('button', { name: '再玩一次' }))
+      expect(screen.queryByRole('dialog', { name: '滑滑湊十遊戲結束' })).toBeNull()
+      expect(screen.getByTestId('slide-score')).toHaveTextContent('0')
+      expect(screen.getByRole('button', { name: '第 1 列第 2 格，水果 4' })).toBeInTheDocument()
+    } finally {
+      cleanup()
+      vi.useRealTimers()
+    }
+  })
   it('opens Ashbound, fights, resumes after navigation, and settles retirement once', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: '開始 灰燼墓誌' }))

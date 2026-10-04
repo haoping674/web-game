@@ -15,7 +15,7 @@ export function PlatformSettingsDialog({ settings, onChange, onClose }: Platform
     <OverlayDialog label="共用遊戲設定" onClose={onClose}>
       <p className="eyebrow">SHARED SETTINGS</p>
       <h2>共用設定</h2>
-      <p>音效與動態強度會套用到兩款遊戲；分數與遊戲進度仍各自保存。</p>
+      <p>音效與動態強度會套用到支援的遊戲；分數與遊戲進度仍各自保存。</p>
       <div className="settings-list">
         <label>
           <span>音效</span>
