@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { LeaderboardDialog } from '../shared/leaderboard/LeaderboardDialog'
-import { PwaUpdateNotice } from '../components/PwaUpdateNotice'
 import { GAME_REGISTRY, type GameDefinition } from './gameRegistry'
 import type { AppStorage } from '../shared/storage/appStorage'
 import { AppHeader } from '../shared/components/AppHeader'
@@ -142,7 +141,6 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
         <span>ORCHARD ARCADE · LOCAL-FIRST PLAY</span>
         <span>遊戲進度儲存在本機 · 自選登錄線上前 10 名</span>
       </footer>
-      <PwaUpdateNotice isGameActive={false} />
       {leaderboardOpen ? <LeaderboardDialog onClose={() => setLeaderboardOpen(false)} /> : null}
     </main>
   )

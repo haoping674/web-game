@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useState } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
-import { PwaUpdateNotice } from '../../components/PwaUpdateNotice'
+import { useGameActivity } from '../../hooks/useGameActivity'
 import { readAppStorage, saveAppStorage, type GlobalSettings } from '../../shared/storage/appStorage'
 import { depthPressure, encounterTrait, ENEMY_TRAITS, ENRAGE_START_TURN, incomingDamage, intent, JOBS, poisonPerStack, legacyCost, readSave, reducer, ROOMS, save, soulReward, SKILLS, SLOT_NAMES, stats, type Gear, type Job, type SkillId } from './model'
 import './ashbound.css'
@@ -45,6 +45,7 @@ export default function AshboundGame({ globalSettings, onProgressChange }: { glo
   const closeDialog = useCallback(() => setDialog(null), [])
   const run = state.run, attributes = run ? stats(state) : null
   const ended = run?.phase === 'dead' || run?.phase === 'won'
+  useGameActivity(!!run && !ended)
   const pressure = depthPressure(run?.floor ?? 1)
   const nextTrait = run ? encounterTrait(run.floor, run.room) : 'none'
   const enemyIntent = run?.enemy ? intent(run.enemy) : null
@@ -122,6 +123,6 @@ export default function AshboundGame({ globalSettings, onProgressChange }: { glo
     <footer className="ash-footer"><span>{saved ? '每一步自動儲存 · 可隨時離開再回來' : '無法寫入存檔，離開頁面會遺失進度'}</span><span>回合制 / 無倒數 / {globalSettings.soundEnabled ? '靜謐墓穴' : '音效已關閉'}</span></footer>
     {dialog === 'help' ? <OverlayDialog label="灰燼墓誌遊玩指南" onClose={closeDialog}><p className="eyebrow">ASHBOUND FIELD NOTES</p><h2>帶一點火，走得更遠。</h2><ol className="ash-help"><li><strong>選路。</strong>每層三個房間；每五層最後一室是必經首領，每十層迎戰無晝之王。營地能回血，精英掉落更好的遺物。</li><li><strong>看敵人意圖。</strong>技能會消耗一回合，敵人隨後反擊。敵人每第三回合重擊，適時使用守夜減傷。擊殺敵人後不會被反擊。</li><li><strong>安排冷卻。</strong>使用其他技能會讓冷卻減少；斬擊永遠可用。冷卻會延續到下場戰鬥，營地重置。</li><li><strong>打造流派。</strong>毒素在你每次行動後傷害敵人；汲取可回血。癒合可清除獵犬造成的腐蝕。裝備同部位會替換，技能最多五格。</li><li><strong>深層生存。</strong>第 11 層起，敵人額外生命每層 +2%、攻擊每層約 +1.2%，並帶有可預覽的破甲、枯萎或骨鎧。第 9 回合起狂怒，攻擊 +15%，往後每回合再 +15%。守夜可抵擋破甲重擊，毒素可繞過骨鎧；枯萎使戰鬥回血減少 30%，可透過營地整備。深層汲取每次最多回復 15% 最大生命，毒素每層傷害隨攻擊的 6% 成長，至少 3。</li><li><strong>死亡與重生。</strong>遠征死亡會失去本局裝備與等級，保留魂燼。用魂燼升級餘火，再次挑戰。沒有回合或層數上限；擊敗首領後仍可繼續深入，敵人與遺物會隨層數變強。每擊敗一次無晝之王，結算額外 +25 魂燼；死亡或主動結束遠征時領取。</li></ol><p>存檔只在這台裝置。重新整理可續玩，清除瀏覽器資料會移除進度。</p><button type="button" className="primary-button" onClick={closeDialog}>我準備好了</button></OverlayDialog> : null}
     {dialog === 'retire' ? <OverlayDialog label="結束遠征" onClose={closeDialog}><h2>將此身留在墓穴？</h2><p>結束後無法繼續這次遠征，會結算魂燼並保留傳承。只想休息的話，直接返回遊戲廳即可自動存檔。</p><button type="button" className="primary-button" onClick={() => { dispatch({ type: 'retire' }); closeDialog() }}>確認結束並結算</button><button type="button" className="text-button" onClick={closeDialog}>繼續遠征</button></OverlayDialog> : null}
-    <PwaUpdateNotice isGameActive={!!run && !ended} />
+
   </section>
 }

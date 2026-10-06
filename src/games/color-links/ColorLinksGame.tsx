@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
-import { PwaUpdateNotice } from '../../components/PwaUpdateNotice'
+import { useGameActivity } from '../../hooks/useGameActivity'
 import { Timer } from '../../components/Timer'
 import { getCountdownPhase } from '../../components/countdown'
 import { useGamePauseShortcut } from '../../hooks/useGamePauseShortcut'
@@ -95,6 +95,7 @@ export default function ColorLinksGame({
   )
   const playing = game.status === 'playing'
   const paused = game.status === 'paused'
+  useGameActivity(playing || paused)
   const clearedWithinLimit = game.outcome === 'cleared'
   const timeRemaining = remainingSeconds(game.elapsedSeconds)
 
@@ -299,7 +300,7 @@ export default function ColorLinksGame({
           <LeaderboardPanel board="color-time" />
           <LeaderboardPanel board="color-removed" />
         </div>
-        <PwaUpdateNotice isGameActive={false} />
+
         </section>
         {tutorialOpen ? <ColorLinksTutorialDialog onComplete={finishTutorial} onSkip={finishTutorial} /> : null}
       </>
@@ -381,7 +382,7 @@ export default function ColorLinksGame({
           {shareStatus ? <p className="share-status" role="status">{shareStatus}</p> : null}
         </OverlayDialog>
       ) : null}
-      <PwaUpdateNotice isGameActive={playing || paused} />
+
     </section>
   )
 }

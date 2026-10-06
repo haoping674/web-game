@@ -1,3 +1,4 @@
+import { useGameActivity } from '../../hooks/useGameActivity'
 import { useCallback, useEffect, useReducer, useRef, useState, type CSSProperties } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
 import { readAppStorage, saveAppStorage, type GlobalSettings } from '../../shared/storage/appStorage'
@@ -9,6 +10,7 @@ const ICONS = ['🌱', '🌿', '☘️', '🌷', '🍓', '🌻', '🌳', '✨']
 const nameFor = (level: number) => SPECIES[(level - 1) % SPECIES.length]
 
 export default function SproutIslandGame({ globalSettings, onProgressChange }: { globalSettings: GlobalSettings; onProgressChange: () => void }) {
+  useGameActivity(true)
   const [initial] = useState(() => readIsland())
   const [state, dispatch] = useReducer(islandReducer, initial.state)
   const [selected, setSelected] = useState<number | null>(null)

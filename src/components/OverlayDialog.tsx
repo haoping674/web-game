@@ -9,7 +9,7 @@ export function OverlayDialog({ children, label, onClose, onEscape, labelledBy }
   const dialogRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null
-    const getFocusable = () => [...(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? [])]
+    const getFocusable = () => [...(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []), ...document.querySelectorAll<HTMLElement>('.pwa-update button')]
       .filter((element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true')
     const isTopmostDialog = () => {
       const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')
@@ -27,12 +27,12 @@ export function OverlayDialog({ children, label, onClose, onEscape, labelledBy }
       const first = focusable[0]!
       const last = focusable[focusable.length - 1]!
       const activeElement = document.activeElement
-      if (!dialogRef.current?.contains(activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus() }
+      if (!dialogRef.current?.contains(activeElement) && !(activeElement instanceof Element && activeElement.closest('.pwa-update'))) { event.preventDefault(); (event.shiftKey ? last : first).focus() }
       else if (event.shiftKey && activeElement === first) { event.preventDefault(); last.focus() }
       else if (!event.shiftKey && activeElement === last) { event.preventDefault(); first.focus() }
     }
     const containFocus = (event: FocusEvent) => {
-      if (!isTopmostDialog() || dialogRef.current?.contains(event.target as Node)) return
+      if (!isTopmostDialog() || dialogRef.current?.contains(event.target as Node) || (event.target instanceof Element && event.target.closest('.pwa-update'))) return
       focusFirst()
     }
     document.addEventListener('keydown', handleKeyDown)

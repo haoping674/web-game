@@ -1,3 +1,5 @@
+import { GameActivityContext } from './hooks/useGameActivity'
+import { PwaUpdateNotice } from './components/PwaUpdateNotice'
 import { Component, lazy, Suspense, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import { HomePage } from './app/HomePage'
 import { GAME_REGISTRY } from './app/gameRegistry'
@@ -54,6 +56,10 @@ function App() {
   const [pathname, go] = useAppPathname()
   const [storage, setStorage] = useState<AppStorage>(readAppStorage)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [gameActivity, setGameActivity] = useState({ pathname: '', active: false })
+  const reportGameActivity = useCallback((active: boolean) => {
+    setGameActivity({ pathname, active })
+  }, [pathname])
   const fruitRoute = '/games/fruit-sum'
   const colorRoute = '/games/color-links'
   const knownRoute = pathname === HOME_ROUTE || GAME_REGISTRY.some((game) => game.route === pathname)
@@ -82,7 +88,7 @@ function App() {
   if (!knownRoute) return null
 
   return (
-    <>
+    <GameActivityContext.Provider value={reportGameActivity}>
       {pathname === HOME_ROUTE ? (
         <HomePage data={storage} onNavigate={go} onSettings={openSettings} />
       ) : (
@@ -120,7 +126,8 @@ function App() {
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}
-    </>
+      <PwaUpdateNotice isGameActive={gameActivity.pathname === pathname && gameActivity.active && !settingsOpen} />
+    </GameActivityContext.Provider>
   )
 }
 

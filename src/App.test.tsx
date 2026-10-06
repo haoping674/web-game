@@ -4,6 +4,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
+const pwaMock = vi.hoisted(() => ({ updateAvailable: false, applyUpdate: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('./hooks/usePwaUpdate', () => ({
+  usePwaUpdate: () => ({ ...pwaMock, offlineReady: false }),
+}))
+
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
@@ -20,6 +25,7 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  pwaMock.updateAvailable = false
   window.localStorage.clear()
   window.history.replaceState(null, '', '/')
 })
@@ -32,6 +38,26 @@ async function startColorLinks(): Promise<void> {
 }
 
 describe('platform routing and lazy game lifecycle', () => {
+  it('shows one global update notice on idle pages and settings, hides it during rounds, and restores it in the lobby', async () => {
+    pwaMock.updateAvailable = true
+    render(<App />)
+    expect(document.querySelectorAll('.pwa-update')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: '開始 Color Links' }))
+    await screen.findByRole('button', { name: /開始串聯/ })
+    expect(document.querySelectorAll('.pwa-update')).toHaveLength(1)
+    await startColorLinks()
+    expect(document.querySelector('.pwa-update')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '共用設定' }))
+    expect(document.querySelectorAll('.pwa-update')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+    expect(document.querySelector('.pwa-update')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '遊戲廳' }))
+    expect(document.querySelectorAll('.pwa-update')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: '稍後' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始 Color Links' }))
+    await screen.findByRole('button', { name: /開始串聯/ })
+    expect(document.querySelector('.pwa-update')).toBeNull()
+  })
   it('opens Slide Ten, uses the full board, scores a pair, and pauses for shared settings', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: '開始 滑滑湊十' }))

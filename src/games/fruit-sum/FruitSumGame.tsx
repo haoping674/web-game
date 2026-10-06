@@ -6,7 +6,7 @@ import { HowToPlayDialog } from '../../components/HowToPlayDialog'
 import { IosInstallDialog } from '../../components/IosInstallDialog'
 import { NetworkStatusToast } from '../../components/NetworkStatusToast'
 import { PauseDialog } from '../../components/PauseDialog'
-import { PwaUpdateNotice } from '../../components/PwaUpdateNotice'
+import { useGameActivity } from '../../hooks/useGameActivity'
 import { ResultDialog } from '../../components/ResultDialog'
 import { SettingsDialog } from '../../components/SettingsDialog'
 import { StartScreen } from '../../components/StartScreen'
@@ -186,6 +186,7 @@ export default function FruitSumGame({
       ? ' animations-reduced'
       : ''
   const isGameActive = game.status === 'playing' || game.status === 'paused'
+  useGameActivity(isGameActive)
   const installProps = {
     canInstall: install.canInstall,
     isInstalled: install.isInstalled,
@@ -251,7 +252,7 @@ export default function FruitSumGame({
       ) : null}
       {install.showIosInstructions ? <IosInstallDialog onClose={install.closeIosInstructions} /> : null}
       {game.status !== 'playing' ? <NetworkStatusToast notice={networkNotice} /> : null}
-      <PwaUpdateNotice isGameActive={isGameActive} />
+
     </div>
   )
 }

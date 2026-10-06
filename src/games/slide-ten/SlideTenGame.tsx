@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
-import { PwaUpdateNotice } from '../../components/PwaUpdateNotice'
+import { useGameActivity } from '../../hooks/useGameActivity'
 import { BOARD_COLUMNS, BOARD_ROWS, BOARD_SIZE } from '../../game/constants'
 import { playComboSound, stopComboAudio } from '../../game/soundManager'
 import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
@@ -39,6 +39,7 @@ function formatTime(ms: number) {
 
 export default function SlideTenGame({ globalSettings, onProgressChange, platformSettingsOpen }: Props) {
   const [game, dispatch] = useReducer(slideReducer, undefined, () => createSlideState())
+  useGameActivity(game.status === 'playing' || game.status === 'paused')
   const [selected, setSelected] = useState<number | null>(null)
   const [highScore, setHighScore] = useState(() => readAppStorage().games.slideTen.highScore)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -183,7 +184,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
         {game.status === 'ended' ? <OverlayDialog label="滑滑湊十遊戲結束"><p className="eyebrow">MAKE ROOM FOR THE NEXT WAVE</p><h2>空位不夠，再滑一局？</h2><p>你清出了 {game.removedFruits} 格空間，守住果園 {formatTime(game.elapsedMs)}。</p><div className="slide-result"><span>本局得分<strong>{game.score}</strong></span><span>消除次數<strong>{game.pairs}</strong></span><span>本機最高<strong>{highScore}</strong></span></div><LeaderboardPanel key={roundKey.current} board="slide-cleared" score={game.score} resultKey={`slide-ten-count:${roundKey.current}`} /><button type="button" className="primary-button" onClick={start}>再玩一次</button><button type="button" className="text-button" onClick={() => navigate(HOME_ROUTE)}>返回遊戲廳</button></OverlayDialog> : null}
       </section>
       {leaderboardOpen ? <LeaderboardDialog initialBoard="slide-cleared" onClose={() => setLeaderboardOpen(false)} /> : null}
-      <PwaUpdateNotice isGameActive={game.status === 'playing' || game.status === 'paused'} />
+
     </div>
   )
 }
