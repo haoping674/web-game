@@ -19,7 +19,29 @@ const effect: ColorLinksEffect = {
   points: 5,
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
+
+function mockTouchInput() {
+  class TestPointerEvent extends MouseEvent {
+    pointerId: number
+    pointerType: string
+    isPrimary: boolean
+    constructor(type: string, options: PointerEventInit = {}) {
+      super(type, options)
+      this.pointerId = options.pointerId ?? 1
+      this.pointerType = options.pointerType ?? 'touch'
+      this.isPrimary = options.isPrimary ?? true
+    }
+  }
+  vi.stubGlobal('PointerEvent', TestPointerEvent)
+  const hitTest = vi.fn()
+  Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: hitTest })
+  return hitTest
+}
+
 
 describe('Color Links board accessibility and effects', () => {
   it('allows only empty cells to submit a move', () => {
@@ -33,6 +55,69 @@ describe('Color Links board accessibility and effects', () => {
     fireEvent.click(empty)
     expect(onSelect).toHaveBeenCalledOnce()
     expect(onSelect).toHaveBeenCalledWith({ row: 1, column: 1 })
+  })
+
+  it('uses each rapid touch coordinate even when click targets repeat, without duplicate moves', () => {
+    const hitTest = mockTouchInput()
+    const onSelect = vi.fn()
+    render(<ColorLinksBoard board={[[null, null]]} onSelect={onSelect} />)
+    const [first, second] = screen.getAllByRole('gridcell')
+    for (const [index, cell] of [first, second].entries()) {
+      hitTest.mockReturnValue(cell)
+      // Simulate browser retargeting both event sequences to the first cell.
+      fireEvent.pointerDown(first, { clientX: 10 + index * 20, clientY: 10 })
+      fireEvent.pointerUp(first, { clientX: 10 + index * 20, clientY: 10 })
+      fireEvent.click(first, { detail: index + 1 })
+    }
+    expect(onSelect.mock.calls).toEqual([[{ row: 0, column: 0 }], [{ row: 0, column: 1 }]])
+    expect(hitTest).toHaveBeenLastCalledWith(30, 10)
+    // Keyboard/assistive activation and mouse input still work after touching.
+    fireEvent.click(second, { detail: 0 })
+    fireEvent.pointerDown(first, { pointerType: 'mouse' })
+    fireEvent.click(first, { detail: 1 })
+    expect(onSelect).toHaveBeenCalledTimes(4)
+  })
+
+  it('does not submit cancelled touches, drags, gaps, filled cells or disabled boards', () => {
+    const hitTest = mockTouchInput()
+    const onSelect = vi.fn()
+    const { rerender } = render(<ColorLinksBoard board={board} onSelect={onSelect} />)
+    const empty = screen.getByRole('gridcell', { name: /第 2 列第 2 欄，空格/ })
+    const filled = screen.getByRole('gridcell', { name: /第 1 列第 2 欄，珊瑚色塊/ })
+    hitTest.mockReturnValue(empty)
+    fireEvent.pointerDown(empty)
+    fireEvent.pointerCancel(empty)
+    fireEvent.pointerUp(empty)
+    fireEvent.pointerDown(empty)
+    hitTest.mockReturnValue(filled)
+    fireEvent.pointerMove(empty)
+    hitTest.mockReturnValue(empty)
+    fireEvent.pointerUp(empty)
+    hitTest.mockReturnValue(null)
+    fireEvent.pointerDown(empty)
+    fireEvent.pointerUp(empty)
+    hitTest.mockReturnValue(filled)
+    fireEvent.pointerDown(filled)
+    fireEvent.pointerUp(filled)
+    rerender(<ColorLinksBoard board={board} disabled onSelect={onSelect} />)
+    hitTest.mockReturnValue(empty)
+    fireEvent.pointerDown(empty)
+    fireEvent.pointerUp(empty)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('resolves touch positions in the transposed portrait layout', () => {
+    const hitTest = mockTouchInput()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }))
+    const onSelect = vi.fn()
+    render(<ColorLinksBoard board={board} onSelect={onSelect} />)
+    const cells = screen.getAllByRole('gridcell')
+    hitTest.mockReturnValue(cells[6])
+    fireEvent.pointerDown(cells[0])
+    fireEvent.pointerUp(cells[0])
+    expect(onSelect).toHaveBeenCalledWith({ row: 2, column: 0 })
   })
 
   it('renders pointer-transparent lines and particles in each removed tile color', () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { BoardCountdown } from '../../components/BoardCountdown'
 import { getCountdownPhase } from '../../components/countdown'
 import type { CellPosition, ColorId, ColorLinksBoard, MatchGroup } from './types'
@@ -129,6 +129,33 @@ export function ColorLinksBoard({
   const rows = board.length
   const columns = board[0]?.length ?? 0
   const portrait = usePortraitLayout()
+  const lastPointerType = useRef('')
+  const touch = useRef<{ pointerId: number; cell: HTMLButtonElement | null } | null>(null)
+
+  // Hit-test touch coordinates directly, including the transposed portrait layout.
+  const cellAtPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const cell = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLButtonElement>('.color-cell')
+    return cell && event.currentTarget.contains(cell) ? cell : null
+  }
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    lastPointerType.current = event.pointerType
+    if (event.pointerType !== 'touch') return
+    touch.current = event.isPrimary
+      ? { pointerId: event.pointerId, cell: cellAtPointer(event) }
+      : null
+  }
+
+  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') return
+    const started = touch.current
+    touch.current = null
+    if (disabled || !started || started.pointerId !== event.pointerId) return
+    const cell = cellAtPointer(event)
+    if (!cell || cell !== started.cell || cell.disabled) return
+    onSelect?.({ row: Number(cell.dataset.row), column: Number(cell.dataset.column) })
+  }
+
   const boardSize = `${columns} × ${rows}`
   return (
     <div
@@ -145,6 +172,14 @@ export function ColorLinksBoard({
         aria-label="Color Links 色彩棋盤"
         aria-rowcount={rows}
         aria-colcount={columns}
+        onPointerDownCapture={handlePointerDown}
+        onPointerMoveCapture={(event) => {
+          if (touch.current?.pointerId === event.pointerId && cellAtPointer(event) !== touch.current.cell) {
+            touch.current = null
+          }
+        }}
+        onPointerUpCapture={handlePointerUp}
+        onPointerCancelCapture={() => { touch.current = null }}
         style={{ '--color-columns': columns, '--color-rows': rows } as CSSProperties}
       >
         {board.map((row, rowIndex) => (
@@ -165,6 +200,8 @@ export function ColorLinksBoard({
                   type="button"
                   role="gridcell"
                   aria-colindex={column + 1}
+                  data-row={rowIndex}
+                  data-column={column}
                   aria-label={
                     meta
                       ? `第 ${rowIndex + 1} 列第 ${column + 1} 欄，${meta.label}色塊`
@@ -172,7 +209,10 @@ export function ColorLinksBoard({
                   }
                   className={`color-cell ${cell === null ? 'is-color-empty' : `is-color-tile color-${cell}`}${isInvalid ? ' is-invalid-link' : ''}`}
                   disabled={disabled || cell !== null}
-                  onClick={() => onSelect?.(position)}
+                  onClick={(event) => {
+                    // Touch submits on pointerup; keep keyboard/AT and mouse clicks.
+                    if (event.detail === 0 || lastPointerType.current !== 'touch') onSelect?.(position)
+                  }}
                 >
                   {meta ? <span aria-hidden="true">{meta.symbol}</span> : <span className="empty-cell-dot" aria-hidden="true" />}
                 </button>
