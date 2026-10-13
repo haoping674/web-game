@@ -5,6 +5,8 @@
 .slide-start-copy > p:not(.eyebrow) { font-size: 13px; line-height: 1.9; color: var(--muted); }
 .slide-start ol { padding-left: 20px; margin: 24px 0; color: #63725b; font-size: 12px; line-height: 2.2; }
 .slide-start .primary-button { min-height: 50px; }
+.slide-start-leaderboard { grid-column: 1 / -1; min-width: 0; }
+.slide-start-leaderboard .leaderboard-panel { margin: 0; }
 .slide-best strong { color: var(--accent); margin-left: 10px; font: 700 20px 'Outfit', sans-serif; }
 .slide-demo { padding: 30px 22px; border: 1px solid #ccc7ad; background: #edf0db; border-radius: 20px; text-align: center; transform: rotate(2deg); }
 .slide-demo-caption { color: #7b8669; font-size: 11px; }

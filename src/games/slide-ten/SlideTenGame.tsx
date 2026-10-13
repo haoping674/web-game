@@ -7,7 +7,6 @@ import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
 import { readAppStorage, recordGameResult, type GlobalSettings } from '../../shared/storage/appStorage'
 import { HOME_ROUTE, navigate } from '../../app/router'
 import { LeaderboardPanel } from '../../shared/leaderboard/LeaderboardPanel'
-import { LeaderboardDialog } from '../../shared/leaderboard/LeaderboardDialog'
 import { createSlideState, screenDirection, slideReducer, type Direction } from './model'
 import './slide-ten.css'
 
@@ -43,7 +42,6 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
   const [selected, setSelected] = useState<number | null>(null)
   const [highScore, setHighScore] = useState(() => readAppStorage().games.slideTen.highScore)
   const [helpOpen, setHelpOpen] = useState(false)
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false)
   const roundKey = useRef('')
   const gesture = useRef<{ id: number; index: number; x: number; y: number } | null>(null)
   const recorded = useRef(false)
@@ -125,13 +123,15 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
               <ol><li>滑動一顆水果，沿直線移動。</li><li>同一直線依序湊十就消除，中間有空格也可以。</li><li>倒數歸零時，空格必須多於下一批水果數量。</li></ol>
               <button type="button" className="primary-button" onClick={start}>開始滑滑湊十 <span aria-hidden="true">↗</span></button>
               <p className="slide-best">本機最高分 <strong>{highScore}</strong></p>
-              <button type="button" className="text-button" onClick={() => setLeaderboardOpen(true)}>查看線上排行榜 ↗</button>
             </div>
             <div className="slide-demo" aria-label="示意：將 4 向右滑，與 6 湊十消除">
               <span className="slide-demo-caption">先移動，再配對。</span>
               <div><span className="fruit-cell fruit-theme-3"><i className="fruit-leaf" /><b>4</b></span><span className="slide-demo-arrow">→</span><span className="fruit-cell fruit-theme-5"><i className="fruit-leaf" /><b>6</b></span></div>
               <strong>4 + 6 = 10</strong><p>配對消除，空間就回來了。</p>
               <small>17 × 10 格 · 手機直式 10 × 17 格</small>
+            </div>
+            <div className="slide-start-leaderboard">
+              <LeaderboardPanel board="slide-cleared" />
             </div>
           </div>
         ) : (
@@ -183,7 +183,6 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
         {helpOpen ? <OverlayDialog label="滑滑湊十玩法說明" onClose={() => setHelpOpen(false)}><p className="eyebrow">SLIDE · MATCH · MAKE ROOM</p><h2>滑到一起，剛好湊十。</h2><p>滑動單顆水果，會沿直線滑到底。遇到水果時，沿滑動方向跳過空格，依序累加同一直線上的水果，總和剛好為 10 就整組消除。例如 5 → 2 → 空格 → 3，三顆一起消除。不能跳過有數字的水果；總和超過 10，或到邊界仍不足 10，就停在第一顆前面。每消除一顆得 1 分，分數就是消除水果的總顆數。</p><p>也可以點選水果，再按棋盤下方方向按鈕，或使用鍵盤方向鍵。單純搬動水果不加分。</p><p>每批補入前 1 秒，空格會顯示即將長出的數字。倒數歸零時，若空格小於或等於下一批水果數量，就結束遊戲；每 20 秒補入速度與數量提高。</p><button type="button" className="primary-button" onClick={() => setHelpOpen(false)}>了解了</button></OverlayDialog> : null}
         {game.status === 'ended' ? <OverlayDialog label="滑滑湊十遊戲結束"><p className="eyebrow">MAKE ROOM FOR THE NEXT WAVE</p><h2>空位不夠，再滑一局？</h2><p>你清出了 {game.removedFruits} 格空間，守住果園 {formatTime(game.elapsedMs)}。</p><div className="slide-result"><span>本局得分<strong>{game.score}</strong></span><span>消除次數<strong>{game.pairs}</strong></span><span>本機最高<strong>{highScore}</strong></span></div><LeaderboardPanel key={roundKey.current} board="slide-cleared" score={game.score} resultKey={`slide-ten-count:${roundKey.current}`} /><button type="button" className="primary-button" onClick={start}>再玩一次</button><button type="button" className="text-button" onClick={() => navigate(HOME_ROUTE)}>返回遊戲廳</button></OverlayDialog> : null}
       </section>
-      {leaderboardOpen ? <LeaderboardDialog initialBoard="slide-cleared" onClose={() => setLeaderboardOpen(false)} /> : null}
 
     </div>
   )
