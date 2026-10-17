@@ -40,8 +40,8 @@ function planArrivals(board: SlideBoard, count: number, seed: number) {
 }
 
 export function waveSettings(elapsedMs: number) {
-  const stage = Math.min(4, Math.floor(elapsedMs / 20_000))
-  return { intervalMs: 4_000 - stage * 450, count: 4 + stage }
+  const stage = Math.min(4, Math.floor(elapsedMs / 45_000))
+  return { intervalMs: 4_000, count: 4 + stage }
 }
 
 export function createSlideState(seed = 1): SlideState {
@@ -58,7 +58,7 @@ export function createSlideState(seed = 1): SlideState {
   board[4] = 6
   const planned = planArrivals(board, waveSettings(0).count, rng.seed())
   return {
-    status: 'ready', board, ...planned, untilWaveMs: 4_000,
+    status: 'ready', board, ...planned, untilWaveMs: waveSettings(0).intervalMs,
     elapsedMs: 0, lastTickAt: 0, score: 0,
     pairs: 0, removedFruits: 0, moveId: 0, lastMove: null,
   }

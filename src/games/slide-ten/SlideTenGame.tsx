@@ -119,7 +119,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
             <div className="slide-start-copy">
               <p className="eyebrow">SLIDE TEN · 試玩版</p>
               <h1>滑一下，<br /><em>剛好湊十。</em></h1>
-              <p>自己創造配對，把快滿的果園救回來。<br />熟悉的 170 格棋盤，這次由你搬動水果。</p>
+              <p>自己創造配對，把快滿的果園救回來。<br />84 顆水果開局，固定每 4 秒補入。</p>
               <ol><li>滑動一顆水果，沿直線移動。</li><li>同一直線依序湊十就消除，中間有空格也可以。</li><li>倒數歸零時，空格必須多於下一批水果數量。</li></ol>
               <button type="button" className="primary-button" onClick={start}>開始滑滑湊十 <span aria-hidden="true">↗</span></button>
               <p className="slide-best">本機最高分 <strong>{highScore}</strong></p>
@@ -176,11 +176,11 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
               </div>
             )}
             <div className="slide-input-bar"><p className="slide-feedback" role="status">{selectedFruit ? `已選 ${selectedFruit}，沿直線依序湊 ${10 - selectedFruit}，可跨空格；滑動或按方向。` : lastMove?.matched ? `消除 ${lastMove.cleared.length} 顆 +${lastMove.points}！繼續尋找下一組。` : '滑動水果，或點選後按方向，撞出剛好 10。'}</p><div className="slide-direction-pad" role="group" aria-label="滑動方向">{DIRECTIONS.map(({ direction, symbol, label }) => <button type="button" key={direction} aria-label={label} disabled={!playing || !selectedFruit} onClick={() => selected !== null && move(selected, direction)}>{symbol}</button>)}</div></div>
-            <p className="shortcut-tip">每消除一顆得 1 分 · 每 20 秒加快補入 · 選水果後方向鍵移動，Esc 暫停</p>
+            <p className="shortcut-tip">每消除一顆得 1 分 · 固定每 4 秒補入 · 每 45 秒增加數量 · 選水果後方向鍵移動，Esc 暫停</p>
           </div>
         )}
         {game.status === 'paused' && !platformSettingsOpen && !helpOpen ? <OverlayDialog label="滑滑湊十已暫停" onClose={resume}><p className="eyebrow">TAKE A LITTLE BREAK</p><h2>果園已暫停</h2><p>補入倒數會等你回來。</p><button type="button" className="primary-button" onClick={resume}>繼續遊戲</button><button type="button" className="text-button" onClick={start}>重新開始</button></OverlayDialog> : null}
-        {helpOpen ? <OverlayDialog label="滑滑湊十玩法說明" onClose={() => setHelpOpen(false)}><p className="eyebrow">SLIDE · MATCH · MAKE ROOM</p><h2>滑到一起，剛好湊十。</h2><p>滑動單顆水果，會沿直線滑到底。遇到水果時，沿滑動方向跳過空格，依序累加同一直線上的水果，總和剛好為 10 就整組消除。例如 5 → 2 → 空格 → 3，三顆一起消除。不能跳過有數字的水果；總和超過 10，或到邊界仍不足 10，就停在第一顆前面。每消除一顆得 1 分，分數就是消除水果的總顆數。</p><p>也可以點選水果，再按棋盤下方方向按鈕，或使用鍵盤方向鍵。單純搬動水果不加分。</p><p>每批補入前 1 秒，空格會顯示即將長出的數字。倒數歸零時，若空格小於或等於下一批水果數量，就結束遊戲；每 20 秒補入速度與數量提高。</p><button type="button" className="primary-button" onClick={() => setHelpOpen(false)}>了解了</button></OverlayDialog> : null}
+        {helpOpen ? <OverlayDialog label="滑滑湊十玩法說明" onClose={() => setHelpOpen(false)}><p className="eyebrow">SLIDE · MATCH · MAKE ROOM</p><h2>滑到一起，剛好湊十。</h2><p>滑動單顆水果，會沿直線滑到底。遇到水果時，沿滑動方向跳過空格，依序累加同一直線上的水果，總和剛好為 10 就整組消除。例如 5 → 2 → 空格 → 3，三顆一起消除。不能跳過有數字的水果；總和超過 10，或到邊界仍不足 10，就停在第一顆前面。每消除一顆得 1 分，分數就是消除水果的總顆數。</p><p>也可以點選水果，再按棋盤下方方向按鈕，或使用鍵盤方向鍵。單純搬動水果不加分。</p><p>每批補入前 1 秒，空格會顯示即將長出的數字。倒數歸零時，若空格小於或等於下一批水果數量，就結束遊戲；補入間隔固定為每 4 秒，初始每批 4 顆，每 45 秒增加 1 顆，最多每批 8 顆。</p><button type="button" className="primary-button" onClick={() => setHelpOpen(false)}>了解了</button></OverlayDialog> : null}
         {game.status === 'ended' ? <OverlayDialog label="滑滑湊十遊戲結束"><p className="eyebrow">MAKE ROOM FOR THE NEXT WAVE</p><h2>空位不夠，再滑一局？</h2><p>你清出了 {game.removedFruits} 格空間，守住果園 {formatTime(game.elapsedMs)}。</p><div className="slide-result"><span>本局得分<strong>{game.score}</strong></span><span>消除次數<strong>{game.pairs}</strong></span><span>本機最高<strong>{highScore}</strong></span></div><LeaderboardPanel key={roundKey.current} board="slide-cleared" score={game.score} resultKey={`slide-ten-count:${roundKey.current}`} /><button type="button" className="primary-button" onClick={start}>再玩一次</button><button type="button" className="text-button" onClick={() => navigate(HOME_ROUTE)}>返回遊戲廳</button></OverlayDialog> : null}
       </section>
 

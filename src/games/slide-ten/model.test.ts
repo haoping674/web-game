@@ -1,9 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import { BOARD_COLUMNS, BOARD_SIZE } from '../../game/constants'
-import { INITIAL_FRUITS, createSlideState, screenDirection, slideFruit, slideReducer, type SlideBoard, type SlideState } from './model'
+import { INITIAL_FRUITS, waveSettings, createSlideState, screenDirection, slideFruit, slideReducer, type SlideBoard, type SlideState } from './model'
 
 function emptyBoard(): SlideBoard { return Array(BOARD_SIZE).fill(null) }
 function playing(board: SlideBoard): SlideState { return { ...createSlideState(), board, status: 'playing', lastTickAt: 1000 } }
+
+describe('Slide Ten fixed wave cadence', () => {
+  it.each([
+    [0, 4], [44999, 4], [45000, 5], [89999, 5],
+    [90000, 6], [135000, 7], [180000, 8], [3600000, 8],
+  ])('keeps a four-second interval at %i ms with %i fruits', (elapsed, count) => {
+    expect(waveSettings(elapsed)).toEqual({ intervalMs: 4000, count })
+  })
+
+  it('preserves the opening and processes delayed ticks like regular ticks across a quantity increase', () => {
+    const start = slideReducer(createSlideState(), { type: 'start', seed: 42, now: 1000 })
+    expect(start.board.filter(value => value !== null)).toHaveLength(84)
+    expect(start.untilWaveMs).toBe(4000)
+    const delayed = slideReducer(start, { type: 'tick', now: 61000 })
+    let regular = start
+    for (let now = 1100; now <= 61000; now += 100) regular = slideReducer(regular, { type: 'tick', now })
+    expect(delayed).toEqual(regular)
+    expect(delayed.status).toBe('playing')
+    expect(delayed.board.filter(value => value !== null)).toHaveLength(147)
+    expect(delayed.untilWaveMs).toBe(4000)
+  })
+})
 
 describe('Slide Ten movement', () => {
   it.each([
