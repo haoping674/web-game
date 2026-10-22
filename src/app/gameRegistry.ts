@@ -1,4 +1,4 @@
-export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen'
+export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen' | 'secondSense'
 
 export type GameDefinition = {
   id: GameId
@@ -11,6 +11,15 @@ export type GameDefinition = {
 }
 
 export const GAME_REGISTRY = [
+  {
+    id: 'secondSense',
+    name: '秒感挑戰',
+    eyebrow: 'SECOND SENSE · FEEL THE MOMENT',
+    description: '按下開始，憑感覺按停。挑戰 1、3、5 秒，捕捉剛剛好的那一瞬。',
+    route: '/games/second-sense',
+    status: 'available',
+    accent: '#a54e2e',
+  },
   {
     id: 'slideTen',
     name: '滑滑湊十',

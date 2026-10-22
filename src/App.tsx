@@ -14,6 +14,7 @@ const ColorLinksGame = lazy(() => import('./games/color-links/ColorLinksGame'))
 const SproutIslandGame = lazy(() => import('./games/sprout-island/SproutIslandGame'))
 const AshboundGame = lazy(() => import('./games/ashbound/AshboundGame'))
 const SlideTenGame = lazy(() => import('./games/slide-ten/SlideTenGame'))
+const SecondSenseGame = lazy(() => import('./games/second-sense/SecondSenseGame'))
 
 type RouteErrorBoundaryProps = { children: ReactNode; onHome: () => void }
 type RouteErrorBoundaryState = { failed: boolean }
@@ -96,7 +97,9 @@ function App() {
           <AppHeader compact onHome={returnHome} onSettings={openSettings} />
           <RouteErrorBoundary key={pathname} onHome={returnHome}>
             <Suspense fallback={<RouteLoading />}>
-              {pathname === '/games/slide-ten' ? (
+              {pathname === '/games/second-sense' ? (
+                <SecondSenseGame globalSettings={storage.globalSettings} onProgressChange={refreshStorage} platformSettingsOpen={settingsOpen} />
+              ) : pathname === '/games/slide-ten' ? (
                 <SlideTenGame globalSettings={storage.globalSettings} onProgressChange={refreshStorage} platformSettingsOpen={settingsOpen} />
               ) : pathname === fruitRoute ? (
                 <FruitSumGame

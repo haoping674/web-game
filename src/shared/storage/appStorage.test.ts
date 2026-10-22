@@ -6,6 +6,7 @@ import {
   markGameTutorialSeen,
   recordColorLinksResult,
   recordGameResult,
+  recordTimingResult,
   resetGameProgress,
 } from './appStorage'
 
@@ -22,6 +23,18 @@ function createStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe('platform storage', () => {
+  it('migrates timing records, keeps each target independent, and rejects invalid saved errors', () => {
+    const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { fruitSum: { highScore: 42, gamesPlayed: 3 }, secondSense: { timingBestMs: { 1: -1, 3: 'bad', 5: 18.6 } } } }) })
+    expect(readAppStorage(storage).games.secondSense.timingBestMs).toEqual({ 5: 19 })
+    recordTimingResult(1, 0, storage)
+    recordTimingResult(3, 55, storage)
+    recordTimingResult(3, 100, storage)
+    recordTimingResult(5, NaN, storage)
+    expect(readAppStorage(storage).games.secondSense).toMatchObject({ gamesPlayed: 3, highScore: 1000, timingBestMs: { 1: 0, 3: 55, 5: 19 } })
+    expect(readAppStorage(storage).games.fruitSum).toEqual({ highScore: 42, gamesPlayed: 3 })
+    resetGameProgress('secondSense', storage)
+    expect(readAppStorage(storage).games.secondSense).toMatchObject({ highScore: 0, gamesPlayed: 0, timingBestMs: {} })
+  })
   it('adds Slide Ten to old saves and records its scores independently', () => {
     const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { fruitSum: { highScore: 42, gamesPlayed: 3 } } }) })
     expect(readAppStorage(storage).games.slideTen).toEqual({ highScore: 0, gamesPlayed: 0, scoreRule: 'fruit-count' })

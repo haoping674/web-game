@@ -14,6 +14,7 @@ export type GlobalSettings = {
 }
 
 export type GameProgress = {
+  timingBestMs?: Partial<Record<1 | 3 | 5, number>>
   scoreRule?: 'fruit-count'
   highScore: number
   bestTimeSeconds?: number
@@ -42,6 +43,7 @@ export const DEFAULT_APP_STORAGE: AppStorage = {
     sproutIsland: { ...DEFAULT_PROGRESS },
     ashbound: { ...DEFAULT_PROGRESS },
     slideTen: { ...DEFAULT_PROGRESS, scoreRule: 'fruit-count' },
+    secondSense: { ...DEFAULT_PROGRESS },
   },
 }
 
@@ -88,6 +90,17 @@ function normalizeColorLinksProgress(value: unknown): GameProgress {
   ) return progress
   const { bestTimeSeconds: _obsoleteUnlimitedTime, ...timeLimitedProgress } = progress
   return timeLimitedProgress
+}
+
+function normalizeTimingProgress(value: unknown): GameProgress {
+  const progress = normalizeProgress(value)
+  const best = isRecord(value) && isRecord(value.timingBestMs) ? value.timingBestMs : {}
+  const timingBestMs: Partial<Record<1 | 3 | 5, number>> = {}
+  for (const target of [1, 3, 5] as const) {
+    const error = best[target]
+    if (typeof error === 'number' && Number.isFinite(error) && error >= 0) timingBestMs[target] = Math.round(error)
+  }
+  return { ...progress, timingBestMs }
 }
 
 function normalizeSlideProgress(value: unknown): GameProgress {
@@ -173,6 +186,7 @@ export function readAppStorage(storage?: Storage): AppStorage {
         sproutIsland: normalizeProgress(games.sproutIsland),
         ashbound: normalizeProgress(games.ashbound),
         slideTen: normalizeSlideProgress(games.slideTen),
+        secondSense: normalizeTimingProgress(games.secondSense),
       },
     }
   } catch {
@@ -241,6 +255,26 @@ export function recordColorLinksResult(
         ...outcomeProgress,
         gamesPlayed: progress.gamesPlayed + 1,
         lastPlayedAt: playedAt.toISOString(),
+      },
+    },
+  }, storage)
+}
+
+export function recordTimingResult(target: 1 | 3 | 5, errorMs: number, storage?: Storage): AppStorage {
+  const current = readAppStorage(storage)
+  if (!Number.isFinite(errorMs) || errorMs < 0) return current
+  const progress = current.games.secondSense
+  const error = Math.round(errorMs)
+  return saveAppStorage({
+    ...current,
+    games: {
+      ...current.games,
+      secondSense: {
+        ...progress,
+        highScore: Math.max(progress.highScore, Math.max(0, 1000 - error)),
+        gamesPlayed: progress.gamesPlayed + 1,
+        lastPlayedAt: new Date().toISOString(),
+        timingBestMs: { ...progress.timingBestMs, [target]: Math.min(progress.timingBestMs?.[target] ?? Infinity, error) },
       },
     },
   }, storage)

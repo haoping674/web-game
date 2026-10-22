@@ -167,3 +167,7 @@
 }
 @media (prefers-reduced-motion: reduce) { .arcade-home *, .arcade-home *::before, .arcade-home *::after { transition: none !important; scroll-behavior: auto !important; } }
 .home-reduced-motion *, .home-reduced-motion *::before, .home-reduced-motion *::after { transition: none !important; }
+.arcade-home .timing-preview { display:grid; place-items:center; }
+.timing-preview>span { display:flex; flex-direction:column; justify-content:center; align-items:center; width:118px; height:118px; border:1px solid #ad5738; outline:1px dashed #c5a388; outline-offset:10px; border-radius:50%; background:#c36b44; color:#fff8e8; box-shadow:0 6px 0 #8c4831; font:500 25px 'DM Mono',monospace; transform:rotate(-8deg); }
+.timing-preview small { margin-top:8px; font:8px 'DM Mono',monospace; letter-spacing:.08em; }
+@media(max-width:480px) { .timing-preview>span { width:85px; height:85px; font-size:20px; }.timing-preview small { font-size:6px; } }

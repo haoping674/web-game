@@ -1,8 +1,9 @@
 # Orchard Arcade
 
-Orchard Arcade 是一個包含五款手機友善遊戲的 PWA：
+Orchard Arcade 是一個包含六款手機友善遊戲的 PWA：
 
 - **Orchard Ten**：在水果棋盤中框選相鄰方格，讓總和恰好等於 10。
+- **秒感挑戰（Second Sense）**：挑戰 1、3、5 秒，按一下開始、再按一下停止，靠直覺捕捉目標時間，誤差越小，粒子、光圈與和弦回饋越豐富。
 - **Color Links**：點擊空格，向上、下、左、右尋找最近色塊，連結至少兩個同色訊號。
 - **滑滑湊十（Slide Ten，試玩版）**：滑動單顆水果，撞到合計為 10 的水果即可配對消除，趕在新水果補入前清出空間。
 - **芽芽小島**：點擊陽光、種植精靈、合成同級居民，透過遠航累積永久產量加成。沒有倒數與失敗條件。
@@ -18,6 +19,7 @@ Orchard Arcade 是一個包含五款手機友善遊戲的 PWA：
 ├─ /games/fruit-sum
 ├─ /games/color-links
 ├─ /games/slide-ten
+├─ /games/second-sense
 ├─ /games/sprout-island
 └─ /games/ashbound
 ```
@@ -25,6 +27,13 @@ Orchard Arcade 是一個包含五款手機友善遊戲的 PWA：
 路由使用瀏覽器 History API 的輕量封裝，支援直接 URL、重新整理、返回／前進與 PWA navigation fallback。遊戲資料由集中式 `GAME_REGISTRY` 產生首頁卡片及路由，不在多處重複維護。
 
 ## 遊戲模式
+
+### 秒感挑戰
+
+- 預設 3 秒，可選 1、3、5 秒。點擊主按鈕或按空白鍵開始與停止，計時中不顯示秒數、不提供目標時間提示。使用 `performance.now()` 計算實際間隔，停止後取整到毫秒；結果、評價與紀錄使用同一誤差。
+- 誤差 ≤30 / 80 / 150 / 300 毫秒分別為「完美瞬間／神乎其技／漂亮的手感／就差一點點」，其餘鼓勵重試。精準分為 `max(0, 1000 − 誤差毫秒)`。各目標分別儲存最佳誤差，最近五次成績僅保留於本次遊玩。
+- 計時中鎖定目標；Esc、切到背景、開啟共用設定或超過 30 秒會取消回合，不計成績。返回遊戲廳會取消當局，保留已完成紀錄。支援共用靜音、降低動畫、關閉特效及系統減少動態效果偏好。
+- 視覺研究由 [Designeer](https://designeer.xyz/inspiration) 導向 [Details 的 Heron AI 按鈕範例](https://www.details.so/inspo/heronaiapp-a814d6) 與其推薦牆中的 SweetTape 範例，參考清楚的主按鈕層級、醒目字體與強調色，搭配本站既有暖色系；按鈕、光圈、粒子與音效均為原創實作。
 
 ### 滑滑湊十（試玩版）
 
