@@ -1,3 +1,5 @@
+import { startPwaUpdateChecks } from './pwaUpdateChecks'
+
 type PwaSnapshot = { updateAvailable: boolean; offlineReady: boolean }
 
 let snapshot: PwaSnapshot = { updateAvailable: false, offlineReady: false }
@@ -16,6 +18,9 @@ export function initializePwa(): void {
   void import('./pwaRegisterProduction').then(({ registerProductionServiceWorker }) => {
     updateServiceWorker = registerProductionServiceWorker({
       immediate: true,
+      onRegisteredSW: (_swUrl, registration) => {
+        if (registration) startPwaUpdateChecks(registration)
+      },
       onNeedRefresh: () => emit({ updateAvailable: true }),
       onOfflineReady: () => emit({ offlineReady: true }),
       onRegisterError: (error) => console.warn('PWA service worker registration failed', error),
