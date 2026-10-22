@@ -24,6 +24,17 @@ function createStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe('platform storage', () => {
+  it('keeps random timing records separate even when the random draw equals a fixed target', () => {
+    const storage = createStorage()
+    recordTimingResult(3, 80, storage)
+    recordTimingResult(2.2, 30, storage, true)
+    recordTimingResult(3, 0, storage, true)
+    recordTimingResult(2.2, 0, storage)
+    recordTimingResult(9, 0, storage, true)
+    expect(readAppStorage(storage).games.secondSense).toMatchObject({ timingBestMs: { 3: 80 }, timingRandomBestMs: 0, gamesPlayed: 3 })
+    resetGameProgress('secondSense', storage)
+    expect(readAppStorage(storage).games.secondSense.timingRandomBestMs).toBeUndefined()
+  })
   it('migrates length records, retains zero best errors, and resets only the chosen game', () => {
     const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { secondSense: { highScore: 980, gamesPlayed: 2, timingBestMs: { 3: 20 } }, lengthSense: { lengthBestErrorBp: -20 } } }) })
     expect(readAppStorage(storage).games.lengthSense).toEqual({ highScore: 0, gamesPlayed: 0, scoreRule: 'hold-centimeters' })

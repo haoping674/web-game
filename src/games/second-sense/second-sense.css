@@ -35,3 +35,12 @@
 @media (prefers-reduced-motion:reduce) { .second-sense *,.second-sense *::before,.second-sense *::after { animation:none!important; transition:none!important; }.second-sense .sense-burst { display:none; } }
 @media (max-width:800px) { .sense-layout { grid-template-columns:minmax(0,1fr); }.sense-sidebar { display:grid; grid-template-columns:1fr 1fr; gap:16px; }.sense-guide { padding:14px 10px; }.sense-record { padding:20px; }.sense-stage { min-height:330px; }.sense-history { align-items:flex-start; flex-direction:column; gap:14px; }.sense-history ol { width:100%; flex-wrap:wrap; }.sense-history li { flex:1 0 85px; } }
 @media (max-width:440px) { .second-sense { margin:20px auto; }.sense-heading { margin-bottom:22px; }.sense-edition { display:none; }.sense-heading h1>span { font-size:12px; }.sense-topline { padding:16px; font-size:9px; }.sense-targets button { padding:8px 16px; }.sense-targets { gap:6px; }.sense-stage { min-height:320px; padding-top:40px; padding-bottom:34px; }.sense-button { width:160px; height:160px; }.sense-orbit { width:260px; height:260px; }.sense-orbit.orbit-two { width:330px; height:330px; }.sense-result { padding:18px 14px; }.sense-result-content { gap:18px; flex-wrap:wrap; }.sense-result-badge { padding:5px 8px; }.sense-sidebar { grid-template-columns:1fr; }.sense-guide { padding:12px 20px; }.sense-guide>span { float:right; }.sense-best-number { margin-top:16px; }.sense-history li { padding-left:10px; } }
+.sense-random-target { margin:14px 12px 0; text-align:center; color:var(--sense-accent); font-size:12px; line-height:1.7; }
+.sense-random-target strong { font:500 22px 'DM Mono',monospace; margin:0 4px; }
+.sense-random-target small { display:block; color:var(--sense-muted); font-size:9px; }
+@media(max-width:440px) {
+  .second-sense .sense-targets { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-inline:12px; gap:5px; }
+  .second-sense .sense-targets button { padding:8px 4px; gap:4px; justify-content:center; }
+  .second-sense .sense-targets strong { font-size:18px; }
+  .second-sense .sense-targets button>span { font-size:9px; }
+}

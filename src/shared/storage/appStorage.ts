@@ -16,6 +16,7 @@ export type GlobalSettings = {
 export type GameProgress = {
   lengthBestErrorBp?: number
   timingBestMs?: Partial<Record<1 | 3 | 5, number>>
+  timingRandomBestMs?: number
   scoreRule?: 'fruit-count' | 'hold-centimeters'
   highScore: number
   bestTimeSeconds?: number
@@ -102,7 +103,8 @@ function normalizeTimingProgress(value: unknown): GameProgress {
     const error = best[target]
     if (typeof error === 'number' && Number.isFinite(error) && error >= 0) timingBestMs[target] = Math.round(error)
   }
-  return { ...progress, timingBestMs }
+  const randomBest = isRecord(value) ? value.timingRandomBestMs : undefined
+  return { ...progress, timingBestMs, ...(typeof randomBest === 'number' && Number.isFinite(randomBest) && randomBest >= 0 ? { timingRandomBestMs: Math.round(randomBest) } : {}) }
 }
 
 function normalizeSlideProgress(value: unknown): GameProgress {
@@ -274,9 +276,10 @@ export function recordColorLinksResult(
   }, storage)
 }
 
-export function recordTimingResult(target: 1 | 3 | 5, errorMs: number, storage?: Storage): AppStorage {
+export function recordTimingResult(target: number, errorMs: number, storage?: Storage, randomMode = false): AppStorage {
   const current = readAppStorage(storage)
-  if (!Number.isFinite(errorMs) || errorMs < 0) return current
+  if (!Number.isFinite(errorMs) || errorMs < 0 || !Number.isFinite(target) || target < 1 || target > 5) return current
+  if (!randomMode && target !== 1 && target !== 3 && target !== 5) return current
   const progress = current.games.secondSense
   const error = Math.round(errorMs)
   return saveAppStorage({
@@ -288,7 +291,9 @@ export function recordTimingResult(target: 1 | 3 | 5, errorMs: number, storage?:
         highScore: Math.max(progress.highScore, Math.max(0, 1000 - error)),
         gamesPlayed: progress.gamesPlayed + 1,
         lastPlayedAt: new Date().toISOString(),
-        timingBestMs: { ...progress.timingBestMs, [target]: Math.min(progress.timingBestMs?.[target] ?? Infinity, error) },
+        ...(randomMode
+          ? { timingRandomBestMs: Math.min(progress.timingRandomBestMs ?? Infinity, error) }
+          : { timingBestMs: { ...progress.timingBestMs, [target]: Math.min(progress.timingBestMs?.[target as 1 | 3 | 5] ?? Infinity, error) } }),
       },
     },
   }, storage)

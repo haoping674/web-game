@@ -2,14 +2,16 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { useGameActivity } from '../../hooks/useGameActivity'
 import { readAppStorage, recordTimingResult, type GlobalSettings } from '../../shared/storage/appStorage'
 import { TimingAudio } from './audio'
-import { judgeTiming, TARGETS, type Target, type TimingResult } from './model'
+import { judgeTiming, TARGETS, type TimingResult } from './model'
+import { randomSenseTarget } from '../../shared/gameplay/randomSenseTarget'
 import './second-sense.css'
 
 type Props = { globalSettings: GlobalSettings; onProgressChange: () => void; platformSettingsOpen: boolean }
 const QUALITY = { perfect: 3, excellent: 3, great: 2, close: 1, retry: 0 }
 
 export default function SecondSenseGame({ globalSettings, onProgressChange, platformSettingsOpen }: Props) {
-  const [target, setTarget] = useState<Target>(3)
+  const [target, setTarget] = useState(3)
+  const [randomMode, setRandomMode] = useState(false)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<TimingResult | null>(null)
   const [history, setHistory] = useState<TimingResult[]>([])
@@ -53,16 +55,18 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
     const outcome = judgeTiming(now - startedAt.current, target)
     startedAt.current = null
     clearTimer()
-    const previousBest = readAppStorage().games.secondSense.timingBestMs?.[target]
+    const previousProgress = readAppStorage().games.secondSense
+    const previousBest = randomMode ? previousProgress.timingRandomBestMs : previousProgress.timingBestMs?.[target as 1 | 3 | 5]
     setNewBest(previousBest === undefined || outcome.error < previousBest)
-    const saved = recordTimingResult(target, outcome.error)
+    const saved = recordTimingResult(target, outcome.error, undefined, randomMode)
     setProgress(saved.games.secondSense)
     setResult(outcome)
     setRunning(false)
     setHistory((items) => [outcome, ...items].slice(0, 5))
+    if (randomMode) setTarget(randomSenseTarget())
     if (globalSettings.soundEnabled) { audio.current ??= new TimingAudio(); audio.current.play(QUALITY[outcome.tier]) }
     onProgressChange()
-  }, [platformSettingsOpen, globalSettings.soundEnabled, target, cancelRound, clearTimer, onProgressChange])
+  }, [platformSettingsOpen, globalSettings.soundEnabled, target, randomMode, cancelRound, clearTimer, onProgressChange])
 
   useEffect(() => {
     const interrupt = () => cancelRound('這局已取消，不計成績。準備好就再來一次。')
@@ -91,7 +95,7 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
 
   useEffect(() => () => { clearTimer(); audio.current?.stop() }, [clearTimer])
 
-  const best = progress.timingBestMs?.[target]
+  const best = randomMode ? progress.timingRandomBestMs : progress.timingBestMs?.[target as 1 | 3 | 5]
   const reduced = globalSettings.reducedMotion || globalSettings.effectIntensity !== 'full'
   const phase = running ? 'running' : result ? result.tier : 'idle'
 
@@ -101,10 +105,11 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
       <div className="sense-layout">
         <div className="sense-play">
           <div className="sense-topline"><span><i />{running ? '相信你的時間感' : result ? '每一瞬，都更接近' : '把時間，交給感覺'}</span><span>01 / 03 / 05</span></div>
-          <div className="sense-targets" role="group" aria-label="目標秒數">{TARGETS.map((seconds) => <button type="button" key={seconds} aria-label={`${seconds} 秒挑戰`} aria-pressed={target === seconds} disabled={running} onClick={() => { setTarget(seconds); setResult(null); setNotice(''); setNewBest(false) }}><strong>{seconds}</strong><span>秒挑戰</span></button>)}</div>
+          <div className="sense-targets" role="group" aria-label="目標秒數">{TARGETS.map((seconds) => <button type="button" key={seconds} aria-label={`${seconds} 秒挑戰`} aria-pressed={!randomMode && target === seconds} disabled={running} onClick={() => { setRandomMode(false); setTarget(seconds); setResult(null); setNotice(''); setNewBest(false) }}><strong>{seconds}</strong><span>秒挑戰</span></button>)}<button type="button" aria-label="隨機秒數目標" aria-pressed={randomMode} disabled={running} onClick={() => { setRandomMode(true); setTarget(randomSenseTarget()); setResult(null); setNotice(''); setNewBest(false) }}><strong aria-hidden="true">⤨</strong><span>隨機</span></button></div>
+          {randomMode ? <p className="sense-random-target" aria-live="polite">{result ? '下一局目標' : '本局目標'} <strong>{target.toFixed(1)}</strong> 秒 <small>每局抽選 1.0～5.0 秒</small></p> : null}
           <div className="sense-stage">
             <span className="sense-orbit orbit-one" aria-hidden="true" /><span className="sense-orbit orbit-two" aria-hidden="true" />
-            <div className="sense-stage-caption" aria-live="polite">{running ? '在心裡數，到點就按。' : result ? result.label : <>你的目標 <strong>{target}.000</strong> 秒</>}</div>
+            <div className="sense-stage-caption" aria-live="polite">{running ? '在心裡數，到點就按。' : result ? result.label : <>你的目標 <strong>{target.toFixed(3)}</strong> 秒</>}</div>
             {result && <div className="sense-burst" key={round.current} aria-hidden="true">{Array.from({ length: 8 + QUALITY[result.tier] * 10 }, (_, index) => <i key={index} style={{ '--angle': `${index * 137.5}deg`, '--distance': `${100 + index % 4 * 24}px`, '--delay': `${index % 5 * 18}ms` } as CSSProperties} />)}
               <span className="sense-shockwave" /><span className="sense-shockwave second-wave" /></div>}
             <button type="button" className="sense-button" onClick={activate} aria-label={running ? '停止計時' : result ? '再挑戰一次' : '開始計時'} disabled={platformSettingsOpen}>
@@ -113,11 +118,11 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
             <p className="sense-input-hint">點擊按鈕，或按空白鍵{running ? '停止' : '開始'}{running ? ' · Esc 取消' : ''}</p>
           </div>
           <div className="sense-result" role="status" aria-live="polite" aria-atomic="true">
-            {result ? <div key={round.current} className="sense-result-content"><div><span>你按下的瞬間</span><strong>{(result.elapsed / 1000).toFixed(3)}<small>秒</small></strong></div><div className="sense-error"><span>{result.delta === 0 ? '分毫不差' : result.delta < 0 ? '提早了' : '晚了'}</span><strong>{(result.error / 1000).toFixed(3)}<small>秒</small></strong></div><span className="sense-result-badge">{newBest ? '↗ 個人新紀錄' : `${result.score} 精準分`}</span></div> : <p>{notice || (running ? '秒數先保密，讓直覺帶路。' : '按一下開始，再按一下停止。離目標越近，驚喜越大。')}</p>}
+            {result ? <div key={round.current} className="sense-result-content"><div><span>本局目標 {result.target.toFixed(1)} 秒</span><strong>{(result.elapsed / 1000).toFixed(3)}<small>秒</small></strong></div><div className="sense-error"><span>{result.delta === 0 ? '分毫不差' : result.delta < 0 ? '提早了' : '晚了'}</span><strong>{(result.error / 1000).toFixed(3)}<small>秒</small></strong></div><span className="sense-result-badge">{newBest ? '↗ 個人新紀錄' : `${result.score} 精準分`}</span></div> : <p>{notice || (running ? '秒數先保密，讓直覺帶路。' : '按一下開始，再按一下停止。離目標越近，驚喜越大。')}</p>}
           </div>
         </div>
         <aside className="sense-sidebar">
-          <section className="sense-record"><p className="eyebrow">YOUR PERSONAL BEST</p><h2>和自己的秒感較量</h2><span className="sense-best-number">{best === undefined ? '—.———' : (best / 1000).toFixed(3)}<small>秒</small></span><p>{target} 秒挑戰 · 最小誤差</p><div className="sense-record-list">{TARGETS.map((seconds) => <div key={seconds}><span>{seconds} 秒</span><strong>{progress.timingBestMs?.[seconds] === undefined ? '等你來挑戰' : `±${(progress.timingBestMs[seconds]! / 1000).toFixed(3)} s`}</strong></div>)}</div><small>紀錄自動儲存於本機 · 已挑戰 {progress.gamesPlayed} 次</small></section>
+          <section className="sense-record"><p className="eyebrow">YOUR PERSONAL BEST</p><h2>和自己的秒感較量</h2><span className="sense-best-number">{best === undefined ? '—.———' : (best / 1000).toFixed(3)}<small>秒</small></span><p>{randomMode ? '隨機挑戰' : `${target} 秒挑戰`} · 最小誤差</p><div className="sense-record-list">{TARGETS.map((seconds) => <div key={seconds}><span>{seconds} 秒</span><strong>{progress.timingBestMs?.[seconds] === undefined ? '等你來挑戰' : `±${(progress.timingBestMs[seconds]! / 1000).toFixed(3)} s`}</strong></div>)}</div><small>紀錄自動儲存於本機 · 已挑戰 {progress.gamesPlayed} 次</small></section>
           <section className="sense-guide"><span aria-hidden="true">✳</span><h2>越接近，越痛快。</h2><p>放輕鬆，找到自己的拍子。<br />不用看錶，你的直覺比想像中準。</p><div><span>誤差 ≤ 0.030 秒</span><strong>✦ 完美瞬間</strong></div><div><span>誤差 ≤ 0.080 秒</span><strong>神乎其技</strong></div><div><span>誤差 ≤ 0.150 秒</span><strong>漂亮的手感</strong></div><div><span>誤差 ≤ 0.300 秒</span><strong>就差一點點</strong></div></section>
         </aside>
       </div>

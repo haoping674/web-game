@@ -37,6 +37,30 @@ function tick(time: number) {
 const holdButton = () => screen.getByRole('button', { name: '按住讓線變長' })
 
 describe('Length Sense hold and release', () => {
+  it('shows a random target before holding and preannounces the next target after release', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(.3)
+    render(<LengthSenseGame globalSettings={settings} onProgressChange={vi.fn()} platformSettingsOpen={false} />)
+    fireEvent.click(screen.getByRole('button', { name: '隨機公分目標' }))
+    expect(document.querySelector('.sense-random-target')).toHaveTextContent('本局目標 2.2 公分')
+    const button = holdButton()
+    fireEvent.keyDown(button, { code: 'Space' })
+    expect(screen.getByRole('button', { name: '隨機公分目標' })).toBeDisabled()
+    random.mockReturnValue(.8)
+    now = 1833.333333
+    fireEvent.keyUp(button, { code: 'Space' })
+    expect(screen.getByLabelText('長度比較')).toHaveTextContent('目標 2.20 cm')
+    expect(screen.getByRole('status')).toHaveTextContent('2.20cm')
+    expect(document.querySelector('.sense-random-target')).toHaveTextContent('下一局目標 4.2 公分')
+    fireEvent.keyDown(button, { code: 'Space' })
+    now += 3500
+    fireEvent.keyUp(button, { code: 'Space' })
+    expect(screen.getByLabelText('長度比較')).toHaveTextContent('目標 4.20 cm')
+    expect(screen.getByRole('status')).toHaveTextContent('4.20cm')
+    expect(readAppStorage().games.lengthSense).toMatchObject({ highScore: 1000, gamesPlayed: 2, lengthBestErrorBp: 0 })
+    fireEvent.click(screen.getByRole('button', { name: '5 公分挑戰' }))
+    expect(document.querySelector('.sense-random-target')).toBeNull()
+    expect(screen.getByRole('button', { name: '5 公分挑戰' })).toHaveAttribute('aria-pressed', 'true')
+  })
   it('shows target centimeters first, grows while held and judges the release timestamp once', () => {
     const changed = vi.fn()
     render(<LengthSenseGame globalSettings={settings} onProgressChange={changed} platformSettingsOpen={false} />)

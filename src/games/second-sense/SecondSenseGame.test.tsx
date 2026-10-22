@@ -16,6 +16,29 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers() })
 
 describe('Second Sense rounds', () => {
+  it('announces random targets before each round, locks them during play, and preserves the finished target', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(.3)
+    render(<SecondSenseGame globalSettings={settings} onProgressChange={vi.fn()} platformSettingsOpen={false} />)
+    fireEvent.click(screen.getByRole('button', { name: '隨機秒數目標' }))
+    expect(document.querySelector('.sense-random-target')).toHaveTextContent('本局目標 2.2 秒')
+    expect(screen.getByRole('button', { name: '3 秒挑戰' })).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(screen.getByRole('button', { name: '開始計時' }))
+    expect(screen.getByRole('button', { name: '隨機秒數目標' })).toBeDisabled()
+    random.mockReturnValue(.8)
+    now = 2220
+    fireEvent.click(screen.getByRole('button', { name: '停止計時' }))
+    expect(screen.getByRole('status')).toHaveTextContent('本局目標 2.2 秒')
+    expect(screen.getByRole('status')).toHaveTextContent('0.020')
+    expect(document.querySelector('.sense-random-target')).toHaveTextContent('下一局目標 4.2 秒')
+    expect(readAppStorage().games.secondSense).toMatchObject({ timingRandomBestMs: 20, timingBestMs: {}, gamesPlayed: 1 })
+    fireEvent.click(screen.getByRole('button', { name: '再挑戰一次' }))
+    now = 6420
+    fireEvent.click(screen.getByRole('button', { name: '停止計時' }))
+    expect(readAppStorage().games.secondSense.timingRandomBestMs).toBe(0)
+    fireEvent.click(screen.getByRole('button', { name: '1 秒挑戰' }))
+    expect(screen.getByRole('button', { name: '隨機秒數目標' })).toHaveAttribute('aria-pressed', 'false')
+    expect(document.querySelector('.sense-random-target')).toBeNull()
+  })
   it('locks the target, judges a precise stop once and retains per-target bests across remounts', () => {
     const onProgressChange = vi.fn()
     const { unmount } = render(<SecondSenseGame globalSettings={settings} onProgressChange={onProgressChange} platformSettingsOpen={false} />)

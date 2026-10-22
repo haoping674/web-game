@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { useGameActivity } from '../../hooks/useGameActivity'
 import { readAppStorage, recordLengthResult, type GlobalSettings } from '../../shared/storage/appStorage'
 import { TimingAudio } from '../second-sense/audio'
-import { lengthAtElapsed, judgeLength, LENGTH_TARGETS, PX_PER_CM, type LengthTarget, type LengthResult } from './model'
+import { lengthAtElapsed, judgeLength, LENGTH_TARGETS, PX_PER_CM, type LengthResult } from './model'
+import { randomSenseTarget } from '../../shared/gameplay/randomSenseTarget'
 import '../second-sense/second-sense.css'
 import './length-sense.css'
 
@@ -11,7 +12,8 @@ type Hold = { kind: 'pointer'; id: number } | { kind: 'keyboard'; code: string }
 const QUALITY = { perfect: 3, excellent: 3, great: 2, close: 1, retry: 0 }
 
 export default function LengthSenseGame({ globalSettings, onProgressChange, platformSettingsOpen }: Props) {
-  const [target, setTarget] = useState<LengthTarget>(3)
+  const [target, setTarget] = useState(3)
+  const [randomMode, setRandomMode] = useState(false)
   const [growing, setGrowing] = useState(false)
   const [length, setLength] = useState(0)
   const [result, setResult] = useState<LengthResult | null>(null)
@@ -59,10 +61,11 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
     setNewBest(previousBest === undefined || outcome.errorBp < previousBest)
     setProgress(recordLengthResult(outcome.errorBp).games.lengthSense)
     setHistory((items) => [outcome, ...items].slice(0, 5))
+    if (randomMode) setTarget(randomSenseTarget())
     if (globalSettings.soundEnabled) { audio.current ??= new TimingAudio(); audio.current.play(QUALITY[outcome.tier]) }
     onProgressChange()
     requestAnimationFrame(() => resultRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'auto' }))
-  }, [target, clearFrame, globalSettings.soundEnabled, onProgressChange])
+  }, [target, randomMode, clearFrame, globalSettings.soundEnabled, onProgressChange])
 
   const start = useCallback((input: Hold) => {
     if (startedAt.current !== null || platformSettingsOpen || document.visibilityState === 'hidden') return
@@ -124,7 +127,8 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
       <div className="sense-layout">
         <div className="sense-play length-play">
           <div className="sense-topline"><span><i />{growing ? '相信眼力，放開就定格' : result ? '揭曉你的長度感' : '今天的眼力，準備好了嗎？'}</span><span>HOLD / GROW / RELEASE</span></div>
-          <div className="sense-targets" role="group" aria-label="目標公分數">{LENGTH_TARGETS.map((cm) => <button type="button" key={cm} aria-label={`${cm} 公分挑戰`} aria-pressed={target === cm} disabled={growing || platformSettingsOpen} onClick={() => { setTarget(cm); setResult(null); setLength(0); setNotice(''); setNewBest(false) }}><strong>{cm}</strong><span>公分</span></button>)}</div>
+          <div className="sense-targets" role="group" aria-label="目標公分數">{LENGTH_TARGETS.map((cm) => <button type="button" key={cm} aria-label={`${cm} 公分挑戰`} aria-pressed={!randomMode && target === cm} disabled={growing || platformSettingsOpen} onClick={() => { setRandomMode(false); setTarget(cm); setResult(null); setLength(0); setNotice(''); setNewBest(false) }}><strong>{cm}</strong><span>公分</span></button>)}<button type="button" aria-label="隨機公分目標" aria-pressed={randomMode} disabled={growing || platformSettingsOpen} onClick={() => { setRandomMode(true); setTarget(randomSenseTarget()); setResult(null); setLength(0); setNotice(''); setNewBest(false) }}><strong aria-hidden="true">⤨</strong><span>隨機</span></button></div>
+          {randomMode ? <p className="sense-random-target" aria-live="polite">{result ? '下一局目標' : '本局目標'} <strong>{target.toFixed(1)}</strong> 公分 <small>每局抽選 1.0～5.0 公分</small></p> : null}
           <div className="length-stage">
             <div className="length-stage-heading" aria-live="polite"><span>{result ? result.label : <>目標 <strong className="length-target-number">{target}</strong> 公分</>}</span><p>{growing ? '線正在長大。覺得到了，就放開。' : result ? '兩條線的起點相同，看看終點相差多少。' : '按住下方按鈕讓線變長，放開立刻結算。'}</p></div>
             <div className="length-workspace" ref={railRef}>
