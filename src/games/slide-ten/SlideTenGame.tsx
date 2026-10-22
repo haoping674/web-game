@@ -126,7 +126,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
             </div>
             <div className="slide-demo" aria-label="示意：將 4 向右滑，與 6 湊十消除">
               <span className="slide-demo-caption">先移動，再配對。</span>
-              <div><span className="fruit-cell fruit-theme-3"><i className="fruit-leaf" /><b>4</b></span><span className="slide-demo-arrow">→</span><span className="fruit-cell fruit-theme-5"><i className="fruit-leaf" /><b>6</b></span></div>
+              <div><span className="fruit-cell fruit-theme-3"><span className="fruit-leaf" aria-hidden="true" /><span className="fruit-value">4</span></span><span className="slide-demo-arrow">→</span><span className="fruit-cell fruit-theme-5"><span className="fruit-leaf" aria-hidden="true" /><span className="fruit-value">6</span></span></div>
               <strong>4 + 6 = 10</strong><p>配對消除，空間就回來了。</p>
               <small>17 × 10 格 · 手機直式 10 × 17 格</small>
             </div>
@@ -160,12 +160,12 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
                         const matched = lastMove?.matched && lastMove.cleared.includes(index)
                         return (
                           <div className="slide-gridcell" role="gridcell" key={index}>
-                            <button type="button" className={`slide-cell${value === null ? ' is-empty' : ` fruit-cell fruit-theme-${(value - 1) % 9}`}${selected === index && value !== null ? ' is-selected' : ''}${incoming !== undefined ? ' is-arriving' : ''}${matched ? ' is-matched' : ''}${lastMove && !lastMove.matched && lastMove.to === index ? ' is-moved' : ''}`}
+                            <button type="button" className={`slide-cell${value === null ? ' is-empty' : ` fruit-cell fruit-theme-${index % 9}`}${selected === index && value !== null ? ' is-selected' : ''}${incoming !== undefined ? ' is-arriving' : ''}${matched ? ' is-matched' : ''}${lastMove && !lastMove.matched && lastMove.to === index ? ' is-moved' : ''}`}
                               aria-label={`第 ${visibleRow + 1} 列第 ${visibleCol + 1} 格，${value === null ? '空格' : `水果 ${value}`}${incoming !== undefined ? `，即將長出 ${incoming}` : ''}`}
                               aria-pressed={value !== null && selected === index} disabled={!playing || value === null} data-index={index} data-value={value ?? ''}
                               onPointerDown={(event) => pointerDown(event, index)} onPointerUp={pointerUp} onPointerCancel={() => { gesture.current = null }}
                               onClick={(event) => { if (event.detail === 0 && value !== null) setSelected(index) }}>
-                              {value !== null ? <><i className="fruit-leaf" /><span className="fruit-value">{value}</span></> : incoming !== undefined ? <span>{incoming}</span> : matched ? <span>✦</span> : null}
+                              {value !== null ? <><span className="fruit-leaf" aria-hidden="true" /><span className="fruit-value">{value}</span></> : incoming !== undefined ? <span>{incoming}</span> : matched ? <span>✦</span> : null}
                             </button>
                           </div>
                         )
