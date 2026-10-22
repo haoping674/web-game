@@ -8,6 +8,7 @@ import { AppHeader } from './shared/components/AppHeader'
 import { PlatformSettingsDialog } from './shared/components/PlatformSettingsDialog'
 import { readAppStorage, saveAppStorage, type AppStorage, type GlobalSettings } from './shared/storage/appStorage'
 import './index.css'
+import './app/game-theme.css'
 
 const FruitSumGame = lazy(() => import('./games/fruit-sum/FruitSumGame'))
 const ColorLinksGame = lazy(() => import('./games/color-links/ColorLinksGame'))

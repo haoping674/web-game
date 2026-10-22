@@ -1,0 +1,162 @@
+/* Shared arcade surfaces keep the journey from the lobby to a game consistent.
+   Board geometry and game-specific feedback colours stay with each game. */
+.platform-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.game-route-shell {
+  --ink: #293d30;
+  --muted: #6c7568;
+  --paper: #fffdf5;
+  --canvas: #f7f7ee;
+  --line: #d6dccd;
+  --accent: #264e3b;
+  --accent-dark: #193d2a;
+  background: var(--canvas);
+  padding-top: max(22px, env(safe-area-inset-top));
+}
+
+.game-route-shell > .platform-header.is-compact {
+  width: min(calc(100% - clamp(40px, 10vw, 144px)), 1180px);
+  min-height: 62px;
+  padding: 0;
+  background: transparent;
+  border-color: var(--line);
+}
+
+.game-route-shell .platform-wordmark {
+  font-size: 22px;
+  letter-spacing: -.055em;
+}
+
+.game-route-shell .platform-wordmark > span {
+  width: 33px;
+  height: 33px;
+  border: 0;
+  border-radius: 11px;
+  background: #e1e9ce;
+  color: #315239;
+  box-shadow: none;
+  transform: none;
+}
+
+.game-route-shell .platform-settings-button,
+.game-route-shell .platform-home-button {
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #596451;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 180ms;
+}
+
+.game-route-shell .platform-home-button { border-color: transparent; }
+.game-route-shell .platform-header-actions > button:hover { background: #e7ecdf; }
+
+.game-route-shell > .app-shell {
+  min-height: calc(100dvh - 84px);
+  padding: 32px max(clamp(16px, 4vw, 52px), env(safe-area-inset-right)) max(36px, env(safe-area-inset-bottom)) max(clamp(16px, 4vw, 52px), env(safe-area-inset-left));
+  background: transparent;
+}
+
+.game-route-shell .game-card,
+.game-route-shell .color-game-card {
+  border: 1px solid #cbd4bf;
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: 0 6px 0 #e5e9da;
+}
+
+.game-route-shell .game-card::before { display: none; }
+.game-route-shell .color-game-card { margin-block: 32px; }
+.game-route-shell .start-screen { min-height: 0; padding-top: 12px; }
+.game-route-shell .start-screen h1,
+.game-route-shell .color-start-copy h1 {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: clamp(32px, 4.2vw, 52px);
+  font-weight: 900;
+  line-height: 1.3;
+  letter-spacing: -.06em;
+  text-wrap: balance;
+}
+
+.game-route-shell .start-screen h1 em { color: #678344; }
+.game-route-shell .brand-mark { color: #678344; }
+.game-route-shell .intro { line-height: 1.9; }
+.game-route-shell .mode-summary {
+  border-radius: 10px;
+  background: #eef1e3;
+  color: #596b4e;
+  flex-wrap: wrap;
+}
+.game-route-shell .score-snapshot,
+.game-route-shell .statistics-panel,
+.game-route-shell .hud,
+.game-route-shell .color-hud {
+  border-color: var(--line);
+  border-radius: 12px;
+  background: #f5f6ec;
+}
+.game-route-shell .primary-button {
+  border: 1px solid #264e3b;
+  border-radius: 9px;
+  background: #264e3b;
+  color: #fffdf3;
+  box-shadow: 0 4px 0 #193d2a;
+  transition: transform 180ms, background 180ms, box-shadow 180ms;
+}
+.game-route-shell .primary-button:hover:not(:disabled) {
+  background: #37664d;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #193d2a;
+}
+.game-route-shell .primary-button:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #193d2a;
+}
+.game-route-shell .board-frame,
+.game-route-shell .color-board-frame {
+  border-color: #d0d5be;
+  background: #fbfaf0;
+  box-shadow: none;
+}
+.game-route-shell .leaderboard-panel { border-top-color: #d6dccd; }
+.game-route-shell .dialog {
+  border: 1px solid #cbd4bf;
+  border-radius: 18px;
+  background: #fffdf5;
+  box-shadow: 0 6px 0 #dce2d0;
+}
+.game-route-shell .second-sense { --sense-ink: #293d30; --sense-muted: #6c7568; margin-block: 32px; }
+.game-route-shell .sense-play { border-color: #cbd4bf; border-radius: 18px; background: #fffdf5; }
+.game-route-shell .sense-record { border-color: #d6dccd; border-radius: 14px; background: #eef1e3; }
+.game-route-shell .sense-result { background: #f3f4e9; border-color: #d6dccd; }
+.game-route-shell .sense-topline { border-color: #d6dccd; }
+.game-route-shell .sprout-game { padding-top: 32px; }
+.game-route-shell .ash-game { width: min(calc(100% - 32px), 1180px); margin-top: 32px; border-radius: 18px; }
+
+@media (max-width: 560px) {
+  .game-route-shell { padding-top: max(12px, env(safe-area-inset-top)); }
+  .game-route-shell > .platform-header.is-compact { width: calc(100% - 32px); min-height: 58px; gap: 8px; }
+  .game-route-shell .platform-wordmark { gap: 6px; font-size: 16px; }
+  .game-route-shell .platform-wordmark > span { width: 27px; height: 27px; border-radius: 9px; }
+  .platform-header-actions { gap: 4px; }
+  .game-route-shell .platform-header-actions > button { padding-inline: 8px; font-size: 10px; }
+  .game-route-shell > .app-shell { min-height: calc(100dvh - 70px); padding: 16px max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  .game-route-shell .game-card,
+  .game-route-shell .color-game-card { border-radius: 14px; padding: 18px 12px; }
+  .game-route-shell .color-game-card { width: calc(100% - 24px); margin-block: 16px; }
+  .game-route-shell .start-screen h1,
+  .game-route-shell .color-start-copy h1 { font-size: clamp(28px, 8vw, 40px); }
+  .game-route-shell .second-sense { margin-block: 24px; }
+  .game-route-shell .sprout-game { padding-top: 24px; }
+  .game-route-shell .ash-game { margin-top: 20px; border-radius: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-route-shell .primary-button,
+  .game-route-shell .platform-header-actions > button { transition: none; }
+}
