@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { AUTO_HINT_DELAY_MS, HINT_DURATION_MS } from '../game/constants'
 import type { GameAction } from '../game/gameReducer'
 import type { GameSettings, GameState } from '../game/types'
 import { GameBoard } from './GameBoard'
@@ -11,7 +12,7 @@ const settings: GameSettings = { soundEnabled: false, volume: 0.5, animationsEna
 const board = [[1, 9], [null, 2]]
 const playingGame: GameState = { mode: 'classic', board, score: 12, clearedFruitCount: 12, secondsLeft: 42, nextTickAt: Date.now() + 1_000, status: 'playing', combo: 2, bestCombo: 3, comboDeadline: Date.now() + 2_000, successfulMoves: 1, invalidMoves: 0, hintsUsed: 0, systemReshuffles: 0 }
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.useRealTimers() })
 
 beforeAll(() => {
   Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', { configurable: true, value: vi.fn(() => null) })
@@ -242,10 +243,11 @@ describe('playable mode HUD', () => {
     expect(container.querySelector('.board-countdown-badge')).toHaveTextContent('剩 4 秒')
   })
 
-  it('shows the Classic mode and its hint allowance', () => {
+  it('shows the Classic mode and automatic hint instructions', () => {
     render(gameScreen(playingGame))
     expect(document.querySelector('.mode-chip')).toHaveTextContent('CLASSIC')
-    expect(document.querySelector('.board-actions button')).toBeInTheDocument()
+    expect(document.querySelector('.board-actions button')).toBeNull()
+    expect(screen.getByText('連續 5 秒未成功消除，自動提示')).toBeInTheDocument()
   })
 
   it('keeps the Combo feedback slot in the HUD and outside the board overlay', () => {
@@ -262,5 +264,74 @@ describe('playable mode HUD', () => {
     expect(container.querySelector('.hud .combo-evaluation')).toHaveTextContent('Fruit Flow')
     expect(container.querySelector('.game-board')).not.toHaveTextContent('Fruit Flow')
     expect(container.querySelector('.flow-state-overlay')).toBeNull()
+  })
+})
+
+
+describe('automatic hints after no successful clear', () => {
+  it('hints after five seconds despite invalid selections and countdown ticks, without a quota', () => {
+    vi.useFakeTimers()
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    const game = { ...playingGame, combo: 0, comboDeadline: null, nextTickAt: Date.now() + 1_000, hintsUsed: 3 }
+    const { container, rerender } = render(gameScreen(game, dispatch))
+    act(() => vi.advanceTimersByTime(AUTO_HINT_DELAY_MS - 1_000))
+    expect(container.querySelector('.is-hint')).toBeNull()
+    const grid = screen.getByRole('grid')
+    fireEvent.keyDown(grid, { key: 'Enter' })
+    fireEvent.keyDown(grid, { key: 'Enter' })
+    rerender(gameScreen({ ...game, invalidMoves: 1, secondsLeft: 38 }, dispatch))
+    act(() => vi.advanceTimersByTime(1_000))
+    expect(container.querySelector('.is-hint')).not.toBeNull()
+    expect(dispatch).toHaveBeenCalledWith({ type: 'use-hint' })
+    act(() => vi.advanceTimersByTime(HINT_DURATION_MS))
+    expect(container.querySelector('.is-hint')).toBeNull()
+    act(() => vi.advanceTimersByTime(AUTO_HINT_DELAY_MS - HINT_DURATION_MS))
+    expect(container.querySelector('.is-hint')).not.toBeNull()
+  })
+
+  it('removes stale hints and restarts the wait after a successful clear or board reset', () => {
+    vi.useFakeTimers()
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    const { container, rerender } = render(gameScreen(playingGame, dispatch))
+    act(() => vi.advanceTimersByTime(AUTO_HINT_DELAY_MS))
+    expect(container.querySelector('.is-hint')).not.toBeNull()
+    rerender(gameScreen({ ...playingGame, board: [[null, null], [4, 6]], successfulMoves: 2 }, dispatch))
+    expect(container.querySelector('.is-hint')).toBeNull()
+    act(() => vi.advanceTimersByTime(AUTO_HINT_DELAY_MS - 1))
+    expect(container.querySelector('.is-hint')).toBeNull()
+    act(() => vi.advanceTimersByTime(1))
+    expect(container.querySelector('.is-hint')).not.toBeNull()
+    expect(container.querySelector('.selection-overlay')).toHaveClass('is-success')
+  })
+
+  it('suspends assistance while paused and starts a fresh delay on resume', () => {
+    vi.useFakeTimers()
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    const { container, rerender } = render(gameScreen(playingGame, dispatch))
+    act(() => vi.advanceTimersByTime(4_000))
+    rerender(gameScreen({ ...playingGame, status: 'paused' }, dispatch))
+    act(() => vi.advanceTimersByTime(10_000))
+    expect(dispatch.mock.calls.some(([action]) => action.type === 'use-hint')).toBe(false)
+    rerender(gameScreen(playingGame, dispatch))
+    act(() => vi.advanceTimersByTime(AUTO_HINT_DELAY_MS - 1))
+    expect(container.querySelector('.is-hint')).toBeNull()
+    act(() => vi.advanceTimersByTime(1))
+    expect(container.querySelector('.is-hint')).not.toBeNull()
+    rerender(gameScreen({ ...playingGame, status: 'finished' }, dispatch))
+    act(() => vi.advanceTimersByTime(AUTO_HINT_DELAY_MS))
+    expect(container.querySelector('.is-hint')).toBeNull()
+    expect(dispatch.mock.calls.filter(([action]) => action.type === 'use-hint')).toHaveLength(1)
+  })
+
+  it('does not hint on an unsolvable board or during the tutorial', () => {
+    vi.useFakeTimers()
+    const dispatch = vi.fn<(action: GameAction) => void>()
+    const { container, rerender } = render(gameScreen({ ...playingGame, board: [[1, 1]] }, dispatch))
+    act(() => vi.advanceTimersByTime(AUTO_HINT_DELAY_MS))
+    expect(container.querySelector('.is-hint')).toBeNull()
+    const props = gameScreen(playingGame, dispatch).props
+    rerender(<GameScreen {...props} tutorialOpen />)
+    act(() => vi.advanceTimersByTime(AUTO_HINT_DELAY_MS))
+    expect(dispatch.mock.calls.some(([action]) => action.type === 'use-hint')).toBe(false)
   })
 })

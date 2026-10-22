@@ -1,4 +1,5 @@
-import { getModeHintLimit, getModeRoundSeconds, PLAYABLE_MODE_DETAILS } from '../game/modes'
+import { AUTO_HINT_DELAY_MS } from '../game/constants'
+import { getModeRoundSeconds, PLAYABLE_MODE_DETAILS } from '../game/modes'
 import type { GameSettings, GameStatistics } from '../game/types'
 import { LeaderboardPanel } from '../shared/leaderboard/LeaderboardPanel'
 import { InstallAppButton } from './InstallAppButton'
@@ -21,7 +22,7 @@ export function StartScreen({ onStart, settings, statistics, onOpenSettings, onH
     <p className="eyebrow">A SMALL SUM PUZZLE</p>
     <h1>框選相鄰數字，<br />湊成 <em>10</em>！</h1>
     <p className="intro">在倒數結束前找出總和為 10 的矩形，盡可能連續消除水果。</p>
-    <p className="mode-summary"><strong>{classic.label}模式</strong> · {getModeRoundSeconds('classic')} 秒 · {getModeHintLimit('classic')} 次提示</p>
+    <p className="mode-summary"><strong>{classic.label}模式</strong> · {getModeRoundSeconds('classic')} 秒 · {AUTO_HINT_DELAY_MS / 1_000} 秒未成功消除自動提示</p>
     <div className="score-snapshot"><span>{classic.label}最高分 <strong>{statistics.highScore}</strong></span><span>上次分數 <strong>{statistics.lastScore}</strong></span></div>
     <button type="button" className="primary-button" onClick={onStart}>開始{classic.label}模式 <span aria-hidden="true">→</span></button>
     <div className="start-links"><button type="button" className="text-button" onClick={onHowToPlay}>玩法說明</button><button type="button" className="text-button" onClick={onOpenSettings}>設定 {settings.soundEnabled ? '· 音效開啟' : '· 靜音'}</button><InstallAppButton {...install} /><button type="button" className="text-button" onClick={onAbout}>About</button></div>

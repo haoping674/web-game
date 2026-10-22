@@ -53,7 +53,7 @@ describe('moves, combo and hints', () => {
   it('preserves fractional ticks across repeated pause and resume cycles', () => { let current = gameReducer(state({ combo: 2, comboDeadline: 4_000 }), { type: 'pause', now: 250 }); expect(current).toMatchObject({ secondsLeft: ROUND_SECONDS, nextTickAt: 750, comboDeadline: 3_750 }); current = gameReducer(current, { type: 'resume', now: 10_000 }); current = gameReducer(current, { type: 'pause', now: 10_250 }); expect(current).toMatchObject({ secondsLeft: ROUND_SECONDS, nextTickAt: 500, comboDeadline: 3_500 }); current = gameReducer(current, { type: 'resume', now: 20_000 }); current = gameReducer(current, { type: 'tick', now: 20_500 }); expect(current).toMatchObject({ secondsLeft: ROUND_SECONDS - 1, nextTickAt: 21_500 }) })
   it('accounts for elapsed ticks before pausing and blocks every paused mutation', () => { const paused = gameReducer(state(), { type: 'pause', now: 2_500 }); expect(paused).toMatchObject({ status: 'paused', secondsLeft: ROUND_SECONDS - 2, nextTickAt: 500 }); expect(gameReducer(paused, { type: 'select', rect: successRect, now: 3_000 })).toBe(paused); expect(gameReducer(paused, { type: 'use-hint' })).toBe(paused); expect(gameReducer(paused, { type: 'reshuffle' })).toBe(paused) })
   it('completes a full timed round and reaches the result state', () => { let current = state(); for (let second = 1; second <= ROUND_SECONDS; second += 1) current = gameReducer(current, { type: 'tick', now: second * 1_000 }); expect(current).toMatchObject({ secondsLeft: 0, nextTickAt: null, status: 'finished' }) })
-  it('limits hints to the configured count', () => { let current = state(); current = gameReducer(current, { type: 'use-hint' }); current = gameReducer(current, { type: 'use-hint' }); current = gameReducer(current, { type: 'use-hint' }); expect(gameReducer(current, { type: 'use-hint' }).hintsUsed).toBe(3) })
+  it('allows automatic hints beyond the old manual quota', () => { let current = state(); current = gameReducer(current, { type: 'use-hint' }); current = gameReducer(current, { type: 'use-hint' }); current = gameReducer(current, { type: 'use-hint' }); expect(gameReducer(current, { type: 'use-hint' }).hintsUsed).toBe(4) })
 })
 
 describe('resilient local game data', () => {
@@ -66,12 +66,12 @@ describe('resilient local game data', () => {
     expect(started).toMatchObject({ mode: 'classic', secondsLeft: 120, status: 'playing', nextTickAt: 1_100 })
     expect(gameReducer(started, { type: 'restart', now: 500 })).toMatchObject({ mode: 'classic', secondsLeft: 120, status: 'playing' })
   })
-  it('uses the Classic hint allowance at runtime', () => {
+  it('records unlimited automatic hints at runtime', () => {
     const classic = state({ board: [[1, 9]] })
     const once = gameReducer(classic, { type: 'use-hint' })
     expect(once.hintsUsed).toBe(1)
     const twice = gameReducer(once, { type: 'use-hint' })
     const threeTimes = gameReducer(twice, { type: 'use-hint' })
-    expect(gameReducer(threeTimes, { type: 'use-hint' })).toBe(threeTimes)
+    expect(gameReducer(threeTimes, { type: 'use-hint' }).hintsUsed).toBe(4)
   })
 })

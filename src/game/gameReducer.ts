@@ -1,6 +1,6 @@
 import { generateBoard } from './boardGenerator'
 import { getComboWindowMs } from './comboConfig'
-import { getModeHintLimit, getModeRoundSeconds } from './modes'
+import { getModeRoundSeconds } from './modes'
 import { getRectangleCells } from './selectionCalculator'
 import { calculateMoveScore } from './scoring'
 import { findValidMove, isValidMove, reshuffleRemaining } from './validMoveFinder'
@@ -25,7 +25,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'select': return applySelection(state, action.rect, action.now)
     case 'tick': return advancePlayingTime(state, action.now)
-    case 'use-hint': return state.status === 'playing' && state.hintsUsed < getModeHintLimit(state.mode) && findValidMove(state.board) ? { ...state, hintsUsed: state.hintsUsed + 1 } : state
+    case 'use-hint': return state.status === 'playing' && findValidMove(state.board) ? { ...state, hintsUsed: state.hintsUsed + 1 } : state
     case 'reshuffle': return applyReshuffle(state)
     case 'start': return createGameState('playing', action.now)
     case 'pause': return pausePlayingTime(state, action.now)

@@ -10,6 +10,7 @@ export const GAME_VERSION = '2.0.0'
 export const STORAGE_KEY = 'orchard-ten-v2'
 export const STORAGE_SCHEMA_VERSION = 5
 export const HINT_LIMIT = getModeConfig('classic').hintLimit
+export const AUTO_HINT_DELAY_MS = 5_000
 export const HINT_DURATION_MS = balanceConfig.hint.durationMs
 export const CLEAR_ANIMATION_MS = 480
 export const SCORE_MILESTONES = [5, 10, 20] as const

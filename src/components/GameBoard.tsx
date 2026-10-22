@@ -324,7 +324,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
           />
         }))}
         {activeSelection ? <>
-          <div className={`selection-overlay ${selectionState}${invalid ? ' is-invalid' : ''}${hint ? ' is-hint' : ''}`} style={overlayStyle} />
+          <div className={`selection-overlay ${selectionState}${invalid ? ' is-invalid' : ''}${hint && activeSelection === hint ? ' is-hint' : ''}`} style={overlayStyle} />
           <output className={`selection-sum ${selectionState}`} style={selectionSumStyle}>{feedback}<small>{selectedCount} 顆水果</small></output>
         </> : null}
         {!keyboardStart && !isDragging ? <div className="keyboard-cursor" style={cursorStyle} aria-hidden="true" /> : null}

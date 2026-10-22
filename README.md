@@ -82,7 +82,7 @@ Orchard Arcade 是一個包含七款手機友善遊戲的 PWA：
 
 ### Orchard Ten
 
-- 經典模式：120 秒標準節奏，3 次提示。
+- 經典模式：120 秒標準節奏；連續 5 秒未成功消除時自動提示，不限次數，成功消除後重新計時。
 - Orchard Ten 僅提供經典模式；既有 Classic 成績會持續保留。
 
 ## Color Links 規則

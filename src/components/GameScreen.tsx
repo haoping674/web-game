@@ -3,9 +3,9 @@ import { getComboConfig, getComboWindowMs } from '../game/comboConfig'
 import { createComboClearEffect, resolveEffectLevel, type ComboClearEffect } from '../game/comboEffects'
 import { getNextGameWakeDelay } from '../game/comboTimer'
 import { getComboRating, getComboTier, getComboTitle, isComboMilestone, type ComboRating } from '../game/comboTier'
-import { HINT_DURATION_MS, TARGET_SUM } from '../game/constants'
+import { AUTO_HINT_DELAY_MS, HINT_DURATION_MS, TARGET_SUM } from '../game/constants'
 import type { GameAction } from '../game/gameReducer'
-import { getModeHintLimit, PLAYABLE_MODE_DETAILS } from '../game/modes'
+import { PLAYABLE_MODE_DETAILS } from '../game/modes'
 import { getRectangleCells } from '../game/selectionCalculator'
 import { playComboBreakSound, playComboSound, playInvalidSound, stopComboAudio, triggerHaptic } from '../game/soundManager'
 import type { GameSettings, GameState, GridRect } from '../game/types'
@@ -57,7 +57,6 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   const autoReshuffleState = useRef<string | null>(null)
   const paused = game.status === 'paused'
   const interactive = game.status === 'playing' && !tutorialOpen
-  const hintLimit = getModeHintLimit(game.mode)
   const modeDetails = PLAYABLE_MODE_DETAILS[game.mode]
   const comboModeConfig = getComboConfig(game.mode)
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -137,6 +136,20 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   }, [hint, interactive])
 
   useEffect(() => {
+    setHint(null)
+    if (!interactive || !validMove) return undefined
+    // Only board changes or pausing reset the timer; invalid moves and
+    // ordinary countdown ticks must not postpone automatic assistance.
+    const timer = window.setInterval(() => {
+      if (document.hidden) return
+      setHint(selectHintMove(game.board))
+      dispatch({ type: 'use-hint' })
+      setMessage('一段時間沒有成功消除，試著框選發亮的區域。')
+    }, AUTO_HINT_DELAY_MS)
+    return () => window.clearInterval(timer)
+  }, [dispatch, game.board, interactive, validMove])
+
+  useEffect(() => {
     const reshuffleState = `${game.successfulMoves}:${game.systemReshuffles}`
     if (!interactive || validMove || remainingFruit < 2 || autoReshuffleState.current === reshuffleState) return
     autoReshuffleState.current = `${game.successfulMoves}:${game.systemReshuffles + 1}`
@@ -178,16 +191,6 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
     dispatch({ type: 'select', rect, now: Date.now() })
   }
 
-  const useHint = () => {
-    if (!interactive) return
-    if (!validMove) {
-      setMessage('目前沒有可消除組合，系統正在自動重排。')
-      return
-    }
-    setHint(selectHintMove(game.board))
-    dispatch({ type: 'use-hint' })
-    setMessage('提示已顯示，試著框選發亮的區域。')
-  }
 
   return (
     <section className="play-screen" inert={paused} aria-hidden={paused}>
@@ -202,7 +205,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
         <button type="button" className="icon-button" aria-label="暫停遊戲" disabled={!interactive} onClick={onPause}>Ⅱ</button>
       </section>
       {game.status === 'playing' ? <>
-        <div className="board-actions"><button type="button" className="quiet-button" disabled={!interactive || !validMove || game.hintsUsed >= hintLimit} onClick={useHint}>提示 {hintLimit - game.hintsUsed}/{hintLimit}</button><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
+        <div className="board-actions"><p>連續 {AUTO_HINT_DELAY_MS / 1_000} 秒未成功消除，自動提示</p><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
         <NetworkStatusToast notice={networkNotice} inline />
         {gestureHintVisible ? <p className="mobile-gesture-hint" role="status">棋盤內單指框選，雙指可移動畫面。</p> : null}
         <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} countdownSeconds={game.secondsLeft} />
