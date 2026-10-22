@@ -1,3 +1,4 @@
+import { useBoardCentering } from '../../hooks/useBoardCentering'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
 import { useGameActivity } from '../../hooks/useGameActivity'
@@ -87,6 +88,7 @@ export default function ColorLinksGame({
     prefersReducedMotion
     || globalSettings.reducedMotion
     || globalSettings.effectIntensity !== 'full'
+  const { containerRef, centerBoard } = useBoardCentering<HTMLElement>(reducedMotion)
   const effectsOff = globalSettings.effectIntensity === 'off'
   const validMoves = useMemo(() => findAllValidMoves(game.board), [game.board])
   const remainingTiles = useMemo(
@@ -198,6 +200,7 @@ export default function ColorLinksGame({
     setShareStatus('')
     setFeedback(`新的訊號盤已就緒，倒數 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒。`)
     dispatch({ type: 'restart', now: Date.now(), board: generateBoard() })
+    centerBoard()
   }
 
   const handleSelect = (position: CellPosition) => {
@@ -308,7 +311,7 @@ export default function ColorLinksGame({
   }
 
   return (
-    <section className={`color-game-card color-play${effectsOff ? ' effects-off' : reducedMotion ? ' effects-reduced' : ''}`}>
+    <section ref={containerRef} className={`color-game-card color-play${effectsOff ? ' effects-off' : reducedMotion ? ' effects-reduced' : ''}`}>
       <header className="color-game-topbar">
         <div>
           <p className="eyebrow">COLOR SIGNAL</p>

@@ -1,3 +1,4 @@
+import { useBoardCentering } from '../../hooks/useBoardCentering'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { AboutDialog } from '../../components/AboutDialog'
 import { Footer } from '../../components/Footer'
@@ -62,6 +63,7 @@ export default function FruitSumGame({
   const install = useInstallPrompt()
   const networkNotice = useNetworkStatus()
   const recordedRound = useRef(false)
+  const { containerRef, centerBoard } = useBoardCentering(data.settings.lowStimulus || !data.settings.animationsEnabled || data.settings.animationIntensity !== 'full')
 
   useEffect(() => {
     setData((current) => {
@@ -125,7 +127,10 @@ export default function FruitSumGame({
 
   const pauseGame = useCallback(() => dispatch({ type: 'pause', now: Date.now() }), [])
   const resumeGame = useCallback(() => dispatch({ type: 'resume', now: Date.now() }), [])
-  const restartGame = useCallback(() => dispatch({ type: 'restart', now: Date.now() }), [])
+  const restartGame = useCallback(() => {
+    dispatch({ type: 'restart', now: Date.now() })
+    centerBoard()
+  }, [centerBoard])
   const homeGame = useCallback(() => dispatch({ type: 'home' }), [])
   const markMobileGestureHintSeen = useCallback(() => {
     setData((current) => {
@@ -196,7 +201,7 @@ export default function FruitSumGame({
   }
 
   return (
-    <div className={`app-shell fruit-route-shell${lowStimulusClass}${animationClass}${isGameActive ? ' is-game-active' : ''}`}>
+    <div ref={containerRef} className={`app-shell fruit-route-shell${lowStimulusClass}${animationClass}${isGameActive ? ' is-game-active' : ''}`}>
       <section className="game-card">
         {game.status === 'start' ? (
           <StartScreen

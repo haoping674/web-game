@@ -1,3 +1,4 @@
+import { useBoardCentering } from '../../hooks/useBoardCentering'
 import { useCallback, useEffect, useReducer, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
 import { useGameActivity } from '../../hooks/useGameActivity'
@@ -49,6 +50,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
   const portrait = usePortraitLayout()
   const playing = game.status === 'playing' && !platformSettingsOpen && !helpOpen
   const reducedMotion = globalSettings.reducedMotion || globalSettings.effectIntensity !== 'full'
+  const { containerRef, centerBoard } = useBoardCentering(reducedMotion)
   const occupied = game.board.filter((value) => value !== null).length
   const arrivals = new Map(game.arrivals.map((arrival) => [arrival.index, arrival.value]))
   const warning = playing && game.untilWaveMs <= 1_000
@@ -89,6 +91,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
     setSelected(null)
     setHelpOpen(false)
     dispatch({ type: 'start', seed: Math.floor(Math.random() * 0xffffffff), now: Date.now() })
+    if (game.status !== 'ready') centerBoard()
   }
   const move = (from: number, direction: Direction) => {
     if (!playing) return
@@ -112,7 +115,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
   }
 
   return (
-    <div className="app-shell slide-ten-shell">
+    <div ref={containerRef} className="app-shell slide-ten-shell">
       <section className={`game-card slide-ten-card${reducedMotion ? ' slide-reduced-motion' : ''}`}>
         {game.status === 'ready' ? (
           <div className="slide-start">
