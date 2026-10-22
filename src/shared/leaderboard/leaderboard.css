@@ -16,6 +16,13 @@
 .leaderboard-name { overflow-wrap: anywhere; }
 .leaderboard-list strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .leaderboard-list small { font-size: 11px; font-weight: 400; }
+.leaderboard-skeleton li { min-height: 20px; }
+.leaderboard-skeleton-bar { display: block; height: 12px; border-radius: 4px; background: currentColor; opacity: .12; }
+.leaderboard-skeleton-rank { width: 18px; height: 10px; }
+.leaderboard-skeleton-name { width: 65%; max-width: 160px; }
+.leaderboard-skeleton li:nth-child(3n + 2) .leaderboard-skeleton-name { width: 45%; }
+.leaderboard-skeleton li:nth-child(3n) .leaderboard-skeleton-name { width: 55%; }
+.leaderboard-skeleton-score { width: 56px; }
 .leaderboard-selector { display: grid; gap: 8px; text-align: left; margin-top: 20px; }
 .leaderboard-selector select { width: 100%; }
 .leaderboard-error { line-height: 1.6; }

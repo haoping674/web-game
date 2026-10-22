@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { BOARDS, normalizeName, validScore } from './boards'
+import { BOARDS, LEADERBOARD_LIMIT, normalizeName, validScore } from './boards'
 import type { BoardId, LeaderboardData } from './boards'
 import './leaderboard.css'
 
@@ -114,7 +114,16 @@ export function LeaderboardPanel({ board, score, resultKey }: Props) {
   return <section className="leaderboard-panel" aria-label={details.title} aria-busy={loading || saving}>
     <header className="leaderboard-heading"><h3>{details.title}</h3><span>TOP 10</span></header>
     <p className="leaderboard-rule">{details.rule} 同分先登錄者優先。</p>
-    {loading ? <p role="status">正在讀取排行榜…</p> : null}
+    {loading ? <>
+      <p role="status">正在讀取排行榜…</p>
+      <ol className="leaderboard-list leaderboard-skeleton" aria-hidden="true">
+        {Array.from({ length: LEADERBOARD_LIMIT }, (_, index) => <li key={index}>
+          <span className="leaderboard-skeleton-bar leaderboard-skeleton-rank" />
+          <span className="leaderboard-skeleton-bar leaderboard-skeleton-name" />
+          <span className="leaderboard-skeleton-bar leaderboard-skeleton-score" />
+        </li>)}
+      </ol>
+    </> : null}
     {error ? <div className="leaderboard-error" role="alert"><p>{error}</p>{!data ? <button type="button" className="quiet-button" onClick={() => setRefresh(value => value + 1)}>重試排行榜</button> : null}</div> : null}
     {!loading && data ? <>
       {data.accepted ? <p className="leaderboard-notice" role="status">成績已登錄！{data.rank === null ? '可在下方查看最新榜單。' : data.rank <= 10 ? `目前第 ${data.rank} 名。` : '目前已移出前 10 名。'}</p> : canSubmitScore ? data.eligible ? <form className="leaderboard-form" onSubmit={submit}>
