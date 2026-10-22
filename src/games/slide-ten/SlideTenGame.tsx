@@ -160,7 +160,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
                         const matched = lastMove?.matched && lastMove.cleared.includes(index)
                         return (
                           <div className="slide-gridcell" role="gridcell" key={index}>
-                            <button type="button" className={`slide-cell${value === null ? ' is-empty' : ` fruit-cell fruit-theme-${index % 9}`}${selected === index && value !== null ? ' is-selected' : ''}${incoming !== undefined ? ' is-arriving' : ''}${matched ? ' is-matched' : ''}${lastMove && !lastMove.matched && lastMove.to === index ? ' is-moved' : ''}`}
+                            <button type="button" className={`slide-cell${value === null ? ' is-empty' : ` fruit-cell fruit-theme-${(value - 1) % 9}`}${selected === index && value !== null ? ' is-selected' : ''}${incoming !== undefined ? ' is-arriving' : ''}${matched ? ' is-matched' : ''}${lastMove && !lastMove.matched && lastMove.to === index ? ' is-moved' : ''}`}
                               aria-label={`第 ${visibleRow + 1} 列第 ${visibleCol + 1} 格，${value === null ? '空格' : `水果 ${value}`}${incoming !== undefined ? `，即將長出 ${incoming}` : ''}`}
                               aria-pressed={value !== null && selected === index} disabled={!playing || value === null} data-index={index} data-value={value ?? ''}
                               onPointerDown={(event) => pointerDown(event, index)} onPointerUp={pointerUp} onPointerCancel={() => { gesture.current = null }}
