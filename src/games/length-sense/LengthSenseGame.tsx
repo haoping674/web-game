@@ -2,80 +2,97 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { useGameActivity } from '../../hooks/useGameActivity'
 import { readAppStorage, recordLengthResult, type GlobalSettings } from '../../shared/storage/appStorage'
 import { TimingAudio } from '../second-sense/audio'
-import { clampLength, INITIAL_LENGTH, judgeLength, randomLength, type LengthResult } from './model'
+import { lengthAtElapsed, judgeLength, LENGTH_TARGETS, PX_PER_CM, type LengthTarget, type LengthResult } from './model'
 import '../second-sense/second-sense.css'
 import './length-sense.css'
 
 type Props = { globalSettings: GlobalSettings; onProgressChange: () => void; platformSettingsOpen: boolean }
-type Phase = 'idle' | 'observe' | 'draw' | 'result'
+type Hold = { kind: 'pointer'; id: number } | { kind: 'keyboard'; code: string }
 const QUALITY = { perfect: 3, excellent: 3, great: 2, close: 1, retry: 0 }
 
 export default function LengthSenseGame({ globalSettings, onProgressChange, platformSettingsOpen }: Props) {
-  const [phase, setPhase] = useState<Phase>('idle')
-  const [target, setTarget] = useState(5000)
-  const [guess, setGuess] = useState(INITIAL_LENGTH)
+  const [target, setTarget] = useState<LengthTarget>(3)
+  const [growing, setGrowing] = useState(false)
+  const [length, setLength] = useState(0)
   const [result, setResult] = useState<LengthResult | null>(null)
   const [history, setHistory] = useState<LengthResult[]>([])
   const [progress, setProgress] = useState(() => readAppStorage().games.lengthSense)
   const [newBest, setNewBest] = useState(false)
   const [notice, setNotice] = useState('')
-  const phaseRef = useRef<Phase>('idle')
   const railRef = useRef<HTMLDivElement>(null)
-  const rangeRef = useRef<HTMLInputElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
-  const actionRef = useRef<HTMLButtonElement>(null)
+  const startedAt = useRef<number | null>(null)
+  const hold = useRef<Hold | null>(null)
+  const frame = useRef<number | null>(null)
+  const maxLength = useRef(8)
   const audio = useRef<TimingAudio | null>(null)
   const round = useRef(0)
-  const active = phase === 'observe' || phase === 'draw'
-  useGameActivity(active)
+  useGameActivity(growing)
 
-  const transition = useCallback((next: Phase) => { phaseRef.current = next; setPhase(next) }, [])
+  const clearFrame = useCallback(() => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current)
+    frame.current = null
+  }, [])
   const cancel = useCallback(() => {
-    if (phaseRef.current !== 'observe' && phaseRef.current !== 'draw') return
-    transition('idle')
+    if (startedAt.current === null) return
+    startedAt.current = null
+    hold.current = null
+    clearFrame()
+    setGrowing(false)
+    setLength(0)
     setNotice('這局已取消，不計成績。準備好就再試一次。')
     audio.current?.stop()
-  }, [transition])
+  }, [clearFrame])
 
-  const activate = useCallback(() => {
-    if (platformSettingsOpen || document.visibilityState === 'hidden') return
-    if (phaseRef.current === 'idle' || phaseRef.current === 'result') {
-      round.current += 1
-      setTarget(randomLength())
-      setGuess(INITIAL_LENGTH)
-      setResult(null)
-      setNewBest(false)
-      setNotice('')
-      transition('observe')
-      if (globalSettings.soundEnabled) { audio.current ??= new TimingAudio(); audio.current.play(-1) }
-    } else if (phaseRef.current === 'observe') {
-      transition('draw')
-      // Move keyboard focus to the newly mounted range after the DOM commits.
-      requestAnimationFrame(() => { if (phaseRef.current === 'draw') rangeRef.current?.focus({ preventScroll: true }) })
-    } else {
-      const outcome = judgeLength(target, guess)
-      // Claim the round synchronously so rapid clicks can never score it twice.
-      transition('result')
-      const previousBest = readAppStorage().games.lengthSense.lengthBestErrorBp
-      setNewBest(previousBest === undefined || outcome.errorBp < previousBest)
-      setProgress(recordLengthResult(outcome.errorBp).games.lengthSense)
-      setResult(outcome)
-      setHistory((items) => [outcome, ...items].slice(0, 5))
-      if (globalSettings.soundEnabled) { audio.current ??= new TimingAudio(); audio.current.play(QUALITY[outcome.tier]) }
-      onProgressChange()
-      actionRef.current?.focus({ preventScroll: true })
-      requestAnimationFrame(() => resultRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'auto' }))
+  const finish = useCallback((atLimit = false) => {
+    if (startedAt.current === null) return
+    // Judge the release timestamp, not the most recently painted frame.
+    const outcome = judgeLength(target, lengthAtElapsed(performance.now() - startedAt.current, maxLength.current))
+    startedAt.current = null
+    hold.current = null
+    clearFrame()
+    setGrowing(false)
+    setLength(outcome.guess)
+    setResult(outcome)
+    setNotice(atLimit ? '線段已達上限，自動結算。' : '')
+    const previousBest = readAppStorage().games.lengthSense.lengthBestErrorBp
+    setNewBest(previousBest === undefined || outcome.errorBp < previousBest)
+    setProgress(recordLengthResult(outcome.errorBp).games.lengthSense)
+    setHistory((items) => [outcome, ...items].slice(0, 5))
+    if (globalSettings.soundEnabled) { audio.current ??= new TimingAudio(); audio.current.play(QUALITY[outcome.tier]) }
+    onProgressChange()
+    requestAnimationFrame(() => resultRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'auto' }))
+  }, [target, clearFrame, globalSettings.soundEnabled, onProgressChange])
+
+  const start = useCallback((input: Hold) => {
+    if (startedAt.current !== null || platformSettingsOpen || document.visibilityState === 'hidden') return
+    const railWidth = railRef.current?.getBoundingClientRect().width ?? 0
+    maxLength.current = railWidth > 0 ? Math.min(8, railWidth / PX_PER_CM) : 8
+    startedAt.current = performance.now()
+    hold.current = input
+    round.current += 1
+    setGrowing(true)
+    setLength(0)
+    setResult(null)
+    setNewBest(false)
+    setNotice('')
+    if (globalSettings.soundEnabled) { audio.current ??= new TimingAudio(); audio.current.play(-1) }
+    const tick = () => {
+      if (startedAt.current === null) return
+      const next = lengthAtElapsed(performance.now() - startedAt.current, maxLength.current)
+      setLength(next)
+      if (next >= maxLength.current) { finish(true); return }
+      frame.current = requestAnimationFrame(tick)
     }
-  }, [globalSettings.soundEnabled, platformSettingsOpen, transition, target, guess, onProgressChange])
+    frame.current = requestAnimationFrame(tick)
+  }, [platformSettingsOpen, globalSettings.soundEnabled, finish])
 
   useEffect(() => {
     const visibility = () => { if (document.visibilityState === 'hidden') cancel() }
-    const keys = (event: KeyboardEvent) => {
-      if (platformSettingsOpen || event.code !== 'Escape') return
-      cancel()
-    }
+    const keys = (event: KeyboardEvent) => { if (!platformSettingsOpen && event.code === 'Escape') cancel() }
     document.addEventListener('visibilitychange', visibility)
     window.addEventListener('orchard-arcade:settings-open', cancel)
+    window.addEventListener('blur', cancel)
     window.addEventListener('keydown', keys)
     const rail = railRef.current
     let width = rail?.getBoundingClientRect().width ?? 0
@@ -88,51 +105,70 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
     return () => {
       document.removeEventListener('visibilitychange', visibility)
       window.removeEventListener('orchard-arcade:settings-open', cancel)
+      window.removeEventListener('blur', cancel)
       window.removeEventListener('keydown', keys)
       observer?.disconnect()
     }
   }, [cancel, platformSettingsOpen])
 
   useEffect(() => { if (!globalSettings.soundEnabled) audio.current?.stop() }, [globalSettings.soundEnabled])
-  useEffect(() => () => audio.current?.stop(), [])
+  useEffect(() => () => { clearFrame(); audio.current?.stop() }, [clearFrame])
 
   const reduced = globalSettings.reducedMotion || globalSettings.effectIntensity !== 'full'
-  const resultTier = phase === 'result' ? result?.tier : undefined
-  const buttonText = phase === 'observe' ? '記住了，開始還原' : phase === 'draw' ? '就是這個長度！' : phase === 'result' ? '再挑戰一次' : '開始長度挑戰'
+  const resultTier = result?.tier
   const best = progress.lengthBestErrorBp
 
   return (
-    <section className={`second-sense length-sense length-phase-${phase} sense-${resultTier ?? 'idle'}${reduced ? ' sense-reduced' : ''}`} aria-labelledby="length-title">
-      <header className="sense-heading"><div><p className="eyebrow">LENGTH SENSE / 長度直覺</p><h1 id="length-title">長感挑戰<span>不用尺，眼睛說了算。</span></h1></div><span className="sense-edition">A LITTLE STRETCH<br />OF YOUR PERCEPTION ↔</span></header>
+    <section className={`second-sense length-sense length-phase-${growing ? 'growing' : result ? 'result' : 'idle'} sense-${resultTier ?? 'idle'}${reduced ? ' sense-reduced' : ''}`} aria-labelledby="length-title">
+      <header className="sense-heading"><div><p className="eyebrow">LENGTH SENSE / 長度直覺</p><h1 id="length-title">長感挑戰<span>按住延伸，放開剛剛好。</span></h1></div><span className="sense-edition">A LITTLE STRETCH<br />OF YOUR PERCEPTION ↔</span></header>
       <div className="sense-layout">
         <div className="sense-play length-play">
-          <div className="sense-topline"><span><i />{phase === 'observe' ? '把這段長度，記在眼裡' : phase === 'draw' ? '憑感覺，拉回剛才的長度' : phase === 'result' ? '揭曉你的長度感' : '今天的眼力，準備好了嗎？'}</span><span>LOOK / DRAW / FEEL</span></div>
-          <ol className="length-steps" aria-label="遊戲步驟">{['記住長度', '憑感覺拉', '揭曉結果'].map((label, index) => <li key={label} aria-current={(phase === 'observe' && index === 0) || (phase === 'draw' && index === 1) || (phase === 'result' && index === 2) ? 'step' : undefined}><span>0{index + 1}</span>{label}</li>)}</ol>
+          <div className="sense-topline"><span><i />{growing ? '相信眼力，放開就定格' : result ? '揭曉你的長度感' : '今天的眼力，準備好了嗎？'}</span><span>HOLD / GROW / RELEASE</span></div>
+          <div className="sense-targets" role="group" aria-label="目標公分數">{LENGTH_TARGETS.map((cm) => <button type="button" key={cm} aria-label={`${cm} 公分挑戰`} aria-pressed={target === cm} disabled={growing || platformSettingsOpen} onClick={() => { setTarget(cm); setResult(null); setLength(0); setNotice(''); setNewBest(false) }}><strong>{cm}</strong><span>公分</span></button>)}</div>
           <div className="length-stage">
-            <div className="length-stage-heading" aria-live="polite"><span>{phase === 'observe' ? '仔細看。不用急。' : phase === 'draw' ? '剛剛，大概這麼長？' : resultTier ? result?.label : '你的眼睛，自帶一把尺。'}</span><p>{phase === 'observe' ? '記住線段從左端到右端的距離，準備好再繼續。' : phase === 'draw' ? '拖曳圓點調整長度，滿意後按下方按鈕。' : phase === 'result' ? '兩條線的起點相同，看看終點相差多少。' : '先看一段線，再讓手還原眼睛記住的距離。'}</p></div>
+            <div className="length-stage-heading" aria-live="polite"><span>{result ? result.label : <>目標 <strong className="length-target-number">{target}</strong> 公分</>}</span><p>{growing ? '線正在長大。覺得到了，就放開。' : result ? '兩條線的起點相同，看看終點相差多少。' : '按住下方按鈕讓線變長，放開立刻結算。'}</p></div>
             <div className="length-workspace" ref={railRef}>
               <div className="length-anchor" aria-hidden="true"><span>起點</span></div>
-              {phase === 'idle' ? <div className="length-idle-art" aria-hidden="true"><i /><i /><span>HOW LONG IS A FEELING?</span></div> : null}
-              {phase === 'observe' ? <div className="length-reference" aria-label="要記住的目標線段" style={{ width: `${target / 100}%` }}><span className="length-line-tag">記住這段長度</span><i /></div> : null}
-              {phase === 'draw' ? <><div className="length-guess-line" aria-hidden="true" style={{ width: `${guess / 100}%` }} /><input ref={rangeRef} className="length-range" type="range" min={0} max={10000} step={10} value={guess} aria-label="調整線段長度" aria-valuetext="長度保密，送出後揭曉" aria-describedby="length-input-help" disabled={platformSettingsOpen} onChange={(event) => setGuess(clampLength(Number(event.target.value)))} onKeyDown={(event) => {
-                if (event.key === 'Enter') { event.preventDefault(); if (!event.repeat) activate() }
-                if (event.shiftKey && ['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
-                  event.preventDefault()
-                  const direction = event.key === 'ArrowRight' || event.key === 'ArrowUp' ? 1 : -1
-                  setGuess((value) => clampLength(value + direction * 200))
-                }
-              }} /></> : null}
-              {phase === 'result' && result ? <div className="length-comparison" key={round.current} aria-label="長度比較"><div className="length-original" style={{ width: `${result.target / 100}%` }}><span>目標長度</span><i /></div><div className="length-answer" style={{ width: `${result.guess / 100}%` }}><span>你的長度</span><i /></div><div className="length-gap" style={{ left: `${Math.min(result.target, result.guess) / 100}%`, width: `${Math.abs(result.delta) / 100}%` }} /></div> : null}
+              {!result ? <div className="length-growing-line" aria-label={growing ? '持續變長的線段' : '等待開始的線段'} style={{ width: `${length * PX_PER_CM}px` }}><i /></div> : <div className="length-comparison" key={round.current} aria-label="長度比較"><div className="length-original" style={{ width: `${result.target * PX_PER_CM}px` }}><span>目標 {result.target.toFixed(2)} cm</span><i /></div><div className="length-answer" style={{ width: `${result.guess * PX_PER_CM}px` }}><span>你的 {result.guess.toFixed(2)} cm</span><i /></div><div className="length-gap" style={{ left: `${Math.min(result.target, result.guess) * PX_PER_CM}px`, width: `${Math.abs(result.delta) * PX_PER_CM}px` }} /></div>}
               {resultTier && resultTier !== 'retry' ? <div className="length-celebration" key={`burst-${round.current}`} aria-hidden="true">{Array.from({ length: QUALITY[resultTier] * 10 }, (_, index) => <i key={index} style={{ '--angle': `${index * 137.5}deg`, '--distance': `${65 + index % 4 * 28}px`, '--delay': `${index % 4 * 25}ms` } as CSSProperties} />)}<span>✦</span></div> : null}
             </div>
-            <p className="length-input-help" id="length-input-help">{phase === 'draw' ? '滑動調整 · 方向鍵微調，Shift + 方向鍵快速調整 · Esc 取消' : phase === 'observe' ? '每局隨機長度 · 沒有時間限制' : '看一眼，拉一下，找到剛剛好的感覺。'}</p>
-            <button type="button" ref={actionRef} className="length-action" disabled={platformSettingsOpen} onClick={activate}>{buttonText}<span aria-hidden="true">{phase === 'result' ? '↻' : phase === 'draw' ? '✓' : '→'}</span></button>
+            <p className="length-input-help" id="length-input-help">按住滑鼠、手指或空白鍵／Enter · 放開結算 · Esc 取消</p>
+            <button type="button" className="length-action" aria-label={growing ? '放開結算' : '按住讓線變長'} aria-describedby="length-input-help" disabled={platformSettingsOpen}
+              onPointerDown={(event) => {
+                if (event.button !== 0 || event.isPrimary === false) return
+                event.preventDefault()
+                event.currentTarget.focus({ preventScroll: true })
+                event.currentTarget.setPointerCapture?.(event.pointerId)
+                start({ kind: 'pointer', id: event.pointerId })
+              }}
+              onPointerUp={(event) => {
+                if (hold.current?.kind === 'pointer' && hold.current.id === event.pointerId) finish()
+                if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+              }}
+              onPointerCancel={cancel}
+              onLostPointerCapture={() => { if (hold.current?.kind === 'pointer') cancel() }}
+              onContextMenu={(event) => event.preventDefault()}
+              onKeyDown={(event) => {
+                if (event.code !== 'Space' && event.code !== 'Enter') return
+                event.preventDefault()
+                if (!event.repeat) start({ kind: 'keyboard', code: event.code })
+              }}
+              onKeyUp={(event) => {
+                if (event.code !== 'Space' && event.code !== 'Enter') return
+                event.preventDefault()
+                if (hold.current?.kind === 'keyboard' && hold.current.code === event.code) finish()
+              }}
+              onBlur={cancel}>
+              {growing ? '放開，就是這個長度！' : result ? '再按住，挑戰一次' : '按住，讓線變長'}<span aria-hidden="true">{growing ? '↔' : '●'}</span>
+            </button>
+            <p className="length-unit-note">以網頁標準公分換算，螢幕上的實體長度可能因裝置而異。</p>
           </div>
-          <div ref={resultRef} className="sense-result length-result" role="status" aria-live="polite" aria-atomic="true">{phase === 'result' && result ? <div className="sense-result-content" key={round.current}><div><span>{result.delta === 0 ? '剛剛好' : result.delta > 0 ? '比目標長了' : '比目標短了'}</span><strong>{(result.errorBp / 100).toFixed(2)}<small>%</small></strong></div><div><span>本次精準分</span><strong>{result.score}<small>/ 1000</small></strong></div>{newBest ? <span className="sense-result-badge">↗ 個人新紀錄</span> : null}</div> : <p>{notice || (phase === 'observe' ? '不用背數字，只記住那個長度。' : phase === 'draw' ? '目標已藏起來。相信你剛剛看到的。' : '越接近原來的長度，回饋越痛快。')}</p>}</div>
+          <div ref={resultRef} className="sense-result length-result" role="status" aria-live="polite" aria-atomic="true">{result ? <div className="sense-result-content" key={round.current}><div><span>你的長度</span><strong>{result.guess.toFixed(2)}<small>cm</small></strong></div><div><span>{result.delta === 0 ? '剛剛好' : result.delta > 0 ? '比目標長了' : '比目標短了'}</span><strong>{Math.abs(result.delta).toFixed(2)}<small>cm</small></strong></div><span className="sense-result-badge">誤差 {(result.errorBp / 100).toFixed(2)}%{newBest ? ' · 新紀錄' : ''}</span></div> : <p>{notice || (growing ? '目前長度先保密，放開後揭曉。' : '看目標公分，憑感覺放手。越接近，回饋越痛快。')}</p>}</div>
+          {result && notice ? <p className="length-limit-note">{notice}</p> : null}
         </div>
-        <aside className="sense-sidebar"><section className="sense-record"><p className="eyebrow">YOUR PERSONAL BEST</p><h2>眼力，也有好手感。</h2><span className="sense-best-number">{best === undefined ? '—' : (best / 100).toFixed(2)}<small>%</small></span><p>最小相對誤差 · 越小越準</p><div className="sense-record-list"><div><span>最高精準分</span><strong>{progress.highScore} / 1000</strong></div><div><span>已完成挑戰</span><strong>{progress.gamesPlayed} 次</strong></div></div><small>最佳紀錄自動儲存於本機</small></section><section className="sense-guide"><span aria-hidden="true">↔</span><h2>差一點，也是一種進步。</h2><p>記住距離，讓手跟上眼睛。<br />不計時，慢慢找到自己的準度。</p><div><span>誤差 ≤ 1%</span><strong>✦ 分毫不差</strong></div><div><span>誤差 ≤ 3%</span><strong>眼睛就是尺</strong></div><div><span>誤差 ≤ 6%</span><strong>漂亮的長度感</strong></div><div><span>誤差 ≤ 10%</span><strong>再靠近一點</strong></div></section></aside>
+        <aside className="sense-sidebar"><section className="sense-record"><p className="eyebrow">YOUR PERSONAL BEST</p><h2>眼力，也有好手感。</h2><span className="sense-best-number">{best === undefined ? '—' : (best / 100).toFixed(2)}<small>%</small></span><p>最小相對誤差 · 越小越準</p><div className="sense-record-list"><div><span>最高精準分</span><strong>{progress.highScore} / 1000</strong></div><div><span>已完成挑戰</span><strong>{progress.gamesPlayed} 次</strong></div></div><small>最佳紀錄自動儲存於本機</small></section><section className="sense-guide"><span aria-hidden="true">↔</span><h2>差一點，也是一種進步。</h2><p>看著線延伸，在對的地方放手。<br />下一次，讓手感更接近眼力。</p><div><span>誤差 ≤ 1%</span><strong>✦ 分毫不差</strong></div><div><span>誤差 ≤ 3%</span><strong>眼睛就是尺</strong></div><div><span>誤差 ≤ 6%</span><strong>漂亮的長度感</strong></div><div><span>誤差 ≤ 10%</span><strong>再靠近一點</strong></div></section></aside>
       </div>
-      <section className="sense-history" aria-label="最近長度挑戰"><span>最近的眼力<small>本次遊玩</small></span>{history.length ? <ol>{history.map((item, index) => <li key={`${history.length}-${index}`}><span>{item.delta === 0 ? '剛剛好' : item.delta > 0 ? '偏長' : '偏短'}</span><strong>{(item.errorBp / 100).toFixed(2)}%</strong><small>{item.score} 精準分</small></li>)}</ol> : <p>第一段剛剛好的長度，等你拉出來。</p>}</section>
+      <section className="sense-history" aria-label="最近長度挑戰"><span>最近的眼力<small>本次遊玩</small></span>{history.length ? <ol>{history.map((item, index) => <li key={`${history.length}-${index}`}><span>目標 {item.target} cm</span><strong>{item.guess.toFixed(2)} cm</strong><small>{item.delta === 0 ? '剛剛好' : item.delta > 0 ? '偏長' : '偏短'} · {(item.errorBp / 100).toFixed(2)}%</small></li>)}</ol> : <p>第一段剛剛好的長度，等你放手定格。</p>}</section>
     </section>
   )
 }

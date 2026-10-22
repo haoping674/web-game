@@ -1,15 +1,13 @@
-// Lengths use 1/10000 of the drawing rail, independent of device pixel density.
-export const MIN_LENGTH = 500
-export const MAX_LENGTH = 9500
-export const INITIAL_LENGTH = 1200
-export function randomLength(random = Math.random): number {
-  return 2500 + Math.floor(Math.max(0, Math.min(.999999, random())) * 5501)
+export const LENGTH_TARGETS = [1, 3, 5] as const
+export type LengthTarget = (typeof LENGTH_TARGETS)[number]
+export const PX_PER_CM = 96 / 2.54
+export const GROWTH_CM_PER_SECOND = 1.2
+export function lengthAtElapsed(elapsedMs: number, maxCm: number): number {
+  return Math.min(maxCm, Math.max(0, elapsedMs) / 1000 * GROWTH_CM_PER_SECOND)
 }
-export function clampLength(value: number): number {
-  return Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, Math.round(value / 10) * 10))
-}
-export function judgeLength(target: number, guess: number) {
-  const delta = guess - target
+export function judgeLength(target: number, lengthCm: number) {
+  const guess = Math.round(Math.max(0, lengthCm) * 100) / 100
+  const delta = Math.round((guess - target) * 100) / 100
   const errorBp = Math.round(Math.abs(delta) / target * 10_000)
   const tier = errorBp <= 100 ? 'perfect' : errorBp <= 300 ? 'excellent' : errorBp <= 600 ? 'great' : errorBp <= 1000 ? 'close' : 'retry'
   const labels = { perfect: '分毫不差的眼力！', excellent: '你的眼睛就是尺！', great: '漂亮的長度感！', close: '再靠近一點點！', retry: '再抓一次感覺。' }

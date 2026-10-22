@@ -26,14 +26,14 @@ function createStorage(initial: Record<string, string> = {}): Storage {
 describe('platform storage', () => {
   it('migrates length records, retains zero best errors, and resets only the chosen game', () => {
     const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { secondSense: { highScore: 980, gamesPlayed: 2, timingBestMs: { 3: 20 } }, lengthSense: { lengthBestErrorBp: -20 } } }) })
-    expect(readAppStorage(storage).games.lengthSense).toEqual({ highScore: 0, gamesPlayed: 0 })
+    expect(readAppStorage(storage).games.lengthSense).toEqual({ highScore: 0, gamesPlayed: 0, scoreRule: 'hold-centimeters' })
     recordLengthResult(300, storage)
     recordLengthResult(0, storage)
     recordLengthResult(500, storage)
     recordLengthResult(NaN, storage)
     expect(readAppStorage(storage).games.lengthSense).toMatchObject({ highScore: 1000, gamesPlayed: 3, lengthBestErrorBp: 0 })
     resetGameProgress('lengthSense', storage)
-    expect(readAppStorage(storage).games.lengthSense).toEqual({ highScore: 0, gamesPlayed: 0 })
+    expect(readAppStorage(storage).games.lengthSense).toEqual({ highScore: 0, gamesPlayed: 0, scoreRule: 'hold-centimeters' })
     expect(readAppStorage(storage).games.secondSense).toMatchObject({ highScore: 980, gamesPlayed: 2, timingBestMs: { 3: 20 } })
   })
   it('migrates timing records, keeps each target independent, and rejects invalid saved errors', () => {
@@ -47,6 +47,12 @@ describe('platform storage', () => {
     expect(readAppStorage(storage).games.fruitSum).toEqual({ highScore: 42, gamesPlayed: 3 })
     resetGameProgress('secondSense', storage)
     expect(readAppStorage(storage).games.secondSense).toMatchObject({ highScore: 0, gamesPlayed: 0, timingBestMs: {} })
+  })
+  it('starts new hold-length records while preserving prior play counts and unrelated games', () => {
+    const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { lengthSense: { highScore: 1000, lengthBestErrorBp: 0, gamesPlayed: 9 } } }) })
+    expect(readAppStorage(storage).games.lengthSense).toEqual({ highScore: 0, gamesPlayed: 9, scoreRule: 'hold-centimeters' })
+    recordLengthResult(100, storage)
+    expect(readAppStorage(storage).games.lengthSense).toMatchObject({ highScore: 980, lengthBestErrorBp: 100, gamesPlayed: 10 })
   })
   it('adds Slide Ten to old saves and records its scores independently', () => {
     const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { fruitSum: { highScore: 42, gamesPlayed: 3 } } }) })

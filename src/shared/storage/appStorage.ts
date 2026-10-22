@@ -16,7 +16,7 @@ export type GlobalSettings = {
 export type GameProgress = {
   lengthBestErrorBp?: number
   timingBestMs?: Partial<Record<1 | 3 | 5, number>>
-  scoreRule?: 'fruit-count'
+  scoreRule?: 'fruit-count' | 'hold-centimeters'
   highScore: number
   bestTimeSeconds?: number
   gamesPlayed: number
@@ -113,10 +113,13 @@ function normalizeSlideProgress(value: unknown): GameProgress {
 
 function normalizeLengthProgress(value: unknown): GameProgress {
   const progress = normalizeProgress(value)
+  if (!isRecord(value) || value.scoreRule !== 'hold-centimeters') {
+    return { ...progress, highScore: 0, scoreRule: 'hold-centimeters' }
+  }
   const best = isRecord(value) ? value.lengthBestErrorBp : undefined
   return typeof best === 'number' && Number.isFinite(best) && best >= 0
-    ? { ...progress, lengthBestErrorBp: Math.round(best) }
-    : progress
+    ? { ...progress, lengthBestErrorBp: Math.round(best), scoreRule: 'hold-centimeters' }
+    : { ...progress, scoreRule: 'hold-centimeters' }
 }
 
 function getStorage(storage?: Storage): Storage | undefined {
@@ -313,6 +316,7 @@ export function recordLengthResult(errorBp: number, storage?: Storage): AppStora
       ...current.games,
       lengthSense: {
         ...progress,
+        scoreRule: 'hold-centimeters',
         highScore: Math.max(progress.highScore, Math.max(0, 1000 - Math.round(error / 5))),
         gamesPlayed: progress.gamesPlayed + 1,
         lengthBestErrorBp: Math.min(progress.lengthBestErrorBp ?? Infinity, error),
