@@ -38,6 +38,20 @@ async function startColorLinks(): Promise<void> {
 }
 
 describe('platform routing and lazy game lifecycle', () => {
+  it('opens Length Sense from the feeling category and cancels for shared settings', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '憑感覺' }))
+    fireEvent.click(screen.getByRole('button', { name: '開始 長感挑戰' }))
+    fireEvent.click(await screen.findByRole('button', { name: /開始長度挑戰/ }))
+    fireEvent.click(screen.getByRole('button', { name: /記住了，開始還原/ }))
+    expect(screen.getByRole('slider', { name: '調整線段長度' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '共用設定' }))
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+    expect(screen.getByRole('button', { name: /開始長度挑戰/ })).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('orchard-arcade-v1')!).games.lengthSense.gamesPlayed).toBe(0)
+    fireEvent.click(screen.getByRole('button', { name: '遊戲廳' }))
+    expect(screen.getByRole('heading', { name: '長感挑戰' })).toBeInTheDocument()
+  })
   it('opens Second Sense from its category and cancels a round when opening shared settings', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: '憑感覺' }))

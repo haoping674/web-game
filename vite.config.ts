@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: 'Orchard Arcade',
           short_name: 'Orchard Arcade',
-          description: 'Six games: Second Sense, Slide Ten, Ashbound, Sprout Island, Orchard Ten and Color Links.',
+          description: 'Seven games: Length Sense, Second Sense, Slide Ten, Ashbound, Sprout Island, Orchard Ten and Color Links.',
           start_url: base,
           scope: base,
           display: 'standalone',

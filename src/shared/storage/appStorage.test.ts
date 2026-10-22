@@ -7,6 +7,7 @@ import {
   recordColorLinksResult,
   recordGameResult,
   recordTimingResult,
+  recordLengthResult,
   resetGameProgress,
 } from './appStorage'
 
@@ -23,6 +24,18 @@ function createStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe('platform storage', () => {
+  it('migrates length records, retains zero best errors, and resets only the chosen game', () => {
+    const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { secondSense: { highScore: 980, gamesPlayed: 2, timingBestMs: { 3: 20 } }, lengthSense: { lengthBestErrorBp: -20 } } }) })
+    expect(readAppStorage(storage).games.lengthSense).toEqual({ highScore: 0, gamesPlayed: 0 })
+    recordLengthResult(300, storage)
+    recordLengthResult(0, storage)
+    recordLengthResult(500, storage)
+    recordLengthResult(NaN, storage)
+    expect(readAppStorage(storage).games.lengthSense).toMatchObject({ highScore: 1000, gamesPlayed: 3, lengthBestErrorBp: 0 })
+    resetGameProgress('lengthSense', storage)
+    expect(readAppStorage(storage).games.lengthSense).toEqual({ highScore: 0, gamesPlayed: 0 })
+    expect(readAppStorage(storage).games.secondSense).toMatchObject({ highScore: 980, gamesPlayed: 2, timingBestMs: { 3: 20 } })
+  })
   it('migrates timing records, keeps each target independent, and rejects invalid saved errors', () => {
     const storage = createStorage({ [APP_STORAGE_KEY]: JSON.stringify({ games: { fruitSum: { highScore: 42, gamesPlayed: 3 }, secondSense: { timingBestMs: { 1: -1, 3: 'bad', 5: 18.6 } } } }) })
     expect(readAppStorage(storage).games.secondSense.timingBestMs).toEqual({ 5: 19 })

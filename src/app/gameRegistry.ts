@@ -1,4 +1,4 @@
-export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen' | 'secondSense'
+export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen' | 'secondSense' | 'lengthSense'
 
 export type GameDefinition = {
   id: GameId
@@ -11,6 +11,15 @@ export type GameDefinition = {
 }
 
 export const GAME_REGISTRY = [
+  {
+    id: 'lengthSense',
+    name: '長感挑戰',
+    eyebrow: 'LENGTH SENSE · TRUST YOUR EYES',
+    description: '記住一段線，憑感覺拉回原來的長度。你的眼力，差幾分毫？',
+    route: '/games/length-sense',
+    status: 'available',
+    accent: '#337a78',
+  },
   {
     id: 'secondSense',
     name: '秒感挑戰',

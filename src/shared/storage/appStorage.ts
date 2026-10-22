@@ -14,6 +14,7 @@ export type GlobalSettings = {
 }
 
 export type GameProgress = {
+  lengthBestErrorBp?: number
   timingBestMs?: Partial<Record<1 | 3 | 5, number>>
   scoreRule?: 'fruit-count'
   highScore: number
@@ -44,6 +45,7 @@ export const DEFAULT_APP_STORAGE: AppStorage = {
     ashbound: { ...DEFAULT_PROGRESS },
     slideTen: { ...DEFAULT_PROGRESS, scoreRule: 'fruit-count' },
     secondSense: { ...DEFAULT_PROGRESS },
+    lengthSense: { ...DEFAULT_PROGRESS },
   },
 }
 
@@ -107,6 +109,14 @@ function normalizeSlideProgress(value: unknown): GameProgress {
   const progress = normalizeProgress(value)
   const usesFruitCount = isRecord(value) && value.scoreRule === 'fruit-count'
   return { ...progress, highScore: usesFruitCount ? progress.highScore : 0, scoreRule: 'fruit-count' }
+}
+
+function normalizeLengthProgress(value: unknown): GameProgress {
+  const progress = normalizeProgress(value)
+  const best = isRecord(value) ? value.lengthBestErrorBp : undefined
+  return typeof best === 'number' && Number.isFinite(best) && best >= 0
+    ? { ...progress, lengthBestErrorBp: Math.round(best) }
+    : progress
 }
 
 function getStorage(storage?: Storage): Storage | undefined {
@@ -187,6 +197,7 @@ export function readAppStorage(storage?: Storage): AppStorage {
         ashbound: normalizeProgress(games.ashbound),
         slideTen: normalizeSlideProgress(games.slideTen),
         secondSense: normalizeTimingProgress(games.secondSense),
+        lengthSense: normalizeLengthProgress(games.lengthSense),
       },
     }
   } catch {
@@ -287,6 +298,26 @@ export function markGameTutorialSeen(gameId: GameId, storage?: Storage): AppStor
     games: {
       ...current.games,
       [gameId]: { ...current.games[gameId], tutorialSeen: true },
+    },
+  }, storage)
+}
+
+export function recordLengthResult(errorBp: number, storage?: Storage): AppStorage {
+  const current = readAppStorage(storage)
+  if (!Number.isFinite(errorBp) || errorBp < 0) return current
+  const error = Math.round(errorBp)
+  const progress = current.games.lengthSense
+  return saveAppStorage({
+    ...current,
+    games: {
+      ...current.games,
+      lengthSense: {
+        ...progress,
+        highScore: Math.max(progress.highScore, Math.max(0, 1000 - Math.round(error / 5))),
+        gamesPlayed: progress.gamesPlayed + 1,
+        lengthBestErrorBp: Math.min(progress.lengthBestErrorBp ?? Infinity, error),
+        lastPlayedAt: new Date().toISOString(),
+      },
     },
   }, storage)
 }
