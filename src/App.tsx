@@ -3,6 +3,7 @@ import { PwaUpdateNotice } from './components/PwaUpdateNotice'
 import { Component, lazy, Suspense, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import { HomePage } from './app/HomePage'
 import { GAME_REGISTRY } from './app/gameRegistry'
+import { updatePageMetadata } from './app/seoDocument'
 import { HOME_ROUTE, navigate, useAppPathname } from './app/router'
 import { AppHeader } from './shared/components/AppHeader'
 import { PlatformSettingsDialog } from './shared/components/PlatformSettingsDialog'
@@ -66,6 +67,10 @@ function App() {
   const fruitRoute = '/games/fruit-sum'
   const colorRoute = '/games/color-links'
   const knownRoute = pathname === HOME_ROUTE || GAME_REGISTRY.some((game) => game.route === pathname)
+
+  useEffect(() => {
+    if (knownRoute) updatePageMetadata(pathname)
+  }, [pathname, knownRoute])
 
   useEffect(() => {
     if (!knownRoute) navigate(HOME_ROUTE, { replace: true })
