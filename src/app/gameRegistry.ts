@@ -15,7 +15,7 @@ export const GAME_REGISTRY = [
     id: 'lengthSense',
     name: '長感挑戰',
     eyebrow: 'LENGTH SENSE · TRUST YOUR EYES',
-    description: '看目標公分，按住讓線變長。憑感覺放手，你的眼力差幾分毫？',
+    description: '看目標公分，拖曳調整線段。憑眼力確認，你的長度感差幾分毫？',
     route: '/games/length-sense',
     status: 'available',
     accent: '#337a78',

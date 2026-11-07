@@ -4,18 +4,16 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LengthSenseGame from './LengthSenseGame'
 import { readAppStorage } from '../../shared/storage/appStorage'
+import { PX_PER_CM } from './model'
 
 const settings = { soundEnabled: false, reducedMotion: false, effectIntensity: 'full' } as const
-let now = 0
-let frameId = 0
-const frames = new Map<number, FrameRequestCallback>()
+const slider = () => screen.getByRole('slider', { name: '調整線段長度' })
+const confirm = () => screen.getByRole('button', { name: '確認這個長度' })
+const setup = (changed = vi.fn()) => render(<LengthSenseGame globalSettings={settings} onProgressChange={changed} platformSettingsOpen={false} />)
+
 beforeEach(() => {
   localStorage.clear()
-  now = 0
-  frames.clear()
-  vi.spyOn(performance, 'now').mockImplementation(() => now)
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId })
-  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id))
+  vi.spyOn(Math, 'random').mockReturnValue(.25)
   vi.stubGlobal('PointerEvent', class extends MouseEvent {
     pointerId: number
     isPrimary: boolean
@@ -28,116 +26,117 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-function tick(time: number) {
-  now = time
-  const pending = [...frames.values()]
-  frames.clear()
-  act(() => pending.forEach((callback) => callback(time)))
-}
-const holdButton = () => screen.getByRole('button', { name: '按住讓線變長' })
+describe('Length Sense adjust and confirm', () => {
+  it('keeps length static while time passes and records only an explicit confirmation once', () => {
+    vi.useFakeTimers()
+    const changed = vi.fn()
+    setup(changed)
+    const initial = (slider() as HTMLInputElement).value
+    act(() => vi.advanceTimersByTime(10000))
+    expect(slider()).toHaveValue(initial)
+    fireEvent.pointerDown(slider(), { button: 0, pointerId: 1 })
+    fireEvent.change(slider(), { target: { value: '3' } })
+    expect(confirm()).toBeDisabled()
+    fireEvent.pointerUp(slider(), { pointerId: 1 })
+    expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(0)
+    expect(screen.queryByLabelText('長度比較')).toBeNull()
+    expect(screen.getByRole('status')).not.toHaveTextContent('3.00')
+    const submit = confirm()
+    fireEvent.click(submit)
+    fireEvent.click(submit) // Replaying starts a round; it never records a second result.
+    expect(readAppStorage().games.lengthSense).toMatchObject({ gamesPlayed: 1, highScore: 1000, lengthBestErrorBp: 0, scoreRule: 'drag-centimeters' })
+    expect(changed).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
 
-describe('Length Sense hold and release', () => {
-  it('shows a random target before holding and preannounces the next target after release', () => {
+  it('allows repeated adjustment in both directions and reveals the final line comparison', () => {
+    setup()
+    fireEvent.change(slider(), { target: { value: '5' } })
+    fireEvent.change(slider(), { target: { value: '2.5' } })
+    expect(screen.getByLabelText('待確認的線段').style.width).toBe(`${2.5 * PX_PER_CM}px`)
+    expect(slider()).toHaveAttribute('aria-valuetext', '長度保密，確認後揭曉')
+    fireEvent.click(confirm())
+    expect(screen.getByLabelText('長度比較')).toHaveTextContent('目標 3.00 cm')
+    expect(screen.getByLabelText('長度比較')).toHaveTextContent('你的 2.50 cm')
+    expect(screen.getByRole('status')).toHaveTextContent('比目標短了')
+    expect(screen.getByRole('status')).toHaveTextContent('0.50cm')
+    expect(screen.queryByRole('slider')).toBeNull()
+  })
+
+  it('shows random targets before adjustment and preannounces the next target after confirmation', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(.3)
-    render(<LengthSenseGame globalSettings={settings} onProgressChange={vi.fn()} platformSettingsOpen={false} />)
+    setup()
     fireEvent.click(screen.getByRole('button', { name: '隨機公分目標' }))
     expect(document.querySelector('.sense-random-target')).toHaveTextContent('本局目標 2.2 公分')
-    const button = holdButton()
-    fireEvent.keyDown(button, { code: 'Space' })
-    expect(screen.getByRole('button', { name: '隨機公分目標' })).toBeDisabled()
+    fireEvent.change(slider(), { target: { value: '2.2' } })
     random.mockReturnValue(.8)
-    now = 1833.333333
-    fireEvent.keyUp(button, { code: 'Space' })
+    fireEvent.click(confirm())
     expect(screen.getByLabelText('長度比較')).toHaveTextContent('目標 2.20 cm')
-    expect(screen.getByRole('status')).toHaveTextContent('2.20cm')
     expect(document.querySelector('.sense-random-target')).toHaveTextContent('下一局目標 4.2 公分')
-    fireEvent.keyDown(button, { code: 'Space' })
-    now += 3500
-    fireEvent.keyUp(button, { code: 'Space' })
+    fireEvent.click(screen.getByRole('button', { name: '再挑戰一次' }))
+    fireEvent.change(slider(), { target: { value: '4.2' } })
+    fireEvent.click(confirm())
     expect(screen.getByLabelText('長度比較')).toHaveTextContent('目標 4.20 cm')
-    expect(screen.getByRole('status')).toHaveTextContent('4.20cm')
-    expect(readAppStorage().games.lengthSense).toMatchObject({ highScore: 1000, gamesPlayed: 2, lengthBestErrorBp: 0 })
+    expect(readAppStorage().games.lengthSense).toMatchObject({ gamesPlayed: 2, highScore: 1000 })
     fireEvent.click(screen.getByRole('button', { name: '5 公分挑戰' }))
     expect(document.querySelector('.sense-random-target')).toBeNull()
     expect(screen.getByRole('button', { name: '5 公分挑戰' })).toHaveAttribute('aria-pressed', 'true')
   })
-  it('shows target centimeters first, grows while held and judges the release timestamp once', () => {
-    const changed = vi.fn()
-    render(<LengthSenseGame globalSettings={settings} onProgressChange={changed} platformSettingsOpen={false} />)
-    expect(screen.getByRole('button', { name: '3 公分挑戰' })).toHaveAttribute('aria-pressed', 'true')
-    const button = holdButton()
-    fireEvent.pointerDown(button, { button: 0, pointerId: 1 })
-    expect(screen.getByRole('button', { name: '1 公分挑戰' })).toBeDisabled()
-    tick(1000)
-    expect(screen.getByLabelText('持續變長的線段').style.width).toBe(`${1.2 * 96 / 2.54}px`)
-    expect(screen.getByRole('status')).not.toHaveTextContent('1.20')
-    now = 2500 // Release after the last rendered frame: still exactly 3 cm.
-    fireEvent.pointerUp(button, { pointerId: 1 })
-    fireEvent.pointerUp(button, { pointerId: 1 })
-    expect(screen.getByRole('status')).toHaveTextContent('3.00cm')
-    expect(screen.getByRole('status')).toHaveTextContent('0.00cm')
-    expect(screen.getByText('分毫不差的眼力！')).toBeInTheDocument()
-    expect(screen.getByLabelText('長度比較')).toBeInTheDocument()
-    expect(readAppStorage().games.lengthSense).toMatchObject({ gamesPlayed: 1, highScore: 1000, lengthBestErrorBp: 0 })
-    expect(changed).toHaveBeenCalledTimes(1)
+
+  it('starts each replay at a new random length and never auto-submits at the limit', () => {
+    setup()
+    const initial = (slider() as HTMLInputElement).value
+    fireEvent.change(slider(), { target: { value: '8' } })
+    expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(0)
+    fireEvent.click(confirm())
+    vi.spyOn(Math, 'random').mockReturnValue(.8)
+    fireEvent.click(screen.getByRole('button', { name: '再挑戰一次' }))
+    expect((slider() as HTMLInputElement).value).not.toBe(initial)
+    expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(1)
   })
 
-  it('holds Space or Enter, ignores key repeats and unrelated releases, and can replay', () => {
-    render(<LengthSenseGame globalSettings={settings} onProgressChange={vi.fn()} platformSettingsOpen={false} />)
-    fireEvent.click(screen.getByRole('button', { name: '1 公分挑戰' }))
-    const button = holdButton()
-    fireEvent.keyDown(button, { code: 'Space' })
-    now = 500
-    fireEvent.keyDown(button, { code: 'Space', repeat: true })
-    fireEvent.keyUp(button, { code: 'Enter' })
-    expect(screen.getByRole('button', { name: '放開結算' })).toBeInTheDocument()
-    now = 1000
-    fireEvent.keyUp(button, { code: 'Space' })
-    expect(screen.getByRole('status')).toHaveTextContent('1.20cm')
-    expect(screen.getByRole('status')).toHaveTextContent('比目標長了')
-    fireEvent.keyDown(button, { code: 'Enter' })
-    now = 1750
-    fireEvent.keyUp(button, { code: 'Enter' })
-    expect(screen.getByRole('status')).toHaveTextContent('0.90cm')
-    expect(screen.getByRole('status')).toHaveTextContent('比目標短了')
-    expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(2)
-  })
-
-  it('cancels interrupted holds without recording or settling on a late release', () => {
-    render(<LengthSenseGame globalSettings={settings} onProgressChange={vi.fn()} platformSettingsOpen={false} />)
-    const button = holdButton()
-    for (const interrupt of [
-      () => fireEvent.pointerCancel(button),
-      () => fireEvent.lostPointerCapture(button),
-      () => fireEvent.blur(button),
-      () => fireEvent.keyDown(window, { code: 'Escape' }),
-      () => window.dispatchEvent(new Event('orchard-arcade:settings-open')),
-    ]) {
-      fireEvent.pointerDown(button, { button: 0 })
-      act(interrupt)
-      now += 500
-      fireEvent.pointerUp(button)
-      expect(screen.getByRole('status')).toHaveTextContent('這局已取消')
+  it.each(['pointer', 'escape', 'blur', 'settings', 'hidden'] as const)('cancels on %s without recording a late confirmation', (interruption) => {
+    setup()
+    const input = slider()
+    const submit = confirm()
+    fireEvent.change(input, { target: { value: '3' } })
+    if (interruption === 'pointer') fireEvent.pointerCancel(input)
+    if (interruption === 'escape') fireEvent.keyDown(input, { code: 'Escape' })
+    if (interruption === 'blur') fireEvent(window, new Event('blur'))
+    if (interruption === 'settings') act(() => window.dispatchEvent(new Event('orchard-arcade:settings-open')))
+    if (interruption === 'hidden') {
+      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+      fireEvent(document, new Event('visibilitychange'))
     }
-    fireEvent.pointerDown(button, { button: 0 })
-    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
-    fireEvent(document, new Event('visibilitychange'))
+    fireEvent.pointerUp(input)
+    fireEvent.click(submit)
     expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(0)
   })
 
-  it('ignores secondary pointers and auto-settles at the maximum once', () => {
-    render(<LengthSenseGame globalSettings={settings} onProgressChange={vi.fn()} platformSettingsOpen={false} />)
-    const button = holdButton()
-    fireEvent.pointerDown(button, { button: 2 })
-    fireEvent.pointerDown(button, { button: 0, isPrimary: false, pointerId: 2 })
-    expect(screen.queryByRole('button', { name: '放開結算' })).toBeNull()
-    fireEvent.pointerDown(button, { button: 0, pointerId: 1 })
-    fireEvent.pointerUp(button, { pointerId: 2 })
-    expect(screen.getByRole('button', { name: '放開結算' })).toBeInTheDocument()
-    tick(10000)
-    expect(screen.getByText('線段已達上限，自動結算。')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('8.00cm')
-    fireEvent.pointerUp(button, { pointerId: 1 })
-    expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(1)
+  it('cancels and disables input when settings are opened through props', () => {
+    const view = setup()
+    fireEvent.change(slider(), { target: { value: '3' } })
+    view.rerender(<LengthSenseGame globalSettings={settings} onProgressChange={vi.fn()} platformSettingsOpen />)
+    expect(screen.getByRole('button', { name: '重新開始' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('這局已取消')
+    expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(0)
+  })
+
+  it('fits the rail and cancels an unsubmitted round on workspace resize', () => {
+    let resized: ResizeObserverCallback = () => {}
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 240 } as DOMRect)
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) { resized = callback }
+      observe() {}
+      disconnect() {}
+    })
+    setup()
+    expect(Number(slider().getAttribute('max'))).toBeLessThanOrEqual(240 / PX_PER_CM)
+    fireEvent.change(slider(), { target: { value: '3' } })
+    act(() => resized([{ contentRect: { width: 210 } } as ResizeObserverEntry], {} as ResizeObserver))
+    expect(screen.getByRole('status')).toHaveTextContent('這局已取消')
+    expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(0)
+    fireEvent.click(screen.getByRole('button', { name: '重新開始' }))
+    expect(Number(slider().getAttribute('max'))).toBeLessThanOrEqual(210 / PX_PER_CM)
   })
 })

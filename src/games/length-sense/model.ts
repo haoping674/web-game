@@ -1,9 +1,8 @@
 export const LENGTH_TARGETS = [1, 3, 5] as const
 export type LengthTarget = (typeof LENGTH_TARGETS)[number]
 export const PX_PER_CM = 96 / 2.54
-export const GROWTH_CM_PER_SECOND = 1.2
-export function lengthAtElapsed(elapsedMs: number, maxCm: number): number {
-  return Math.min(maxCm, Math.max(0, elapsedMs) / 1000 * GROWTH_CM_PER_SECOND)
+export function randomInitialLength(maxCm: number): number {
+  return Math.round(maxCm * (0.15 + Math.random() * 0.7) * 100) / 100
 }
 export function judgeLength(target: number, lengthCm: number) {
   const guess = Math.round(Math.max(0, lengthCm) * 100) / 100

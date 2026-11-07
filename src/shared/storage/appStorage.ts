@@ -17,7 +17,8 @@ export type GameProgress = {
   lengthBestErrorBp?: number
   timingBestMs?: Partial<Record<1 | 3 | 5, number>>
   timingRandomBestMs?: number
-  scoreRule?: 'fruit-count' | 'hold-centimeters'
+  scoreRule?: 'fruit-count' | 'hold-centimeters' | 'drag-centimeters'
+  lengthLegacyRecord?: { highScore: number; gamesPlayed: number; lengthBestErrorBp?: number; lastPlayedAt?: string }
   highScore: number
   bestTimeSeconds?: number
   gamesPlayed: number
@@ -115,13 +116,27 @@ function normalizeSlideProgress(value: unknown): GameProgress {
 
 function normalizeLengthProgress(value: unknown): GameProgress {
   const progress = normalizeProgress(value)
-  if (!isRecord(value) || value.scoreRule !== 'hold-centimeters') {
-    return { ...progress, highScore: 0, scoreRule: 'hold-centimeters' }
+  const stored = isRecord(value) ? value : {}
+  const best = stored.lengthBestErrorBp
+  const validBest = typeof best === 'number' && Number.isFinite(best) && best >= 0
+    ? { lengthBestErrorBp: Math.round(best) } : {}
+  if (stored.scoreRule !== 'drag-centimeters') {
+    return {
+      highScore: 0, gamesPlayed: 0, scoreRule: 'drag-centimeters',
+      ...(progress.gamesPlayed > 0 || progress.highScore > 0
+        ? { lengthLegacyRecord: { ...progress, ...validBest } } : {}),
+    }
   }
-  const best = isRecord(value) ? value.lengthBestErrorBp : undefined
-  return typeof best === 'number' && Number.isFinite(best) && best >= 0
-    ? { ...progress, lengthBestErrorBp: Math.round(best), scoreRule: 'hold-centimeters' }
-    : { ...progress, scoreRule: 'hold-centimeters' }
+  const legacy = isRecord(stored.lengthLegacyRecord) ? stored.lengthLegacyRecord : undefined
+  const legacyBest = legacy?.lengthBestErrorBp
+  return {
+    ...progress, ...validBest, scoreRule: 'drag-centimeters',
+    ...(legacy ? { lengthLegacyRecord: {
+      ...normalizeProgress(legacy),
+      ...(typeof legacyBest === 'number' && Number.isFinite(legacyBest) && legacyBest >= 0
+        ? { lengthBestErrorBp: Math.round(legacyBest) } : {}),
+    } } : {}),
+  }
 }
 
 function getStorage(storage?: Storage): Storage | undefined {
@@ -321,7 +336,7 @@ export function recordLengthResult(errorBp: number, storage?: Storage): AppStora
       ...current.games,
       lengthSense: {
         ...progress,
-        scoreRule: 'hold-centimeters',
+        scoreRule: 'drag-centimeters',
         highScore: Math.max(progress.highScore, Math.max(0, 1000 - Math.round(error / 5))),
         gamesPlayed: progress.gamesPlayed + 1,
         lengthBestErrorBp: Math.min(progress.lengthBestErrorBp ?? Infinity, error),

@@ -1,12 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import { lengthAtElapsed, judgeLength, PX_PER_CM } from './model'
+import { describe, expect, it, vi } from 'vitest'
+import { randomInitialLength, judgeLength, PX_PER_CM } from './model'
 
-describe('hold-to-grow length judging', () => {
-  it('grows by real elapsed time and clamps to the available rail', () => {
-    expect(lengthAtElapsed(2500, 8)).toBe(3)
-    expect(lengthAtElapsed(1000, 8)).toBe(1.2)
-    expect(lengthAtElapsed(-10, 8)).toBe(0)
-    expect(lengthAtElapsed(10000, 5.8)).toBe(5.8)
+describe('drag length judging', () => {
+  it('randomizes initial length within the available rail', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(randomInitialLength(8)).toBe(1.2)
+    random.mockReturnValue(.999)
+    expect(randomInitialLength(5)).toBe(4.25)
+    random.mockRestore()
     expect(PX_PER_CM * 2.54).toBeCloseTo(96)
   })
   it('judges the same rounded centimeters that the result displays', () => {
