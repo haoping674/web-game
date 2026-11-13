@@ -1,3 +1,4 @@
+import { translate, isEnglish } from '../../app/translate'
 import { useState } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
 import { COLOR_LINKS_CONFIG } from './config'
@@ -30,7 +31,7 @@ type ColorLinksTutorialDialogProps = {
 function ColorLinksTutorialIllustration({ kind }: { kind: IllustrationKind }) {
   if (kind === 'origin') {
     return (
-      <svg viewBox="0 0 300 156" role="img" aria-label="空格向四個方向尋找最近色塊的示意圖">
+      <svg viewBox="0 0 300 156" role="img" aria-label={translate("空格向四個方向尋找最近色塊的示意圖")}>
         <g className="color-tutorial-grid">
           <path d="M63 30 H237 M63 78 H237 M63 126 H237 M63 30 V126 M121 30 V126 M179 30 V126 M237 30 V126" />
         </g>
@@ -39,14 +40,14 @@ function ColorLinksTutorialIllustration({ kind }: { kind: IllustrationKind }) {
         <rect className="color-tutorial-tile is-coral" x="72" y="58" width="38" height="38" rx="9" /><text x="91" y="84">●</text>
         <rect className="color-tutorial-tile is-teal" x="190" y="58" width="38" height="38" rx="9" /><text x="209" y="84">≋</text>
         <rect className="color-tutorial-tile is-amber" x="131" y="108" width="38" height="38" rx="9" /><text x="150" y="134">◆</text>
-        <text className="color-tutorial-caption" x="150" y="20">從空格向四方向讀取訊號</text>
+        <text className="color-tutorial-caption" x="150" y="20">{translate("從空格向四方向讀取訊號")}</text>
       </svg>
     )
   }
 
   if (kind === 'match') {
     return (
-      <svg viewBox="0 0 300 156" role="img" aria-label="空格將兩個同色訊號連結起來的示意圖">
+      <svg viewBox="0 0 300 156" role="img" aria-label={translate("空格將兩個同色訊號連結起來的示意圖")}>
         <path className="color-tutorial-signal" d="M65 78 H129 M171 78 H235" />
         <path className="color-tutorial-signal is-muted" d="M150 100 V128" />
         <rect className="color-tutorial-tile is-teal" x="43" y="56" width="44" height="44" rx="11" /><text x="65" y="84">≋</text>
@@ -54,13 +55,13 @@ function ColorLinksTutorialIllustration({ kind }: { kind: IllustrationKind }) {
         <rect className="color-tutorial-tile is-teal" x="213" y="56" width="44" height="44" rx="11" /><text x="235" y="84">≋</text>
         <rect className="color-tutorial-tile is-coral is-dim" x="128" y="112" width="44" height="30" rx="9" /><text x="150" y="134">●</text>
         <path className="color-tutorial-check" d="M118 123 L129 134 L153 108" />
-        <text className="color-tutorial-caption" x="150" y="20">兩個最近同色訊號，即可連線</text>
+        <text className="color-tutorial-caption" x="150" y="20">{translate("兩個最近同色訊號，即可連線")}</text>
       </svg>
     )
   }
 
   return (
-    <svg viewBox="0 0 300 156" role="img" aria-label="連結成功後色塊消除並留下新空格的示意圖">
+    <svg viewBox="0 0 300 156" role="img" aria-label={translate("連結成功後色塊消除並留下新空格的示意圖")}>
       <g className="color-tutorial-grid is-soft">
         <path d="M78 38 H222 M78 78 H222 M78 118 H222 M78 38 V118 M126 38 V118 M174 38 V118 M222 38 V118" />
       </g>
@@ -68,7 +69,7 @@ function ColorLinksTutorialIllustration({ kind }: { kind: IllustrationKind }) {
       <circle className="color-tutorial-burst" cx="150" cy="78" r="31" />
       <path className="color-tutorial-spark" d="M150 37 V48 M150 108 V119 M109 78 H120 M180 78 H191 M121 49 L129 57 M171 99 L179 107 M179 49 L171 57 M129 99 L121 107" />
       <text className="color-tutorial-score" x="150" y="86">＋3</text>
-      <text className="color-tutorial-caption" x="150" y="142">持續連結，直到所有色塊都消失</text>
+      <text className="color-tutorial-caption" x="150" y="142">{translate("持續連結，直到所有色塊都消失")}</text>
     </svg>
   )
 }
@@ -79,21 +80,21 @@ export function ColorLinksTutorialDialog({ onComplete, onSkip }: ColorLinksTutor
   const isLastStep = step === steps.length - 1
 
   return (
-    <OverlayDialog label="Color Links 新手教學" onClose={onSkip}>
-      <p className="eyebrow color-tutorial-kicker">新手引導 {step + 1} / {steps.length}</p>
+    <OverlayDialog label={translate("Color Links 新手教學")} onClose={onSkip}>
+      <p className="eyebrow color-tutorial-kicker">{translate("新手引導 ")}{step + 1} / {steps.length}</p>
       <div className="color-links-tutorial-illustration">
         <ColorLinksTutorialIllustration kind={current.illustration} />
       </div>
-      <h2>{current.title}</h2>
-      <p>{current.description}</p>
-      <div className="color-tutorial-progress" aria-label={`第 ${step + 1} 步，共 ${steps.length} 步`}>
+      <h2>{translate(current.title)}</h2>
+      <p>{translate(current.description)}</p>
+      <div className="color-tutorial-progress" aria-label={isEnglish() ? `Step ${step + 1} of ${steps.length}` : `第 ${step + 1} 步，共 ${steps.length} 步`}>
         {steps.map((item, index) => <span key={item.title} className={index === step ? 'is-current' : index < step ? 'is-complete' : ''} />)}
       </div>
       <div className="dialog-actions color-tutorial-actions">
         <button type="button" className="primary-button color-primary" onClick={() => isLastStep ? onComplete() : setStep((value) => value + 1)}>
-          {isLastStep ? '開始串聯' : '下一步'}
+          {isLastStep ? translate('開始串聯') : translate('下一步')}
         </button>
-        <button type="button" className="text-button" onClick={onSkip}>略過說明並開始</button>
+        <button type="button" className="text-button" onClick={onSkip}>{translate("略過說明並開始")}</button>
       </div>
     </OverlayDialog>
   )

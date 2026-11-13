@@ -1,3 +1,4 @@
+import { translate } from '../app/translate'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getComboConfig, getComboWindowMs } from '../game/comboConfig'
 import { createComboClearEffect, resolveEffectLevel, type ComboClearEffect } from '../game/comboEffects'
@@ -45,7 +46,7 @@ function usePrefersReducedMotion(): boolean {
 }
 
 export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, onRestart, onOpenSettings, networkNotice, showMobileGestureHint = false, onMobileGestureHintShown }: GameScreenProps) {
-  const [message, setMessage] = useState('拖曳框選水果，讓總和剛好是 10。')
+  const [message, setMessage] = useState(translate('拖曳框選水果，讓總和剛好是 10。'))
   const [hint, setHint] = useState<GridRect | null>(null)
   const [clearEffect, setClearEffect] = useState<ComboClearEffect | null>(null)
   const [comboEvaluation, setComboEvaluation] = useState<ComboRating | null>(null)
@@ -144,7 +145,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
       if (document.hidden) return
       setHint(selectHintMove(game.board))
       dispatch({ type: 'use-hint' })
-      setMessage('一段時間沒有成功消除，試著框選發亮的區域。')
+      setMessage(translate('一段時間沒有成功消除，試著框選發亮的區域。'))
     }, AUTO_HINT_DELAY_MS)
     return () => window.clearInterval(timer)
   }, [dispatch, game.board, interactive, validMove])
@@ -154,7 +155,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
     if (!interactive || validMove || remainingFruit < 2 || autoReshuffleState.current === reshuffleState) return
     autoReshuffleState.current = `${game.successfulMoves}:${game.systemReshuffles + 1}`
     setHint(null)
-    setMessage('棋盤已無可行組合，系統正在免費自動重排。')
+    setMessage(translate('棋盤已無可行組合，系統正在免費自動重排。'))
     dispatch({ type: 'reshuffle' })
   }, [dispatch, game.board, game.successfulMoves, game.systemReshuffles, interactive, remainingFruit, validMove])
 
@@ -195,22 +196,22 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   return (
     <section className="play-screen" inert={paused} aria-hidden={paused}>
       <header className="play-topbar">
-        <div className="play-identity"><div className="brand-lockup"><span className="brand-mark" aria-hidden="true">✦</span><span>Orchard Ten</span></div><span className={`mode-chip mode-${game.mode}`}>{modeDetails.label} · {modeDetails.englishLabel}</span></div>
-        <div><button type="button" className="text-button compact" disabled={paused} onClick={onOpenSettings}>設定</button><button type="button" className="text-button compact" disabled={paused} onClick={onRestart}>重新開始</button></div>
+        <div className="play-identity"><div className="brand-lockup"><span className="brand-mark" aria-hidden="true">✦</span><span>Orchard Ten</span></div><span className={`mode-chip mode-${game.mode}`}>{translate(modeDetails.label)} · {translate(modeDetails.englishLabel)}</span></div>
+        <div><button type="button" className="text-button compact" disabled={paused} onClick={onOpenSettings}>{translate("設定")}</button><button type="button" className="text-button compact" disabled={paused} onClick={onRestart}>{translate("重新開始")}</button></div>
       </header>
-      <section className="hud" aria-label="遊戲資訊">
-        <div><span>分數</span><strong>{String(game.score).padStart(3, '0')}</strong></div>
+      <section className="hud" aria-label={translate("遊戲資訊")}>
+        <div><span>{translate("分數")}</span><strong>{String(game.score).padStart(3, '0')}</strong></div>
         <ComboIndicator combo={game.combo} bestCombo={game.bestCombo} comboDeadline={game.comboDeadline} status={game.status} mode={game.mode} evaluation={comboEvaluation} />
-        <div className="timer"><span>時間</span><Timer seconds={game.secondsLeft} phase={getCountdownPhase(game.secondsLeft, interactive)} /></div>
-        <button type="button" className="icon-button" aria-label="暫停遊戲" disabled={!interactive} onClick={onPause}>Ⅱ</button>
+        <div className="timer"><span>{translate("時間")}</span><Timer seconds={game.secondsLeft} phase={getCountdownPhase(game.secondsLeft, interactive)} /></div>
+        <button type="button" className="icon-button" aria-label={translate("暫停遊戲")} disabled={!interactive} onClick={onPause}>Ⅱ</button>
       </section>
       {game.status === 'playing' ? <>
-        <div className="board-actions"><p>連續 {AUTO_HINT_DELAY_MS / 1_000} 秒未成功消除，自動提示</p><span>{validMove ? '找到可行組合' : remainingFruit >= 2 ? '偵測到無解，正在自動重排' : '剩餘水果不足以組成矩形'}</span></div>
+        <div className="board-actions"><p>{translate("連續 ")}{AUTO_HINT_DELAY_MS / 1_000}{translate(" 秒未成功消除，自動提示")}</p><span>{translate(validMove ? translate('找到可行組合') : remainingFruit >= 2 ? translate('偵測到無解，正在自動重排') : translate('剩餘水果不足以組成矩形'))}</span></div>
         <NetworkStatusToast notice={networkNotice} inline />
-        {gestureHintVisible ? <p className="mobile-gesture-hint" role="status">棋盤內單指框選，雙指可移動畫面。</p> : null}
+        {gestureHintVisible ? <p className="mobile-gesture-hint" role="status">{translate("棋盤內單指框選，雙指可移動畫面。")}</p> : null}
         <GameBoard board={game.board} onSelectionEnd={handleSelection} disabled={!interactive} hint={hint} clearEffect={clearEffect} effectLevel={effectLevel} countdownSeconds={game.secondsLeft} />
-        <p className="selection-status" aria-live="polite">{message}</p>
-        {settings.showSelectionHelp && <p className="shortcut-tip">拖曳可框選；鍵盤可用方向鍵移動，按 Enter 設定矩形兩端。</p>}
+        <p className="selection-status" aria-live="polite">{translate(message)}</p>
+        {settings.showSelectionHelp && <p className="shortcut-tip">{translate("拖曳可框選；鍵盤可用方向鍵移動，按 Enter 設定矩形兩端。")}</p>}
       </> : paused ? <>
         <NetworkStatusToast notice={networkNotice} inline />
         <PausedBoardPlaceholder />

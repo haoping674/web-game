@@ -1,3 +1,4 @@
+import { translate } from '../app/translate'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BOARD_COLUMNS, BOARD_ROWS, TARGET_SUM } from '../game/constants'
 import type { ComboClearEffect, EffectLevel } from '../game/comboEffects'
@@ -236,7 +237,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
   const currentSum = activeSelection ? sumSelection(board, activeSelection) : 0
   const selectedCount = activeSelection ? getRectangleCells(activeSelection).filter(({ row, column }) => board[row]?.[column] !== null).length : 0
   const selectionState = currentSum === TARGET_SUM ? 'is-success' : currentSum > TARGET_SUM ? 'is-over' : ''
-  const feedback = currentSum === TARGET_SUM ? '剛好 10，可以消除！' : currentSum > TARGET_SUM ? `${currentSum} / 10，超過 ${currentSum - TARGET_SUM}` : `${currentSum} / 10，還差 ${TARGET_SUM - currentSum}`
+  const feedback = currentSum === TARGET_SUM ? translate('剛好 10，可以消除！') : currentSum > TARGET_SUM ? `${currentSum} / 10，超過 ${currentSum - TARGET_SUM}` : `${currentSum} / 10，還差 ${TARGET_SUM - currentSum}`
   const overlayStyle = activeSelection
     ? isPortrait
       ? { gridColumn: `${activeSelection.start.row + 1} / ${activeSelection.end.row + 2}`, gridRow: `${activeSelection.start.column + 1} / ${activeSelection.end.column + 2}` }
@@ -293,8 +294,8 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
         }}
         role="grid"
         tabIndex={disabled ? -1 : 0}
-        aria-label="水果數字棋盤"
-        aria-description="棋盤內單指框選；第二根手指加入會取消選取。鍵盤可按 Enter 設定矩形兩端。"
+        aria-label={translate("水果數字棋盤")}
+        aria-description={translate("棋盤內單指框選；第二根手指加入會取消選取。鍵盤可按 Enter 設定矩形兩端。") }
         aria-disabled={disabled}
         data-multi-pointer-blocked={multiPointerBlocked || undefined}
         onContextMenu={(event) => event.preventDefault()}
@@ -325,7 +326,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
         }))}
         {activeSelection ? <>
           <div className={`selection-overlay ${selectionState}${invalid ? ' is-invalid' : ''}${hint && activeSelection === hint ? ' is-hint' : ''}`} style={overlayStyle} />
-          <output className={`selection-sum ${selectionState}`} style={selectionSumStyle}>{feedback}<small>{selectedCount} 顆水果</small></output>
+          <output className={`selection-sum ${selectionState}`} style={selectionSumStyle}>{translate(feedback)}<small>{selectedCount}{translate(" 顆水果")}</small></output>
         </> : null}
         {!keyboardStart && !isDragging ? <div className="keyboard-cursor" style={cursorStyle} aria-hidden="true" /> : null}
         <ParticleLayer effect={clearEffect} level={effectLevel} />

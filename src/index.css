@@ -241,3 +241,22 @@ h1,h2,.platform-wordmark,.game-card-copy h2,.mode-summary strong,.score-snapshot
 @media (max-width:560px) and (orientation:portrait) {
   .fruit-cell .fruit-value { font-size:clamp(10px,3vw,15px); }
 }
+html[lang='en'] .platform-header-actions a {
+  white-space: nowrap;
+}
+
+html[lang='en'] .game-route-shell:has(.dialog-backdrop) > .platform-header {
+  z-index: 0;
+}
+
+@media (max-width: 480px) {
+  html[lang='en'] .platform-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  html[lang='en'] .platform-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

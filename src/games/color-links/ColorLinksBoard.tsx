@@ -1,3 +1,4 @@
+import { translate, isEnglish } from '../../app/translate'
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { BoardCountdown } from '../../components/BoardCountdown'
 import { getCountdownPhase } from '../../components/countdown'
@@ -169,7 +170,7 @@ export function ColorLinksBoard({
       <div
         className={`color-links-board${portrait ? ' is-portrait' : ''}`}
         role="grid"
-        aria-label="Color Links 色彩棋盤"
+        aria-label={translate("Color Links 色彩棋盤")}
         aria-rowcount={rows}
         aria-colcount={columns}
         onPointerDownCapture={handlePointerDown}
@@ -203,9 +204,11 @@ export function ColorLinksBoard({
                   data-row={rowIndex}
                   data-column={column}
                   aria-label={
-                    meta
-                      ? `第 ${rowIndex + 1} 列第 ${column + 1} 欄，${meta.label}色塊`
-                      : `第 ${rowIndex + 1} 列第 ${column + 1} 欄，空格`
+                    isEnglish()
+                      ? `Row ${rowIndex + 1}, column ${column + 1}, ${meta ? translate(meta.label) + ' tile' : 'empty'}`
+                      : meta
+                        ? `第 ${rowIndex + 1} 列第 ${column + 1} 欄，${meta.label}色塊`
+                        : `第 ${rowIndex + 1} 列第 ${column + 1} 欄，空格`
                   }
                   className={`color-cell ${cell === null ? 'is-color-empty' : `is-color-tile color-${cell}`}${isInvalid ? ' is-invalid-link' : ''}`}
                   disabled={disabled || cell !== null}

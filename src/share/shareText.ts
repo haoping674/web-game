@@ -1,3 +1,4 @@
+import { translate, isEnglish } from '../app/translate'
 import type { ShareResult } from './types'
 
 export const GAME_NAME = 'Orchard Ten'
@@ -12,13 +13,16 @@ export function formatShareDate(date: Date): string {
 
 export function shareModeLabel(mode: ShareResult['mode']): string {
   switch (mode) {
-    case 'classic': return '經典模式'
+    case 'classic': return translate('經典模式')
     case 'daily': return '每日挑戰'
     default: return assertNever(mode)
   }
 }
 
 export function createShareText(result: ShareResult): string {
+  if (isEnglish()) {
+    return [`I scored ${result.score} points in Orchard Ten!`, `Cleared ${result.clearedFruitCount} fruit. Best Combo: ${result.maxCombo}.`, 'Try Orchard Ten and see how much fruit you can clear!', result.pageUrl].join('\n')
+  }
   const lines = result.mode === 'daily'
     ? [
         `我在 ${GAME_NAME} 完成每日挑戰 #${result.dailyChallengeId ?? formatShareDate(result.playedAt).replaceAll('-', '')}！`,

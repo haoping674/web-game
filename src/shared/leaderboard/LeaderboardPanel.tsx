@@ -1,3 +1,4 @@
+import { translate } from '../../app/translate'
 import { useEffect, useId, useRef, useState } from 'react'
 import { BOARDS, LEADERBOARD_LIMIT, normalizeName, validScore } from './boards'
 import type { BoardId, LeaderboardData } from './boards'
@@ -38,8 +39,8 @@ function saveReceipt(resultKey: string, receipt: Receipt): void {
 async function requestLeaderboard(url: string, init: RequestInit): Promise<LeaderboardData> {
   const response = await fetch(url, { ...init, cache: 'no-store' })
   const data = await response.json()
-  if (!response.ok) throw new LeaderboardError(typeof data.error === 'string' ? data.error : '排行榜暫時無法使用，請稍後重試。')
-  if (!Array.isArray(data.entries) || typeof data.eligible !== 'boolean') throw new LeaderboardError('排行榜回應異常，請稍後重試。')
+  if (!response.ok) throw new LeaderboardError(typeof data.error === 'string' ? data.error : translate('排行榜暫時無法使用，請稍後重試。'))
+  if (!Array.isArray(data.entries) || typeof data.eligible !== 'boolean') throw new LeaderboardError(translate('排行榜回應異常，請稍後重試。'))
   return data as LeaderboardData
 }
 
@@ -75,7 +76,7 @@ export function LeaderboardPanel({ board, score, resultKey }: Props) {
     void requestLeaderboard(`/api/leaderboard?${query}`, { signal: controller.signal })
       .then(value => { if (active) setData(receipt.accepted ? { ...value, accepted: true, rank: null } : value) })
       .catch((reason: unknown) => {
-        if (active) setError(reason instanceof LeaderboardError ? reason.message : '無法連線至排行榜，請確認網路後重試。本機紀錄不受影響。')
+        if (active) setError(reason instanceof LeaderboardError ? reason.message : translate('無法連線至排行榜，請確認網路後重試。本機紀錄不受影響。'))
       })
       .finally(() => { if (active) setLoading(false); window.clearTimeout(timeout) })
     return () => { active = false; controller.abort(); window.clearTimeout(timeout) }
@@ -85,7 +86,7 @@ export function LeaderboardPanel({ board, score, resultKey }: Props) {
     event.preventDefault()
     if (sending.current || !canSubmitScore || !data?.eligible || data.accepted) return
     const normalized = submittedName.current ?? normalizeName(name)
-    if (!normalized) { setError('請輸入 1–20 個字的名字，不含控制字元或 < >。'); return }
+    if (!normalized) { setError(translate('請輸入 1–20 個字的名字，不含控制字元或 < >。')); return }
     sending.current = true
     submittedName.current = normalized
     if (resultKey) saveReceipt(resultKey, { id: submissionId, name: normalized })
@@ -104,18 +105,18 @@ export function LeaderboardPanel({ board, score, resultKey }: Props) {
         try { localStorage.setItem('orchard-leaderboard-name', normalized) } catch { /* Optional convenience. */ }
       }
     } catch {
-      if (mounted.current) setError('未能確認儲存結果，請按「儲存名字與成績」重試；不會重複登錄。')
+      if (mounted.current) setError(translate('未能確認儲存結果，請按「儲存名字與成績」重試；不會重複登錄。'))
     } finally {
       sending.current = false
       if (mounted.current) setSaving(false)
     }
   }
 
-  return <section className="leaderboard-panel" aria-label={details.title} aria-busy={loading || saving}>
-    <header className="leaderboard-heading"><h3>{details.title}</h3><span>TOP 10</span></header>
-    <p className="leaderboard-rule">{details.rule} 同分先登錄者優先。</p>
+  return <section className="leaderboard-panel" aria-label={translate(details.title)} aria-busy={loading || saving}>
+    <header className="leaderboard-heading"><h3>{translate(details.title)}</h3><span>TOP 10</span></header>
+    <p className="leaderboard-rule">{translate(details.rule)}{translate(" 同分先登錄者優先。")}</p>
     {loading ? <>
-      <p role="status">正在讀取排行榜…</p>
+      <p role="status">{translate("正在讀取排行榜…")}</p>
       <ol className="leaderboard-list leaderboard-skeleton" aria-hidden="true">
         {Array.from({ length: LEADERBOARD_LIMIT }, (_, index) => <li key={index}>
           <span className="leaderboard-skeleton-bar leaderboard-skeleton-rank" />
@@ -124,15 +125,15 @@ export function LeaderboardPanel({ board, score, resultKey }: Props) {
         </li>)}
       </ol>
     </> : null}
-    {error ? <div className="leaderboard-error" role="alert"><p>{error}</p>{!data ? <button type="button" className="quiet-button" onClick={() => setRefresh(value => value + 1)}>重試排行榜</button> : null}</div> : null}
+    {error ? <div className="leaderboard-error" role="alert"><p>{translate(error)}</p>{!data ? <button type="button" className="quiet-button" onClick={() => setRefresh(value => value + 1)}>{translate("重試排行榜")}</button> : null}</div> : null}
     {!loading && data ? <>
-      {data.accepted ? <p className="leaderboard-notice" role="status">成績已登錄！{data.rank === null ? '可在下方查看最新榜單。' : data.rank <= 10 ? `目前第 ${data.rank} 名。` : '目前已移出前 10 名。'}</p> : canSubmitScore ? data.eligible ? <form className="leaderboard-form" onSubmit={submit}>
-        <p className="leaderboard-notice">本局暫列第 {data.rank} 名！留下你的名字。</p>
-        <label htmlFor={fieldId}>排行榜名字</label>
-        <div className="leaderboard-input-row"><input id={fieldId} value={name} onChange={event => setName(event.target.value)} maxLength={40} required readOnly={submittedName.current !== null} disabled={saving} autoComplete="nickname" placeholder="1–20 個字" aria-describedby={`${fieldId}-hint`} /><button type="submit" className="primary-button" disabled={saving}>{saving ? '儲存中…' : '儲存名字與成績'}</button></div>
-        <small id={`${fieldId}-hint`}>名字與成績將公開顯示；送出時確認最終名次。也可以直接繼續遊玩。</small>
-      </form> : <p className="leaderboard-notice" role="status">本局未進入前 10 名，再挑戰一次吧！</p> : score !== undefined ? <p>本局沒有可登錄的成績，再挑戰一次吧！</p> : null}
-      {data.entries.length ? <ol className="leaderboard-list">{data.entries.map(entry => <li key={entry.rank}><span className="leaderboard-rank">{String(entry.rank).padStart(2, '0')}</span><span className="leaderboard-name" dir="auto">{entry.name}</span><strong>{entry.score} <small>{details.unit}</small></strong></li>)}</ol> : <p className="leaderboard-empty">還沒有人登榜，等你寫下第一筆紀錄。</p>}
+      {data.accepted ? <p className="leaderboard-notice" role="status">{translate("成績已登錄！")}{translate(data.rank === null ? translate('可在下方查看最新榜單。') : data.rank <= 10 ? `目前第 ${data.rank} 名。` : translate('目前已移出前 10 名。'))}</p> : canSubmitScore ? data.eligible ? <form className="leaderboard-form" onSubmit={submit}>
+        <p className="leaderboard-notice">{translate("本局暫列第 ")}{data.rank}{translate(" 名！留下你的名字。")}</p>
+        <label htmlFor={fieldId}>{translate("排行榜名字")}</label>
+        <div className="leaderboard-input-row"><input id={fieldId} value={name} onChange={event => setName(event.target.value)} maxLength={40} required readOnly={submittedName.current !== null} disabled={saving} autoComplete="nickname" placeholder={translate("1–20 個字")} aria-describedby={`${fieldId}-hint`} /><button type="submit" className="primary-button" disabled={saving}>{translate(saving ? translate('儲存中…') : translate('儲存名字與成績'))}</button></div>
+        <small id={`${fieldId}-hint`}>{translate("名字與成績將公開顯示；送出時確認最終名次。也可以直接繼續遊玩。")}</small>
+      </form> : <p className="leaderboard-notice" role="status">{translate("本局未進入前 10 名，再挑戰一次吧！")}</p> : score !== undefined ? <p>{translate("本局沒有可登錄的成績，再挑戰一次吧！")}</p> : null}
+      {data.entries.length ? <ol className="leaderboard-list">{data.entries.map(entry => <li key={entry.rank}><span className="leaderboard-rank">{translate(String(entry.rank).padStart(2, '0'))}</span><span className="leaderboard-name" dir="auto">{entry.name}</span><strong>{entry.score} <small>{translate(details.unit)}</small></strong></li>)}</ol> : <p className="leaderboard-empty">{translate("還沒有人登榜，等你寫下第一筆紀錄。")}</p>}
     </> : null}
   </section>
 }

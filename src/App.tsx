@@ -1,3 +1,6 @@
+import { translate } from './app/translate'
+import { localeFromPath, withoutLocale, localizedPath, ENGLISH_GAME_IDS } from './app/locale'
+import { EnglishHomePage } from './app/EnglishHomePage'
 import { GameGuide } from './shared/components/GameGuide'
 import { GameActivityContext } from './hooks/useGameActivity'
 import { PwaUpdateNotice } from './components/PwaUpdateNotice'
@@ -39,10 +42,10 @@ class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, RouteErrorBo
     return (
       <section className="route-fallback" role="alert">
         <p className="eyebrow">LOAD INTERRUPTED</p>
-        <h1>遊戲暫時無法載入</h1>
-        <p>請確認網路狀態後再試一次，或先返回遊戲廳。</p>
-        <button type="button" className="primary-button" onClick={() => window.location.reload()}>重新載入</button>
-        <button type="button" className="text-button" onClick={this.props.onHome}>返回遊戲廳</button>
+        <h1>{translate("遊戲暫時無法載入")}</h1>
+        <p>{translate("請確認網路狀態後再試一次，或先返回遊戲廳。")}</p>
+        <button type="button" className="primary-button" onClick={() => window.location.reload()}>{translate("重新載入")}</button>
+        <button type="button" className="text-button" onClick={this.props.onHome}>{translate("返回遊戲廳")}</button>
       </section>
     )
   }
@@ -52,13 +55,16 @@ function RouteLoading() {
   return (
     <section className="route-loading" role="status" aria-live="polite">
       <span aria-hidden="true">✦</span>
-      <p>正在準備遊戲…</p>
+      <p>{translate("正在準備遊戲…")}</p>
     </section>
   )
 }
 
 function App() {
-  const [pathname, go] = useAppPathname()
+  const [fullPathname, navigateTo] = useAppPathname()
+  const locale = localeFromPath(fullPathname)
+  const pathname = withoutLocale(fullPathname)
+  const go = useCallback((route: string) => navigateTo(localizedPath(route, locale)), [navigateTo, locale])
   const [storage, setStorage] = useState<AppStorage>(readAppStorage)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [gameActivity, setGameActivity] = useState({ pathname: '', active: false })
@@ -67,11 +73,11 @@ function App() {
   }, [pathname])
   const fruitRoute = '/games/fruit-sum'
   const colorRoute = '/games/color-links'
-  const knownRoute = pathname === HOME_ROUTE || GAME_REGISTRY.some((game) => game.route === pathname)
+  const knownRoute = pathname === HOME_ROUTE || GAME_REGISTRY.some((game) => game.route === pathname && (locale !== 'en' || ENGLISH_GAME_IDS.some(id => id === game.id)))
 
   useEffect(() => {
-    if (knownRoute) updatePageMetadata(pathname)
-  }, [pathname, knownRoute])
+    if (knownRoute) updatePageMetadata(fullPathname)
+  }, [fullPathname, knownRoute])
 
   useEffect(() => {
     if (!knownRoute) navigate(HOME_ROUTE, { replace: true })
@@ -99,11 +105,11 @@ function App() {
   return (
     <GameActivityContext.Provider value={reportGameActivity}>
       {pathname === HOME_ROUTE ? (
-        <HomePage data={storage} onNavigate={go} onSettings={openSettings} />
+        locale === 'en' ? <EnglishHomePage data={storage} onNavigate={go} onSettings={openSettings} /> : <HomePage data={storage} onNavigate={go} onSettings={openSettings} />
       ) : (
         <main className="platform-shell game-route-shell">
           <AppHeader compact onHome={returnHome} onSettings={openSettings} />
-          <RouteErrorBoundary key={pathname} onHome={returnHome}>
+          <RouteErrorBoundary key={fullPathname} onHome={returnHome}>
             <Suspense fallback={<RouteLoading />}>
               {pathname === '/games/length-sense' ? (
                 <LengthSenseGame globalSettings={storage.globalSettings} onProgressChange={refreshStorage} platformSettingsOpen={settingsOpen} />
@@ -130,7 +136,7 @@ function App() {
               ) : null}
             </Suspense>
           </RouteErrorBoundary>
-          <GameGuide key={pathname} pathname={pathname} />
+          <GameGuide key={`guide-${fullPathname}`} pathname={pathname} />
         </main>
       )}
       {settingsOpen ? (

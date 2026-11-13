@@ -1,3 +1,4 @@
+import { translate } from '../../app/translate'
 import { useBoardCentering } from '../../hooks/useBoardCentering'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { AboutDialog } from '../../components/AboutDialog'
@@ -167,7 +168,7 @@ export default function FruitSumGame({
   }
 
   const clearStatistics = () => {
-    if (!window.confirm('確定要清除 Orchard Ten 的本機紀錄與設定嗎？Color Links 紀錄會保留。')) return
+    if (!window.confirm(translate('確定要清除 Orchard Ten 的本機紀錄與設定嗎？Color Links 紀錄會保留。'))) return
     const cleared = clearGameData()
     updateData(cleared)
     resetGameProgress('fruitSum')

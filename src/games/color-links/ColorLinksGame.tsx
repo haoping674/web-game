@@ -1,3 +1,4 @@
+import { translate } from '../../app/translate'
 import { useBoardCentering } from '../../hooks/useBoardCentering'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { OverlayDialog } from '../../components/OverlayDialog'
@@ -69,7 +70,7 @@ export default function ColorLinksGame({
   platformSettingsOpen,
 }: ColorLinksGameProps) {
   const [game, dispatch] = useReducer(colorLinksReducer, undefined, () => createColorLinksState())
-  const [feedback, setFeedback] = useState('點擊空格，連結兩個以上同色訊號。')
+  const [feedback, setFeedback] = useState(translate('點擊空格，連結兩個以上同色訊號。'))
   const [effect, setEffect] = useState<ColorLinksEffect | null>(null)
   const [invalidCell, setInvalidCell] = useState<CellPosition | null>(null)
   const [bestTimeSeconds, setBestTimeSeconds] = useState(() => readAppStorage().games.colorLinks.bestTimeSeconds)
@@ -141,11 +142,11 @@ export default function ColorLinksGame({
     const reshuffled = reshuffleRemainingTiles(game.board)
     if (reshuffled.stranded) {
       dispatch({ type: 'resolve-stranded', now: Date.now() })
-      setFeedback('剩餘訊號無法再形成連結，已自動收束並完成棋盤。')
+      setFeedback(translate('剩餘訊號無法再形成連結，已自動收束並完成棋盤。'))
       return
     }
     dispatch({ type: 'reshuffle', board: reshuffled.board, now: Date.now() })
-    setFeedback('沒有可行連結，系統已免費重新編織剩餘色塊。')
+    setFeedback(translate('沒有可行連結，系統已免費重新編織剩餘色塊。'))
   }, [game.board, playing, remainingTiles, validMoves.length])
 
   useEffect(() => {
@@ -175,7 +176,7 @@ export default function ColorLinksGame({
     clearTransientFeedback()
     recorded.current = false
     setShareStatus('')
-    setFeedback(`在 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內清空所有色塊。`)
+    setFeedback(translate(`在 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內清空所有色塊。`))
     dispatch({ type: 'start', now: Date.now(), board: generateBoard() })
   }
 
@@ -198,7 +199,7 @@ export default function ColorLinksGame({
     clearTransientFeedback()
     recorded.current = false
     setShareStatus('')
-    setFeedback(`新的訊號盤已就緒，倒數 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒。`)
+    setFeedback(translate(`新的訊號盤已就緒，倒數 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒。`))
     dispatch({ type: 'restart', now: Date.now(), board: generateBoard() })
     centerBoard()
   }
@@ -217,7 +218,7 @@ export default function ColorLinksGame({
       getAudio().playInvalid(globalSettings.soundEnabled, 0.45)
       setEffect(null)
       setInvalidCell(position)
-      setFeedback(`沒有形成連結，扣 ${COLOR_LINKS_CONFIG.invalidPenaltySeconds} 秒。`)
+      setFeedback(translate(`沒有形成連結，扣 ${COLOR_LINKS_CONFIG.invalidPenaltySeconds} 秒。`))
       if (invalidTimer.current !== null) window.clearTimeout(invalidTimer.current)
       invalidTimer.current = window.setTimeout(() => {
         invalidTimer.current = null
@@ -243,28 +244,28 @@ export default function ColorLinksGame({
       totalDirections(matches),
       matches.length,
     )
-    const bonus = matches.length > 1 ? `，含 ${matches.length} 組獨立色彩 +${matches.length - 1} 加成` : ''
-    setFeedback(`連結成功，移除 ${totalDirections(matches)} 格${bonus}。`)
+    const bonus = matches.length > 1 ? translate(`，含 ${matches.length} 組獨立色彩 +${matches.length - 1} 加成`) : ''
+    setFeedback(translate(`連結成功，移除 ${totalDirections(matches)} 格${bonus}。`))
     dispatch({ type: 'select', position, now })
   }
 
   const shareResult = async () => {
     const text = clearedWithinLimit
-      ? `我在 Color Links 的 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內，用時 ${formatElapsedTime(game.elapsedSeconds)} 清空了所有色塊。`
-      : `我在 Color Links 的 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內消除了 ${game.removedTiles} 個色塊。`
+      ? translate(`我在 Color Links 的 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內，用時 ${formatElapsedTime(game.elapsedSeconds)} 清空了所有色塊。`)
+      : translate(`我在 Color Links 的 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內消除了 ${game.removedTiles} 個色塊。`)
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Color Links 成績', text, url: window.location.href })
-        setShareStatus('成績已分享。')
+        await navigator.share({ title: translate('Color Links 成績'), text, url: window.location.href })
+        setShareStatus(translate('成績已分享。'))
       } else if (navigator.clipboard) {
         await navigator.clipboard.writeText(`${text} ${window.location.href}`)
-        setShareStatus('成績文字已複製。')
+        setShareStatus(translate('成績文字已複製。'))
       } else {
         setShareStatus(text)
       }
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === 'AbortError') return
-      setShareStatus('目前無法分享，請稍後再試。')
+      setShareStatus(translate('目前無法分享，請稍後再試。'))
     }
   }
 
@@ -274,32 +275,28 @@ export default function ColorLinksGame({
         <section className={`color-game-card color-start${effectsOff ? ' effects-off' : reducedMotion ? ' effects-reduced' : ''}`}>
         <div className="color-start-copy">
           <p className="eyebrow">CLEAR THE SIGNAL GRID</p>
-          <h1>讓相同色彩，<br />在空白中<em>全數相遇</em>。</h1>
-          <p>每局固定 {COLOR_LINKS_CONFIG.initialTileCount} 個色塊。點擊空格，連結四個方向最近的同色訊號；無路可走時自動重排，最後無法配對的零星色塊會自動收尾。在 30 秒內清空棋盤，才會記錄完成秒數。</p>
-          <ul className="color-rule-chips" aria-label="玩法摘要">
-            <li>只點空格</li>
-            <li>同色 ≥ 2</li>
-            <li>30 秒倒數</li>
-            <li>逾時記消除數</li>
-            <li>失誤 −2 秒</li>
+          <h1>{translate("讓相同色彩，")}<br />{translate("在空白中")}<em>{translate("全數相遇")}</em>{translate("。")}</h1>
+          <p>{translate("每局固定 ")}{COLOR_LINKS_CONFIG.initialTileCount}{translate(" 個色塊。點擊空格，連結四個方向最近的同色訊號；無路可走時自動重排，最後無法配對的零星色塊會自動收尾。在 30 秒內清空棋盤，才會記錄完成秒數。")}</p>
+          <ul className="color-rule-chips" aria-label={translate("玩法摘要")}>
+            <li>{translate("只點空格")}</li>
+            <li>{translate("同色 ≥ 2")}</li>
+            <li>{translate("30 秒倒數")}</li>
+            <li>{translate("逾時記消除數")}</li>
+            <li>{translate("失誤 −2 秒")}</li>
           </ul>
-          <button type="button" className="primary-button color-primary" onClick={startGame}>
-            開始串聯 <span aria-hidden="true">→</span>
+          <button type="button" className="primary-button color-primary" onClick={startGame}>{translate(" 開始串聯 ")}<span aria-hidden="true">→</span>
           </button>
-          <p className="color-credit">
-            玩法概念受到 <a href="https://en.gamesaien.com/game/color_tiles/" target="_blank" rel="noopener noreferrer">Color Tiles</a> 啟發；
-            名稱、規則細節、介面、色彩標記、音效與程式皆為原創實作。
-          </p>
+          <p className="color-credit">{translate(" 玩法概念受到 ")}<a href="https://en.gamesaien.com/game/color_tiles/" target="_blank" rel="noopener noreferrer">Color Tiles</a>{translate(" 啟發； 名稱、規則細節、介面、色彩標記、音效與程式皆為原創實作。 ")}</p>
         </div>
         <div className="color-start-board">
-          <div className="color-board-spec" aria-label="Color Links 棋盤尺寸">
+          <div className="color-board-spec" aria-label={translate("Color Links 棋盤尺寸")}>
             <strong>17 × 10</strong>
-            <span>訊號棋盤</span>
+            <span>{translate("訊號棋盤")}</span>
           </div>
           <ColorLinksBoard board={game.board} disabled reducedMotion={reducedMotion} />
-          <span className="color-preview-caption">每種顏色都有獨立符號，不只依賴色相辨識。</span>
+          <span className="color-preview-caption">{translate("每種顏色都有獨立符號，不只依賴色相辨識。")}</span>
         </div>
-        <div className="color-start-leaderboards" role="group" aria-label="Color Links 線上排行榜">
+        <div className="color-start-leaderboards" role="group" aria-label={translate("Color Links 線上排行榜")}>
           <LeaderboardPanel board="color-time" />
           <LeaderboardPanel board="color-removed" />
         </div>
@@ -317,21 +314,19 @@ export default function ColorLinksGame({
           <p className="eyebrow">COLOR SIGNAL</p>
           <strong>Color Links</strong>
         </div>
-        <button type="button" className="text-button compact" disabled={paused} onClick={restartGame}>
-          重新開始
-        </button>
+        <button type="button" className="text-button compact" disabled={paused} onClick={restartGame}>{translate(" 重新開始 ")}</button>
       </header>
-      <section className="color-hud" aria-label="遊戲資訊">
-        <div><span>剩餘</span><strong>{remainingTiles}</strong></div>
-        <div><span>消除</span><strong>{game.removedTiles}</strong></div>
-        <div><span>最快清空</span><strong>{formatElapsedTime(bestTimeSeconds)}</strong></div>
-        <div className="timer"><span>倒數</span><Timer seconds={timeRemaining} label="剩餘時間" phase={getCountdownPhase(timeRemaining, playing)} /></div>
-        <button type="button" className="icon-button color-pause-button" aria-label="暫停遊戲" disabled={!playing} onClick={pauseGame}>Ⅱ</button>
+      <section className="color-hud" aria-label={translate("遊戲資訊")}>
+        <div><span>{translate("剩餘")}</span><strong>{remainingTiles}</strong></div>
+        <div><span>{translate("消除")}</span><strong>{game.removedTiles}</strong></div>
+        <div><span>{translate("最快清空")}</span><strong>{formatElapsedTime(bestTimeSeconds)}</strong></div>
+        <div className="timer"><span>{translate("倒數")}</span><Timer seconds={timeRemaining} label={translate("剩餘時間")} phase={getCountdownPhase(timeRemaining, playing)} /></div>
+        <button type="button" className="icon-button color-pause-button" aria-label={translate("暫停遊戲")} disabled={!playing} onClick={pauseGame}>Ⅱ</button>
       </section>
       {paused ? (
         <div className="color-paused-board" aria-hidden="true">
           <span>◆</span>
-          <strong>訊號已暫停</strong>
+          <strong>{translate("訊號已暫停")}</strong>
         </div>
       ) : (
         <ColorLinksBoard
@@ -345,44 +340,44 @@ export default function ColorLinksGame({
         />
       )}
       <div className="color-board-meta">
-        <p className="color-feedback" role="status" aria-live="polite">{feedback}</p>
-        <span>{validMoves.length} 個可行空格</span>
+        <p className="color-feedback" role="status" aria-live="polite">{translate(feedback)}</p>
+        <span>{validMoves.length}{translate(" 個可行空格")}</span>
       </div>
-      <p className="shortcut-tip">空格可用 Tab 聚焦，按 Enter 或空白鍵連結；Esc 暫停。</p>
+      <p className="shortcut-tip">{translate("空格可用 Tab 聚焦，按 Enter 或空白鍵連結；Esc 暫停。")}</p>
 
       {paused && !platformSettingsOpen ? (
-        <OverlayDialog label="Color Links 已暫停" onClose={resumeGame}>
+        <OverlayDialog label={translate("Color Links 已暫停")} onClose={resumeGame}>
           <p className="eyebrow">PAUSED</p>
-          <h2>訊號暫停中</h2>
-          <p>計時器與音效已停止。準備好後繼續。</p>
+          <h2>{translate("訊號暫停中")}</h2>
+          <p>{translate("計時器與音效已停止。準備好後繼續。")}</p>
           <div className="dialog-actions">
-            <button type="button" className="primary-button color-primary" onClick={resumeGame}>繼續遊戲</button>
-            <button type="button" className="text-button" onClick={restartGame}>重新開始</button>
+            <button type="button" className="primary-button color-primary" onClick={resumeGame}>{translate("繼續遊戲")}</button>
+            <button type="button" className="text-button" onClick={restartGame}>{translate("重新開始")}</button>
           </div>
         </OverlayDialog>
       ) : null}
 
       {game.status === 'finished' ? (
-        <OverlayDialog label="Color Links 遊戲結果" onClose={restartGame}>
+        <OverlayDialog label={translate("Color Links 遊戲結果")} onClose={restartGame}>
           <p className="eyebrow">{clearedWithinLimit ? 'SIGNAL COMPLETE' : 'TIME LIMIT'}</p>
-          <h2>{clearedWithinLimit ? '全數色塊已清空' : '30 秒時間到'}</h2>
+          <h2>{clearedWithinLimit ? translate('全數色塊已清空') : translate('30 秒時間到')}</h2>
           <strong className="result-score color-result-score">
-            {clearedWithinLimit ? formatElapsedTime(game.elapsedSeconds) : `${game.removedTiles} 格`}
+            {clearedWithinLimit ? formatElapsedTime(game.elapsedSeconds) : translate(`${game.removedTiles} 格`)}
           </strong>
-          <p>{clearedWithinLimit ? '已記錄完成秒數。' : '已記錄本局消除色塊數。'}</p>
+          <p>{clearedWithinLimit ? translate('已記錄完成秒數。') : translate('已記錄本局消除色塊數。')}</p>
           <dl className="result-stats">
-            <div><dt>{clearedWithinLimit ? '完成用時' : '消除色塊'}</dt><dd>{clearedWithinLimit ? formatElapsedTime(game.elapsedSeconds) : game.removedTiles}</dd></div>
-            <div><dt>移除色塊</dt><dd>{game.removedTiles}</dd></div>
-            <div><dt>有效連結</dt><dd>{game.successfulMoves}</dd></div>
-            <div><dt>無效點擊</dt><dd>{game.invalidMoves}</dd></div>
-            <div><dt>{clearedWithinLimit ? '最快清空' : '時限最高'}</dt><dd>{clearedWithinLimit ? formatElapsedTime(bestTimeSeconds) : `${bestRemovedTiles} 格`}</dd></div>
+            <div><dt>{clearedWithinLimit ? translate('完成用時') : translate('消除色塊')}</dt><dd>{clearedWithinLimit ? formatElapsedTime(game.elapsedSeconds) : game.removedTiles}</dd></div>
+            <div><dt>{translate("移除色塊")}</dt><dd>{game.removedTiles}</dd></div>
+            <div><dt>{translate("有效連結")}</dt><dd>{game.successfulMoves}</dd></div>
+            <div><dt>{translate("無效點擊")}</dt><dd>{game.invalidMoves}</dd></div>
+            <div><dt>{clearedWithinLimit ? translate('最快清空') : translate('時限最高')}</dt><dd>{clearedWithinLimit ? formatElapsedTime(bestTimeSeconds) : translate(`${bestRemovedTiles} 格`)}</dd></div>
           </dl>
           <LeaderboardPanel board={clearedWithinLimit ? 'color-time' : 'color-removed'} score={clearedWithinLimit ? game.elapsedSeconds : game.removedTiles} />
           <div className="dialog-actions">
-            <button type="button" className="primary-button color-primary" onClick={restartGame}>再玩一次</button>
-            <button type="button" className="quiet-button share-button" onClick={() => void shareResult()}>分享成績 ↗</button>
+            <button type="button" className="primary-button color-primary" onClick={restartGame}>{translate("再玩一次")}</button>
+            <button type="button" className="quiet-button share-button" onClick={() => void shareResult()}>{translate("分享成績 ↗")}</button>
           </div>
-          {shareStatus ? <p className="share-status" role="status">{shareStatus}</p> : null}
+          {shareStatus ? <p className="share-status" role="status">{translate(shareStatus)}</p> : null}
         </OverlayDialog>
       ) : null}
 

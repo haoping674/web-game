@@ -1,3 +1,4 @@
+import { translate } from '../app/translate'
 import { GAME_NAME, SHARE_INVITATION, formatShareDate, shareModeLabel } from './shareText'
 import type { ShareResult } from './types'
 
@@ -88,7 +89,7 @@ export async function renderShareCard(result: ShareResult, createCanvas: CanvasF
 
   context.fillStyle = '#27322f'
   context.font = "700 42px 'Noto Sans TC', sans-serif"
-  context.fillText('本次分數', 130, 365)
+  context.fillText(translate('本次分數'), 130, 365)
   context.fillStyle = '#df604b'
   context.font = "700 250px Fraunces, serif"
   context.fillText(String(result.score), 120, 585)
@@ -100,8 +101,8 @@ export async function renderShareCard(result: ShareResult, createCanvas: CanvasF
   drawRoundedRect(context, 120, 710, 680, 170, 26)
   context.fillStyle = '#27322f'
   context.font = "700 30px 'Noto Sans TC', sans-serif"
-  context.fillText(`最高 Combo  ${result.maxCombo}`, 160, 775)
-  context.fillText(`消除水果  ${result.clearedFruitCount}`, 160, 835)
+  context.fillText(translate(`最高 Combo  ${result.maxCombo}`), 160, 775)
+  context.fillText(translate(`消除水果  ${result.clearedFruitCount}`), 160, 835)
 
   context.fillStyle = '#68746c'
   context.font = "700 27px 'Noto Sans TC', sans-serif"
@@ -109,7 +110,7 @@ export async function renderShareCard(result: ShareResult, createCanvas: CanvasF
   context.fillText(challenge, 130, 970)
   context.fillStyle = '#27322f'
   context.font = "700 35px 'Noto Sans TC', sans-serif"
-  context.fillText(SHARE_INVITATION, 130, 1045)
+  context.fillText(translate(SHARE_INVITATION), 130, 1045)
   context.fillStyle = '#27322f'
   context.font = "500 25px 'DM Mono', monospace"
   context.fillText(new URL(result.pageUrl).host, 70, 1230)

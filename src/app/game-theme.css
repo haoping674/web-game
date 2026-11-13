@@ -6,6 +6,69 @@
   gap: 16px;
 }
 
+.language-switch {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  min-height: 44px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid #d6dccd;
+  border-radius: 8px;
+  background: #f7f7ee;
+}
+
+.language-switch-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #596451;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 180ms, border-color 180ms, color 180ms;
+}
+
+.language-switch-option:hover {
+  background: #e7ecdf;
+  color: #264e3b;
+}
+
+.language-switch-option[aria-current='page'] {
+  background: #e1e9ce;
+  border-color: #cbd4bf;
+  color: #264e3b;
+  font-weight: 700;
+}
+
+.language-switch-option:focus-visible {
+  outline: 2px solid #216546;
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .platform-header:has(.language-switch) {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .platform-header-actions:has(.language-switch) {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .language-switch-option { transition: none; }
+}
+
 .game-route-shell {
   --ink: #293d30;
   --muted: #6c7568;

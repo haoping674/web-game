@@ -1,7 +1,9 @@
+import { ENGLISH_GUIDES } from '../src/app/englishGuides.ts'
+import { ENGLISH_GAME_IDS, ENGLISH_GAMES, localizedPath } from '../src/app/locale.ts'
 import { GAME_GUIDES } from '../src/app/gameGuides.ts'
 import type { Plugin } from 'vite'
 import { GAME_REGISTRY } from '../src/app/gameRegistry.ts'
-import { pageMetadata, SITE_ORIGIN } from '../src/app/seo.ts'
+import { pageMetadata, SITE_ORIGIN, languageAlternates } from '../src/app/seo.ts'
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
@@ -10,18 +12,24 @@ function escapeHtml(value: string): string {
 export function seoPlugin(): Plugin {
   let base = '/'
   function renderPage(template: string, pathname: string): string {
-    const { title, description, url, game } = pageMetadata(pathname, base)
+    const { title, description, url, game, locale } = pageMetadata(pathname, base)
     const href = (route: string) => escapeHtml(`${base.replace(/\/$/, '')}${route}`)
     // Public content is served to every user agent; React replaces it on mount.
-    const guide = game ? GAME_GUIDES[game.id] : null
-    const guideHtml = guide ? `<section aria-label="遊玩指南"><h2>${escapeHtml(game!.name)}遊玩指南</h2><p>${escapeHtml(guide.goal)}</p>${[['操作方式', guide.controls], ['遊戲規則', guide.rules], ['計分與紀錄', guide.scoring], ['試試這個方法', guide.tip]].map(([heading, text]) => `<h3>${escapeHtml(heading)}</h3><p>${escapeHtml(text)}</p>`).join('')}</section>` : ''
-    const content = `<main><h1>${escapeHtml(game?.name ?? 'Orchard Arcade')}</h1><p>${escapeHtml(description)}</p>${game ? `<p>這款遊戲需要啟用 JavaScript。遊戲進度儲存在本機。</p><a href="${href('/')}">返回遊戲廳</a>` : ''}${guideHtml}<nav aria-label="遊戲列表"><ul>${GAME_REGISTRY.map((entry) => `<li><a href="${href(entry.route)}">${escapeHtml(entry.name)}</a><p>${escapeHtml(entry.description)}</p></li>`).join('')}</ul></nav></main>`
+    const english = locale === 'en'
+    const games = GAME_REGISTRY.filter(entry => !english || ENGLISH_GAME_IDS.some(id => id === entry.id))
+    const name = game ? (english ? ENGLISH_GAMES[game.id as keyof typeof ENGLISH_GAMES].name : game.name) : 'Orchard Arcade'
+    const guide = game ? (english ? ENGLISH_GUIDES[game.id as keyof typeof ENGLISH_GUIDES] : GAME_GUIDES[game.id]) : null
+    const headings = english ? ['Controls', 'Rules', 'Scoring and records', 'Try this'] : ['操作方式', '遊戲規則', '計分與紀錄', '試試這個方法']
+    const guideHtml = guide ? `<section aria-label="${english ? 'Play guide' : '遊玩指南'}"><h2>${escapeHtml(name)}${english ? ' play guide' : '遊玩指南'}</h2><p>${escapeHtml(guide.goal)}</p>${[[headings[0]!, guide.controls], [headings[1]!, guide.rules], [headings[2]!, guide.scoring], [headings[3]!, guide.tip]].map(([heading, text]) => `<h3>${escapeHtml(heading)}</h3><p>${escapeHtml(text)}</p>`).join('')}</section>` : ''
+    const content = `<main><h1>${escapeHtml(name)}</h1><p>${escapeHtml(description)}</p>${game ? `<p>${english ? 'Enable JavaScript to play. Progress is saved on this device.' : '這款遊戲需要啟用 JavaScript。遊戲進度儲存在本機。'}</p><a href="${href(localizedPath('/', locale))}">${english ? 'Back to games' : '返回遊戲廳'}</a>` : ''}${guideHtml}<nav aria-label="${english ? 'Games' : '遊戲列表'}"><ul>${games.map((entry) => `<li><a href="${href(localizedPath(entry.route, locale))}">${escapeHtml(english ? ENGLISH_GAMES[entry.id as keyof typeof ENGLISH_GAMES].name : entry.name)}</a><p>${escapeHtml(english ? ENGLISH_GAMES[entry.id as keyof typeof ENGLISH_GAMES].description : entry.description)}</p></li>`).join('')}</ul></nav></main>`
+    const alternates = languageAlternates(pathname, base).map(entry => `<link rel="alternate" hreflang="${entry.locale}" href="${escapeHtml(entry.url)}" />`).join('')
     return template
+      .replace('<html lang="zh-Hant">', `<html lang="${locale}">`)
       .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(title)}</title>`)
       .replace(/<meta name="description" content="[^"]*"\s*\/>/, `<meta name="description" content="${escapeHtml(description)}" />`)
       .replace(/<meta property="og:title" content="[^"]*"\s*\/>/, `<meta property="og:title" content="${escapeHtml(title)}" />`)
       .replace(/<meta property="og:description" content="[^"]*"\s*\/>/, `<meta property="og:description" content="${escapeHtml(description)}" />`)
-      .replace('</head>', `<link rel="canonical" href="${escapeHtml(url)}" /><meta name="robots" content="index, follow" /><meta property="og:type" content="website" /><meta property="og:site_name" content="Orchard Arcade" /><meta property="og:locale" content="zh_TW" /><meta property="og:url" content="${escapeHtml(url)}" /><meta name="twitter:card" content="summary" /><meta name="twitter:title" content="${escapeHtml(title)}" /><meta name="twitter:description" content="${escapeHtml(description)}" /></head>`)
+      .replace('</head>', `${alternates}<link rel="canonical" href="${escapeHtml(url)}" /><meta name="robots" content="index, follow" /><meta property="og:type" content="website" /><meta property="og:site_name" content="Orchard Arcade" /><meta property="og:locale" content="${english ? 'en_US' : 'zh_TW'}" /><meta property="og:url" content="${escapeHtml(url)}" /><meta name="twitter:card" content="summary" /><meta name="twitter:title" content="${escapeHtml(title)}" /><meta name="twitter:description" content="${escapeHtml(description)}" /></head>`)
       .replace('<div id="root"></div>', `<div id="root">${content}</div>`)
   }
 
@@ -36,13 +44,17 @@ export function seoPlugin(): Plugin {
       }
       const template = index.source
       index.source = renderPage(template, '/')
+      const englishRoutes = ['/en', ...GAME_REGISTRY.filter(game => ENGLISH_GAME_IDS.some(id => id === game.id)).map(game => '/en' + game.route)]
+      for (const route of englishRoutes) {
+        this.emitFile({ type: 'asset', fileName: route.slice(1) + '.html', source: renderPage(template, route) })
+      }
       for (const game of GAME_REGISTRY) {
         this.emitFile({ type: 'asset', fileName: `${game.route.slice(1)}.html`, source: renderPage(template, game.route) })
       }
       const sitemapUrl = `${SITE_ORIGIN}${base}sitemap.xml`
       const rules = ['User-agent: *', 'Allow: /', '', 'User-agent: OAI-SearchBot', 'Allow: /', '', 'User-agent: ChatGPT-User', 'Allow: /', '', `Sitemap: ${sitemapUrl}`, ''].join('\n')
       this.emitFile({ type: 'asset', fileName: 'robots.txt', source: rules })
-      const urls = ['/', ...GAME_REGISTRY.map((game) => game.route)].map((route) => `<url><loc>${escapeHtml(pageMetadata(route, base).url)}</loc></url>`).join('')
+      const urls = ['/', ...GAME_REGISTRY.map((game) => game.route), ...englishRoutes].map((route) => `<url><loc>${escapeHtml(pageMetadata(route, base).url)}</loc></url>`).join('')
       this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>\n` })
     },
   }

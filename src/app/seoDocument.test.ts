@@ -22,3 +22,20 @@ describe('SEO metadata during client navigation', () => {
     expect(document.querySelector('meta[name="twitter:description"]')?.getAttribute('content')).toContain('七款')
   })
 })
+
+it('keeps language alternates reciprocal and English canonicals independent', () => {
+  document.head.innerHTML = '<title></title><link rel="canonical"><meta property="og:locale">'
+  updatePageMetadata('/en/games/second-sense')
+  expect(document.documentElement.lang).toBe('en')
+  expect(document.title).toContain('Second Sense')
+  expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://games.haoping.tw/en/games/second-sense')
+  expect([...document.querySelectorAll('link[hreflang]')].map(link => link.getAttribute('href'))).toEqual([
+    'https://games.haoping.tw/games/second-sense',
+    'https://games.haoping.tw/en/games/second-sense',
+  ])
+  updatePageMetadata('/games/second-sense')
+  expect(document.documentElement.lang).toBe('zh-Hant')
+  expect(document.querySelectorAll('link[hreflang]')).toHaveLength(2)
+  updatePageMetadata('/games/ashbound')
+  expect(document.querySelectorAll('link[hreflang]')).toHaveLength(0)
+})

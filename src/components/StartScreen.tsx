@@ -1,3 +1,4 @@
+import { translate } from '../app/translate'
 import { AUTO_HINT_DELAY_MS } from '../game/constants'
 import { getModeRoundSeconds, PLAYABLE_MODE_DETAILS } from '../game/modes'
 import type { GameSettings, GameStatistics } from '../game/types'
@@ -20,14 +21,14 @@ export function StartScreen({ onStart, settings, statistics, onOpenSettings, onH
   return <section className="start-screen">
     <div className="brand-lockup"><span className="brand-mark" aria-hidden="true">✦</span><span>Orchard Ten</span></div>
     <p className="eyebrow">A SMALL SUM PUZZLE</p>
-    <h1>框選相鄰數字，<br />湊成 <em>10</em>！</h1>
-    <p className="intro">在倒數結束前找出總和為 10 的矩形，盡可能連續消除水果。</p>
-    <p className="mode-summary"><strong>{classic.label}模式</strong> · {getModeRoundSeconds('classic')} 秒 · {AUTO_HINT_DELAY_MS / 1_000} 秒未成功消除自動提示</p>
-    <div className="score-snapshot"><span>{classic.label}最高分 <strong>{statistics.highScore}</strong></span><span>上次分數 <strong>{statistics.lastScore}</strong></span></div>
-    <button type="button" className="primary-button" onClick={onStart}>開始{classic.label}模式 <span aria-hidden="true">→</span></button>
-    <div className="start-links"><button type="button" className="text-button" onClick={onHowToPlay}>玩法說明</button><button type="button" className="text-button" onClick={onOpenSettings}>設定 {settings.soundEnabled ? '· 音效開啟' : '· 靜音'}</button><InstallAppButton {...install} /><button type="button" className="text-button" onClick={onAbout}>About</button></div>
+    <h1>{translate("框選相鄰數字，")}<br />{translate("湊成 ")}<em>10</em>{translate("！")}</h1>
+    <p className="intro">{translate("在倒數結束前找出總和為 10 的矩形，盡可能連續消除水果。")}</p>
+    <p className="mode-summary"><strong>{translate(classic.label)}{translate("模式")}</strong> · {getModeRoundSeconds('classic')}{translate(" 秒 · ")}{AUTO_HINT_DELAY_MS / 1_000}{translate(" 秒未成功消除自動提示")}</p>
+    <div className="score-snapshot"><span>{translate(`${classic.label}最高分 `)}<strong>{statistics.highScore}</strong></span><span>{translate("上次分數 ")}<strong>{statistics.lastScore}</strong></span></div>
+    <button type="button" className="primary-button" onClick={onStart}>{translate("開始")}{translate(classic.label)}{translate("模式 ")}<span aria-hidden="true">→</span></button>
+    <div className="start-links"><button type="button" className="text-button" onClick={onHowToPlay}>{translate("玩法說明")}</button><button type="button" className="text-button" onClick={onOpenSettings}>{translate("設定 ")}{translate(settings.soundEnabled ? translate('· 音效開啟') : translate('· 靜音'))}</button><InstallAppButton {...install} /><button type="button" className="text-button" onClick={onAbout}>About</button></div>
     <LeaderboardPanel board="fruit-classic" />
     <StatisticsPanel statistics={statistics} modeLabel={classic.label} />
-    <p className="credit-note">玩法靈感來自 <a href="https://en.gamesaien.com/game/fruit_box/" target="_blank" rel="noopener noreferrer">Fruit Box</a>，以原創的程式架構、介面與互動重新實作。</p>
+    <p className="credit-note">{translate("玩法靈感來自 ")}<a href="https://en.gamesaien.com/game/fruit_box/" target="_blank" rel="noopener noreferrer">Fruit Box</a>{translate("，以原創的程式架構、介面與互動重新實作。")}</p>
   </section>
 }

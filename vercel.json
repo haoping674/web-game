@@ -1,3 +1,16 @@
 {
-  "rewrites": [{ "source": "/games/:game", "destination": "/games/:game.html" }]
+  "rewrites": [
+    {
+      "source": "/en",
+      "destination": "/en.html"
+    },
+    {
+      "source": "/en/games/:game",
+      "destination": "/en/games/:game.html"
+    },
+    {
+      "source": "/games/:game",
+      "destination": "/games/:game.html"
+    }
+  ]
 }

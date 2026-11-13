@@ -80,3 +80,16 @@ describe('result leaderboard', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 })
+
+it('keeps player names intact in the English leaderboard', async () => {
+  window.history.replaceState(null, '', '/en/games/fruit-sum')
+  fetchMock.mockResolvedValue(reply({ entries: [{ rank: 1, name: '開始', score: 50 }], rank: null, eligible: false }))
+  try {
+    render(<LeaderboardPanel board="fruit-classic" />)
+    expect(await screen.findByText('開始')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Orchard Ten · Classic scores' })).toBeInTheDocument()
+  } finally {
+    cleanup()
+    window.history.replaceState(null, '', '/')
+  }
+})

@@ -1,3 +1,4 @@
+import { translate } from '../app/translate'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { getComboWindowMs } from '../game/comboConfig'
 import { getComboRemainingMs } from '../game/comboTimer'
@@ -30,8 +31,8 @@ export function ComboIndicator({ combo, bestCombo, comboDeadline, status, mode, 
   const statusText = evaluation ?? (combo >= 10 ? 'Fruit Flow' : null)
   return <div className={`hud-combo tier-${tier}${isComboMilestone(combo) ? ' is-milestone' : ''}`} data-combo-tier={tier}>
     <span className="combo-label">Combo</span>
-    <strong key={combo}>{combo} <small>最高 {bestCombo}</small></strong>
-    <span className={`combo-evaluation${statusText ? ' is-visible' : ''}`} aria-live="polite" role="status">{statusText ?? '\u00a0'}</span>
-    <i className={combo > 0 ? '' : 'is-idle'} style={{ '--combo-progress': `${progress}%` } as CSSProperties} aria-label={combo > 0 ? 'Combo 剩餘時間' : undefined} aria-hidden={combo === 0} />
+    <strong key={combo}>{combo} <small>{translate("最高 ")}{bestCombo}</small></strong>
+    <span className={`combo-evaluation${statusText ? ' is-visible' : ''}`} aria-live="polite" role="status">{translate(statusText ?? '\u00a0')}</span>
+    <i className={combo > 0 ? '' : 'is-idle'} style={{ '--combo-progress': `${progress}%` } as CSSProperties} aria-label={translate(combo > 0 ? translate('Combo 剩餘時間') : undefined)} aria-hidden={combo === 0} />
   </div>
 }

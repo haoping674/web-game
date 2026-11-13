@@ -1,3 +1,4 @@
+import { translate } from '../app/translate'
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 
@@ -44,5 +45,5 @@ export function OverlayDialog({ children, label, onClose, onEscape, labelledBy }
       if (previouslyFocused?.isConnected) previouslyFocused.focus()
     }
   }, [onClose, onEscape])
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose?.() }}><section ref={dialogRef} className="dialog" role="dialog" aria-modal="true" aria-label={label} aria-labelledby={labelledBy}>{onClose && <button type="button" className="dialog-close" aria-label="關閉對話框" onClick={onClose}>×</button>}{children}</section></div>
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose?.() }}><section ref={dialogRef} className="dialog" role="dialog" aria-modal="true" aria-label={translate(label)} aria-labelledby={labelledBy}>{onClose && <button type="button" className="dialog-close" aria-label={translate("關閉對話框")} onClick={onClose}>×</button>}{children}</section></div>
 }
