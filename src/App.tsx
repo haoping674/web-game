@@ -1,3 +1,4 @@
+import { GameGuide } from './shared/components/GameGuide'
 import { GameActivityContext } from './hooks/useGameActivity'
 import { PwaUpdateNotice } from './components/PwaUpdateNotice'
 import { Component, lazy, Suspense, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
@@ -129,6 +130,7 @@ function App() {
               ) : null}
             </Suspense>
           </RouteErrorBoundary>
+          <GameGuide key={pathname} pathname={pathname} />
         </main>
       )}
       {settingsOpen ? (

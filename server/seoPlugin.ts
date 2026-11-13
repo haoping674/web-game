@@ -1,3 +1,4 @@
+import { GAME_GUIDES } from '../src/app/gameGuides.ts'
 import type { Plugin } from 'vite'
 import { GAME_REGISTRY } from '../src/app/gameRegistry.ts'
 import { pageMetadata, SITE_ORIGIN } from '../src/app/seo.ts'
@@ -12,7 +13,9 @@ export function seoPlugin(): Plugin {
     const { title, description, url, game } = pageMetadata(pathname, base)
     const href = (route: string) => escapeHtml(`${base.replace(/\/$/, '')}${route}`)
     // Public content is served to every user agent; React replaces it on mount.
-    const content = `<main><h1>${escapeHtml(game?.name ?? 'Orchard Arcade')}</h1><p>${escapeHtml(description)}</p>${game ? `<p>這款遊戲需要啟用 JavaScript。遊戲進度儲存在本機。</p><a href="${href('/')}">返回遊戲廳</a>` : ''}<nav aria-label="遊戲列表"><ul>${GAME_REGISTRY.map((entry) => `<li><a href="${href(entry.route)}">${escapeHtml(entry.name)}</a><p>${escapeHtml(entry.description)}</p></li>`).join('')}</ul></nav></main>`
+    const guide = game ? GAME_GUIDES[game.id] : null
+    const guideHtml = guide ? `<section aria-label="遊玩指南"><h2>${escapeHtml(game!.name)}遊玩指南</h2><p>${escapeHtml(guide.goal)}</p>${[['操作方式', guide.controls], ['遊戲規則', guide.rules], ['計分與紀錄', guide.scoring], ['試試這個方法', guide.tip]].map(([heading, text]) => `<h3>${escapeHtml(heading)}</h3><p>${escapeHtml(text)}</p>`).join('')}</section>` : ''
+    const content = `<main><h1>${escapeHtml(game?.name ?? 'Orchard Arcade')}</h1><p>${escapeHtml(description)}</p>${game ? `<p>這款遊戲需要啟用 JavaScript。遊戲進度儲存在本機。</p><a href="${href('/')}">返回遊戲廳</a>` : ''}${guideHtml}<nav aria-label="遊戲列表"><ul>${GAME_REGISTRY.map((entry) => `<li><a href="${href(entry.route)}">${escapeHtml(entry.name)}</a><p>${escapeHtml(entry.description)}</p></li>`).join('')}</ul></nav></main>`
     return template
       .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(title)}</title>`)
       .replace(/<meta name="description" content="[^"]*"\s*\/>/, `<meta name="description" content="${escapeHtml(description)}" />`)

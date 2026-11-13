@@ -160,3 +160,17 @@
   .game-route-shell .primary-button,
   .game-route-shell .platform-header-actions > button { transition: none; }
 }
+
+.game-route-shell > .game-guide {
+  width: min(calc(100% - clamp(40px, 10vw, 144px)), 1180px);
+  margin: 36px auto 0;
+  padding: clamp(24px, 4vw, 44px) 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+}
+.game-guide h2 { margin: 8px 0 16px; font-size: clamp(24px, 3vw, 32px); }
+.game-guide-intro { max-width: 70ch; line-height: 1.8; }
+.game-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 40px; margin-top: 28px; }
+.game-guide-grid h3 { margin: 0 0 8px; font-size: 17px; }
+.game-guide-grid p { margin: 0; color: var(--muted); line-height: 1.9; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .game-guide-grid { grid-template-columns: 1fr; gap: 24px; } }
