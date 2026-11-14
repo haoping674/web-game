@@ -1,3 +1,5 @@
+import { fruitShareResult } from '../../share/arcadeResults'
+import type { ArcadeShareResult } from '../../share/types'
 import { translate } from '../../app/translate'
 import { useBoardCentering } from '../../hooks/useBoardCentering'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
@@ -24,6 +26,7 @@ import { useNetworkStatus } from '../../hooks/useNetworkStatus'
 import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
 import {
   recordGameResult,
+  readAppStorage,
   resetGameProgress,
   updateGlobalSettings,
   type GlobalSettings,
@@ -59,6 +62,7 @@ export default function FruitSumGame({
     saveGameData(next)
     return next
   })
+  const [roundResult, setRoundResult] = useState<ArcadeShareResult | null>(null)
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
   const [resumeAfterTutorial, setResumeAfterTutorial] = useState(false)
   const install = useInstallPrompt()
@@ -96,9 +100,11 @@ export default function FruitSumGame({
   }
 
   useEffect(() => {
-    if (game.status !== 'finished') { recordedRound.current = false; return }
+    if (game.status !== 'finished') { recordedRound.current = false; setRoundResult(null); return }
     if (recordedRound.current) return
     recordedRound.current = true
+    const previousBest = Math.max(data.statisticsByMode.classic.highScore, readGameData().statisticsByMode.classic.highScore, readAppStorage().games.fruitSum.highScore)
+    setRoundResult(fruitShareResult(game, game.score > previousBest))
     const clearedPerMinute = clearsPerMinute(
       game.clearedFruitCount,
       getModeRoundSeconds(game.mode) - game.secondsLeft,
@@ -115,16 +121,7 @@ export default function FruitSumGame({
     recordGameResult('fruitSum', game.score)
     saveGameData(next)
     onProgressChange()
-  }, [
-    data,
-    game.bestCombo,
-    game.clearedFruitCount,
-    game.mode,
-    game.score,
-    game.secondsLeft,
-    game.status,
-    onProgressChange,
-  ])
+  }, [data, game, onProgressChange])
 
   const pauseGame = useCallback(() => dispatch({ type: 'pause', now: Date.now() }), [])
   const resumeGame = useCallback(() => dispatch({ type: 'resume', now: Date.now() }), [])
@@ -231,8 +228,9 @@ export default function FruitSumGame({
         {game.status === 'paused' && activeDialog !== 'settings' && activeDialog !== 'tutorial' && !platformSettingsOpen ? (
           <PauseDialog onResume={resumeGame} onRestart={restartGame} onHome={homeGame} />
         ) : null}
-        {game.status === 'finished' ? (
+        {game.status === 'finished' && roundResult ? (
           <ResultDialog
+            result={roundResult}
             game={game}
             statistics={data.statisticsByMode.classic}
             onRestart={restartGame}

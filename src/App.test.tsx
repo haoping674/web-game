@@ -226,9 +226,9 @@ describe('English game entry points', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Start timer' }))
     expect(screen.getByText('Count in your head. Stop when it feels right.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Stop timer' }))
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Play again' })).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('orchard-arcade-v1')!).games.secondSense.gamesPlayed).toBe(1)
-    fireEvent.click(screen.getByRole('button', { name: 'Games' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Back to games' }))
     expect(window.location.pathname).toBe('/en')
     expect(screen.getByRole('link', { name: 'Play Second Sense' })).toHaveAttribute('href', '/en/games/second-sense')
     expect(screen.getByRole('link', { name: '繁體中文' })).toHaveAttribute('href', '/')
@@ -253,6 +253,33 @@ describe('English game entry points', () => {
 })
 
 describe('English senses and brain teaser games', () => {
+  it('shows Color Links results and image sharing after the time limit', async () => {
+    window.history.replaceState(null, '', '/en/games/color-links')
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: /Start linking/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Skip and play' }))
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31000)
+    try {
+      expect(await screen.findByRole('dialog', { name: 'Color Links results' }, { timeout: 3000 })).toBeInTheDocument()
+      expect(document.querySelector('.result-ticket-number')).toHaveTextContent('0tiles')
+      fireEvent.click(screen.getByRole('button', { name: 'Share results' }))
+      expect(screen.getByRole('dialog', { name: 'Share this round' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Download card' })).toBeInTheDocument()
+    } finally { clock.mockRestore() }
+  })
+
+  it('shows Slide Ten results once and returns to the English game library', async () => {
+    window.history.replaceState(null, '', '/en/games/slide-ten')
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: /Play Slide Ten/ }))
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 300000)
+    try {
+      expect(await screen.findByRole('dialog', { name: 'Slide Ten game over' })).toBeInTheDocument()
+      expect(JSON.parse(localStorage.getItem('orchard-arcade-v1')!).games.slideTen.gamesPlayed).toBe(1)
+      fireEvent.click(screen.getByRole('button', { name: 'Back to games' }))
+      expect(window.location.pathname).toBe('/en')
+    } finally { clock.mockRestore() }
+  })
   it('filters all five games by the two English categories', () => {
     window.history.replaceState(null, '', '/en')
     render(<App />)
@@ -270,9 +297,10 @@ describe('English senses and brain teaser games', () => {
     render(<App />)
     fireEvent.change(await screen.findByRole('slider', { name: 'Adjust line length' }), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: 'Confirm length' }))
-    expect(screen.getByText('Perfect estimation!')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Perfect estimation!' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Play again' })).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('orchard-arcade-v1')!).games.lengthSense.gamesPlayed).toBe(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }))
     expect(screen.getByRole('link', { name: '繁體中文' })).toHaveAttribute('href', '/games/length-sense')
   })
 

@@ -1,3 +1,6 @@
+import { ArcadeResultDialog } from '../../components/ArcadeResultDialog'
+import { slideShareResult } from '../../share/arcadeResults'
+import type { ArcadeShareResult } from '../../share/types'
 import { translate } from '../../app/translate'
 import { useBoardCentering } from '../../hooks/useBoardCentering'
 import { useCallback, useEffect, useReducer, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
@@ -7,9 +10,6 @@ import { BOARD_COLUMNS, BOARD_ROWS, BOARD_SIZE } from '../../game/constants'
 import { playComboSound, stopComboAudio } from '../../game/soundManager'
 import { usePageVisibilityPause } from '../../hooks/usePageVisibilityPause'
 import { readAppStorage, recordGameResult, type GlobalSettings } from '../../shared/storage/appStorage'
-import { HOME_ROUTE, navigate } from '../../app/router'
-import { localizedPath, localeFromPath } from '../../app/locale'
-import { readAppPathname } from '../../app/router'
 import { LeaderboardPanel } from '../../shared/leaderboard/LeaderboardPanel'
 import { createSlideState, screenDirection, slideReducer, type Direction } from './model'
 import './slide-ten.css'
@@ -46,6 +46,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
   const [selected, setSelected] = useState<number | null>(null)
   const [highScore, setHighScore] = useState(() => readAppStorage().games.slideTen.highScore)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [roundResult, setRoundResult] = useState<ArcadeShareResult | null>(null)
   const roundKey = useRef('')
   const gesture = useRef<{ id: number; index: number; x: number; y: number } | null>(null)
   const recorded = useRef(false)
@@ -75,10 +76,11 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
   useEffect(() => {
     if (game.status !== 'ended' || recorded.current) return
     recorded.current = true
+    setRoundResult(slideShareResult(game, game.score > readAppStorage().games.slideTen.highScore))
     const result = recordGameResult('slideTen', game.score)
     setHighScore(result.games.slideTen.highScore)
     onProgressChange()
-  }, [game.status, game.score, onProgressChange])
+  }, [game, onProgressChange])
   useEffect(() => {
     if (game.moveId === lastSoundMove.current) return
     lastSoundMove.current = game.moveId
@@ -89,6 +91,7 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
   const start = () => {
     roundKey.current = crypto.randomUUID()
     recorded.current = false
+    setRoundResult(null)
     lastSoundMove.current = 0
     gesture.current = null
     setSelected(null)
@@ -187,7 +190,9 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
         )}
         {game.status === 'paused' && !platformSettingsOpen && !helpOpen ? <OverlayDialog label={translate("滑滑湊十已暫停")} onClose={resume}><p className="eyebrow">TAKE A LITTLE BREAK</p><h2>{translate("果園已暫停")}</h2><p>{translate("補入倒數會等你回來。")}</p><button type="button" className="primary-button" onClick={resume}>{translate("繼續遊戲")}</button><button type="button" className="text-button" onClick={start}>{translate("重新開始")}</button></OverlayDialog> : null}
         {helpOpen ? <OverlayDialog label={translate("滑滑湊十玩法說明")} onClose={() => setHelpOpen(false)}><p className="eyebrow">SLIDE · MATCH · MAKE ROOM</p><h2>{translate("滑到一起，剛好湊十。")}</h2><p>{translate("滑動單顆水果，會沿直線滑到底。遇到水果時，沿滑動方向跳過空格，依序累加同一直線上的水果，總和剛好為 10 就整組消除。例如 5 → 2 → 空格 → 3，三顆一起消除。不能跳過有數字的水果；總和超過 10，或到邊界仍不足 10，就停在第一顆前面。每消除一顆得 1 分，分數就是消除水果的總顆數。")}</p><p>{translate("也可以點選水果，再按棋盤下方方向按鈕，或使用鍵盤方向鍵。單純搬動水果不加分。")}</p><p>{translate("每批補入前 1 秒，空格會顯示即將長出的數字。倒數歸零時，若空格小於或等於下一批水果數量，就結束遊戲；補入間隔固定為每 4 秒，初始每批 4 顆，每 45 秒增加 1 顆，最多每批 8 顆。")}</p><button type="button" className="primary-button" onClick={() => setHelpOpen(false)}>{translate("了解了")}</button></OverlayDialog> : null}
-        {game.status === 'ended' ? <OverlayDialog label={translate("滑滑湊十遊戲結束")}><p className="eyebrow">MAKE ROOM FOR THE NEXT WAVE</p><h2>{translate("空位不夠，再滑一局？")}</h2><p>{translate("你清出了 ")}{game.removedFruits}{translate(" 格空間，守住果園 ")}{formatTime(game.elapsedMs)}{translate("。")}</p><div className="slide-result"><span>{translate("本局得分")}<strong>{game.score}</strong></span><span>{translate("消除次數")}<strong>{game.pairs}</strong></span><span>{translate("本機最高")}<strong>{highScore}</strong></span></div><LeaderboardPanel key={roundKey.current} board="slide-cleared" score={game.score} resultKey={`slide-ten-count:${roundKey.current}`} /><button type="button" className="primary-button" onClick={start}>{translate("再玩一次")}</button><button type="button" className="text-button" onClick={() => navigate(localizedPath(HOME_ROUTE, localeFromPath(readAppPathname())))}>{translate("返回遊戲廳")}</button></OverlayDialog> : null}
+        {game.status === 'ended' && roundResult ? <ArcadeResultDialog result={roundResult} onReplay={start} label={translate('滑滑湊十遊戲結束')}>
+          <LeaderboardPanel key={roundKey.current} board="slide-cleared" score={game.score} resultKey={`slide-ten-count:${roundKey.current}`} />
+        </ArcadeResultDialog> : null}
       </section>
 
     </div>

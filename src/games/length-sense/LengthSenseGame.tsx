@@ -7,6 +7,9 @@ import { randomInitialLength, judgeLength, LENGTH_TARGETS, PX_PER_CM, type Lengt
 import { randomSenseTarget } from '../../shared/gameplay/randomSenseTarget'
 import '../second-sense/second-sense.css'
 import './length-sense.css'
+import { ArcadeResultDialog } from '../../components/ArcadeResultDialog'
+import { lengthShareResult } from '../../share/arcadeResults'
+import type { ArcadeShareResult } from '../../share/types'
 
 type Props = { globalSettings: GlobalSettings; onProgressChange: () => void; platformSettingsOpen: boolean }
 type Phase = 'adjusting' | 'result' | 'cancelled'
@@ -24,6 +27,8 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
   const [history, setHistory] = useState<LengthResult[]>([])
   const [progress, setProgress] = useState(() => readAppStorage().games.lengthSense)
   const [newBest, setNewBest] = useState(false)
+  const [summary, setSummary] = useState<ArcadeShareResult | null>(null)
+  const [resultOpen, setResultOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const railRef = useRef<HTMLDivElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
@@ -54,6 +59,8 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
     setDragging(false)
     setDirty(false)
     setResult(null)
+    setSummary(null)
+    setResultOpen(false)
     setNewBest(false)
     setNotice('')
   }
@@ -66,7 +73,10 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
     setDirty(false)
     setResult(outcome)
     const previousBest = readAppStorage().games.lengthSense.lengthBestErrorBp
-    setNewBest(previousBest === undefined || outcome.errorBp < previousBest)
+    const personalBest = previousBest === undefined || outcome.errorBp < previousBest
+    setNewBest(personalBest)
+    setSummary(lengthShareResult(outcome, personalBest))
+    setResultOpen(true)
     setProgress(recordLengthResult(outcome.errorBp).games.lengthSense)
     setHistory((items) => [outcome, ...items].slice(0, 5))
     if (randomMode) setTarget(randomSenseTarget())
@@ -147,6 +157,8 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
         <aside className="sense-sidebar"><section className="sense-record"><p className="eyebrow">YOUR PERSONAL BEST</p><h2>{translate("眼力，也有好手感。")}</h2><span className="sense-best-number">{best === undefined ? '—' : (best / 100).toFixed(2)}<small>%</small></span><p>{translate("最小相對誤差 · 越小越準")}</p><div className="sense-record-list"><div><span>{translate("最高精準分")}</span><strong>{progress.highScore} / 1000</strong></div><div><span>{translate("已完成挑戰")}</span><strong>{progress.gamesPlayed}{translate(" 次")}</strong></div></div><small>{translate("拖曳挑戰紀錄自動儲存於本機")}</small></section><section className="sense-guide"><span aria-hidden="true">↔</span><h2>{translate("差一點，也是一種進步。")}</h2><p>{translate("憑眼力調整，確認你的剛剛好。")}<br />{translate("下一次，讓手感更接近眼力。")}</p><div><span>{translate("誤差 ≤ 1%")}</span><strong>{translate("✦ 分毫不差")}</strong></div><div><span>{translate("誤差 ≤ 3%")}</span><strong>{translate("眼睛就是尺")}</strong></div><div><span>{translate("誤差 ≤ 6%")}</span><strong>{translate("漂亮的長度感")}</strong></div><div><span>{translate("誤差 ≤ 10%")}</span><strong>{translate("再靠近一點")}</strong></div></section></aside>
       </div>
       <section className="sense-history" aria-label={translate("最近長度挑戰")}><span>{translate("最近的眼力")}<small>{translate("本次遊玩")}</small></span>{history.length ? <ol>{history.map((item, index) => <li key={`${history.length}-${index}`}><span>{translate("目標 ")}{item.target} cm</span><strong>{item.guess.toFixed(2)} cm</strong><small>{item.delta === 0 ? translate('剛剛好') : item.delta > 0 ? translate('偏長') : translate('偏短')} · {(item.errorBp / 100).toFixed(2)}%</small></li>)}</ol> : <p>{translate("第一段剛剛好的長度，等你親手決定。")}</p>}</section>
+      {summary && !resultOpen && <button type="button" className="text-button" onClick={() => setResultOpen(true)}>{translate('查看本局成果')}</button>}
+      {summary && resultOpen && <ArcadeResultDialog result={summary} onClose={() => setResultOpen(false)} onReplay={() => { start(); requestAnimationFrame(() => sliderRef.current?.focus({ preventScroll: true })) }} />}
     </section>
   )
 }

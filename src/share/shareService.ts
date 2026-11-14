@@ -10,7 +10,11 @@ function isShareCancelled(error: unknown): boolean {
 export async function shareResult(result: ShareResult, image?: File, browser: ShareNavigator = navigator): Promise<ShareActionResult> {
   if (!browser.share) return 'unavailable'
   const payload: ShareData = { title: createShareTitle(result), text: createShareText(result), url: result.pageUrl }
-  if (image && browser.canShare?.({ files: [image] })) payload.files = [image]
+  if (image) {
+    try {
+      if (browser.canShare?.({ files: [image] })) payload.files = [image]
+    } catch { /* Keep the link share available if file capability detection fails. */ }
+  }
   try {
     await browser.share(payload)
     return 'shared'
@@ -38,6 +42,7 @@ export async function copyShareText(text: string, clipboard: Clipboard | undefin
 }
 
 export function createShareFilename(result: ShareResult): string {
+  if ('kind' in result) return `orchard-${result.gameId}-${result.value.replace(/[^0-9.]/g, '')}-${formatShareDate(result.playedAt)}.png`
   const safeMode = result.mode.replace(/[^a-z0-9-]/gi, '') || 'result'
   return `orchard-ten-${safeMode}-${Math.max(0, Math.floor(result.score))}-${formatShareDate(result.playedAt)}.png`
 }

@@ -1,3 +1,6 @@
+import { ArcadeResultDialog } from '../../components/ArcadeResultDialog'
+import { colorShareResult } from '../../share/arcadeResults'
+import type { ArcadeShareResult } from '../../share/types'
 import { translate } from '../../app/translate'
 import { useBoardCentering } from '../../hooks/useBoardCentering'
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
@@ -74,8 +77,7 @@ export default function ColorLinksGame({
   const [effect, setEffect] = useState<ColorLinksEffect | null>(null)
   const [invalidCell, setInvalidCell] = useState<CellPosition | null>(null)
   const [bestTimeSeconds, setBestTimeSeconds] = useState(() => readAppStorage().games.colorLinks.bestTimeSeconds)
-  const [bestRemovedTiles, setBestRemovedTiles] = useState(() => readAppStorage().games.colorLinks.highScore)
-  const [shareStatus, setShareStatus] = useState('')
+  const [roundResult, setRoundResult] = useState<ArcadeShareResult | null>(null)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [tutorialSeen, setTutorialSeen] = useState(() => readAppStorage().games.colorLinks.tutorialSeen === true)
   const effectId = useRef(0)
@@ -99,7 +101,6 @@ export default function ColorLinksGame({
   const playing = game.status === 'playing'
   const paused = game.status === 'paused'
   useGameActivity(playing || paused)
-  const clearedWithinLimit = game.outcome === 'cleared'
   const timeRemaining = remainingSeconds(game.elapsedSeconds)
 
   const getAudio = () => {
@@ -152,16 +153,20 @@ export default function ColorLinksGame({
   useEffect(() => {
     if (game.status !== 'finished' || game.outcome === null || recorded.current) return
     recorded.current = true
+    const previous = readAppStorage().games.colorLinks
+    const personalBest = game.outcome === 'cleared'
+      ? previous.bestTimeSeconds === undefined || game.elapsedSeconds < previous.bestTimeSeconds
+      : game.removedTiles > previous.highScore
+    setRoundResult(colorShareResult(game, personalBest))
     const next = recordColorLinksResult(
       game.outcome === 'cleared'
         ? { kind: 'cleared', completionSeconds: game.elapsedSeconds }
         : { kind: 'time-limit', removedTiles: game.removedTiles },
     )
     setBestTimeSeconds(next.games.colorLinks.bestTimeSeconds)
-    setBestRemovedTiles(next.games.colorLinks.highScore)
     onProgressChange()
     audio.current?.suspend()
-  }, [game.elapsedSeconds, game.outcome, game.removedTiles, game.status, onProgressChange])
+  }, [game, onProgressChange])
 
   const clearTransientFeedback = () => {
     if (effectTimer.current !== null) window.clearTimeout(effectTimer.current)
@@ -175,7 +180,7 @@ export default function ColorLinksGame({
   const beginGame = () => {
     clearTransientFeedback()
     recorded.current = false
-    setShareStatus('')
+    setRoundResult(null)
     setFeedback(translate(`在 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內清空所有色塊。`))
     dispatch({ type: 'start', now: Date.now(), board: generateBoard() })
   }
@@ -198,7 +203,7 @@ export default function ColorLinksGame({
   const restartGame = () => {
     clearTransientFeedback()
     recorded.current = false
-    setShareStatus('')
+    setRoundResult(null)
     setFeedback(translate(`新的訊號盤已就緒，倒數 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒。`))
     dispatch({ type: 'restart', now: Date.now(), board: generateBoard() })
     centerBoard()
@@ -247,26 +252,6 @@ export default function ColorLinksGame({
     const bonus = matches.length > 1 ? translate(`，含 ${matches.length} 組獨立色彩 +${matches.length - 1} 加成`) : ''
     setFeedback(translate(`連結成功，移除 ${totalDirections(matches)} 格${bonus}。`))
     dispatch({ type: 'select', position, now })
-  }
-
-  const shareResult = async () => {
-    const text = clearedWithinLimit
-      ? translate(`我在 Color Links 的 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內，用時 ${formatElapsedTime(game.elapsedSeconds)} 清空了所有色塊。`)
-      : translate(`我在 Color Links 的 ${COLOR_LINKS_CONFIG.timeLimitSeconds} 秒內消除了 ${game.removedTiles} 個色塊。`)
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: translate('Color Links 成績'), text, url: window.location.href })
-        setShareStatus(translate('成績已分享。'))
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(`${text} ${window.location.href}`)
-        setShareStatus(translate('成績文字已複製。'))
-      } else {
-        setShareStatus(text)
-      }
-    } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      setShareStatus(translate('目前無法分享，請稍後再試。'))
-    }
   }
 
   if (game.status === 'ready') {
@@ -357,28 +342,10 @@ export default function ColorLinksGame({
         </OverlayDialog>
       ) : null}
 
-      {game.status === 'finished' ? (
-        <OverlayDialog label={translate("Color Links 遊戲結果")} onClose={restartGame}>
-          <p className="eyebrow">{clearedWithinLimit ? 'SIGNAL COMPLETE' : 'TIME LIMIT'}</p>
-          <h2>{clearedWithinLimit ? translate('全數色塊已清空') : translate('30 秒時間到')}</h2>
-          <strong className="result-score color-result-score">
-            {clearedWithinLimit ? formatElapsedTime(game.elapsedSeconds) : translate(`${game.removedTiles} 格`)}
-          </strong>
-          <p>{clearedWithinLimit ? translate('已記錄完成秒數。') : translate('已記錄本局消除色塊數。')}</p>
-          <dl className="result-stats">
-            <div><dt>{clearedWithinLimit ? translate('完成用時') : translate('消除色塊')}</dt><dd>{clearedWithinLimit ? formatElapsedTime(game.elapsedSeconds) : game.removedTiles}</dd></div>
-            <div><dt>{translate("移除色塊")}</dt><dd>{game.removedTiles}</dd></div>
-            <div><dt>{translate("有效連結")}</dt><dd>{game.successfulMoves}</dd></div>
-            <div><dt>{translate("無效點擊")}</dt><dd>{game.invalidMoves}</dd></div>
-            <div><dt>{clearedWithinLimit ? translate('最快清空') : translate('時限最高')}</dt><dd>{clearedWithinLimit ? formatElapsedTime(bestTimeSeconds) : translate(`${bestRemovedTiles} 格`)}</dd></div>
-          </dl>
-          <LeaderboardPanel board={clearedWithinLimit ? 'color-time' : 'color-removed'} score={clearedWithinLimit ? game.elapsedSeconds : game.removedTiles} />
-          <div className="dialog-actions">
-            <button type="button" className="primary-button color-primary" onClick={restartGame}>{translate("再玩一次")}</button>
-            <button type="button" className="quiet-button share-button" onClick={() => void shareResult()}>{translate("分享成績 ↗")}</button>
-          </div>
-          {shareStatus ? <p className="share-status" role="status">{translate(shareStatus)}</p> : null}
-        </OverlayDialog>
+      {game.status === 'finished' && roundResult ? (
+        <ArcadeResultDialog result={roundResult} onReplay={restartGame} label={translate('Color Links 遊戲結果')}>
+          <LeaderboardPanel board={game.outcome === 'cleared' ? 'color-time' : 'color-removed'} score={game.outcome === 'cleared' ? game.elapsedSeconds : game.removedTiles} />
+        </ArcadeResultDialog>
       ) : null}
 
     </section>

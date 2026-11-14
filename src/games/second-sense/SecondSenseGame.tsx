@@ -6,6 +6,9 @@ import { TimingAudio } from './audio'
 import { judgeTiming, TARGETS, type TimingResult } from './model'
 import { randomSenseTarget } from '../../shared/gameplay/randomSenseTarget'
 import './second-sense.css'
+import { ArcadeResultDialog } from '../../components/ArcadeResultDialog'
+import { timingShareResult } from '../../share/arcadeResults'
+import type { ArcadeShareResult } from '../../share/types'
 
 type Props = { globalSettings: GlobalSettings; onProgressChange: () => void; platformSettingsOpen: boolean }
 const QUALITY = { perfect: 3, excellent: 3, great: 2, close: 1, retry: 0 }
@@ -19,6 +22,8 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
   const [progress, setProgress] = useState(() => readAppStorage().games.secondSense)
   const [notice, setNotice] = useState('')
   const [newBest, setNewBest] = useState(false)
+  const [summary, setSummary] = useState<ArcadeShareResult | null>(null)
+  const [resultOpen, setResultOpen] = useState(false)
   const startedAt = useRef<number | null>(null)
   const audio = useRef<TimingAudio | null>(null)
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -47,6 +52,8 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
       round.current += 1
       setRunning(true)
       setResult(null)
+      setResultOpen(false)
+      setSummary(null)
       setNotice('')
       setNewBest(false)
       timeout.current = setTimeout(() => cancelRound(translate('超過 30 秒了，這局不計成績。準備好就再來一次。')), 30_000)
@@ -58,7 +65,10 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
     clearTimer()
     const previousProgress = readAppStorage().games.secondSense
     const previousBest = randomMode ? previousProgress.timingRandomBestMs : previousProgress.timingBestMs?.[target as 1 | 3 | 5]
-    setNewBest(previousBest === undefined || outcome.error < previousBest)
+    const personalBest = previousBest === undefined || outcome.error < previousBest
+    setNewBest(personalBest)
+    setSummary(timingShareResult(outcome, randomMode, personalBest))
+    setResultOpen(true)
     const saved = recordTimingResult(target, outcome.error, undefined, randomMode)
     setProgress(saved.games.secondSense)
     setResult(outcome)
@@ -128,6 +138,8 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
         </aside>
       </div>
       <section className="sense-history" aria-label={translate("最近挑戰")}><span>{translate("最近的手感 ")}<small>{translate("本次遊玩")}</small></span>{history.length ? <ol>{history.map((item, index) => <li key={`${history.length}-${index}`}><span>{item.target}{translate(" 秒挑戰")}</span><strong>{translate((item.elapsed / 1000).toFixed(3))} s</strong><small>{translate(item.delta < 0 ? translate('早') : item.delta > 0 ? translate('晚') : translate('正好'))} {item.error} ms</small></li>)}</ol> : <p>{translate("第一個剛剛好的瞬間，從這裡開始。")}</p>}</section>
+      {summary && !resultOpen && <button type="button" className="text-button" onClick={() => setResultOpen(true)}>{translate('查看本局成果')}</button>}
+      {summary && resultOpen && <ArcadeResultDialog result={summary} onClose={() => setResultOpen(false)} onReplay={activate} replayHint={randomMode ? `${translate('下一局目標')} ${target.toFixed(1)} ${translate('秒')}` : undefined} />}
     </section>
   )
 }

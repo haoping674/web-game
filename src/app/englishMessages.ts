@@ -474,5 +474,6 @@ export const englishMessages: Record<string, string> = {
   "分毫不差的眼力！": "Perfect estimation!",
   "你的眼睛就是尺！": "An eye for distance!",
   "再靠近一點點！": "Getting closer!",
-  "再抓一次感覺。": "Try another estimate."
+  "再抓一次感覺。": "Try another estimate.",
+  "查看本局成果": "View round results"
 }

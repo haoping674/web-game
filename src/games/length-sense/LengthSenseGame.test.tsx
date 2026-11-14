@@ -6,6 +6,9 @@ import LengthSenseGame from './LengthSenseGame'
 import { readAppStorage } from '../../shared/storage/appStorage'
 import { PX_PER_CM } from './model'
 
+
+vi.mock('../../share/useShareResult', () => ({ useShareResult: () => ({ preparePreview: vi.fn(), previewUrl: null, isGenerating: false, status: null, hasSystemShare: false, hasImageShare: false, copy: vi.fn(), download: vi.fn(), systemShare: vi.fn() }) }))
+
 const settings = { soundEnabled: false, reducedMotion: false, effectIntensity: 'full' } as const
 const slider = () => screen.getByRole('slider', { name: '調整線段長度' })
 const confirm = () => screen.getByRole('button', { name: '確認這個長度' })
@@ -56,6 +59,8 @@ describe('Length Sense adjust and confirm', () => {
     expect(screen.getByLabelText('待確認的線段').style.width).toBe(`${2.5 * PX_PER_CM}px`)
     expect(slider()).toHaveAttribute('aria-valuetext', '長度保密，確認後揭曉')
     fireEvent.click(confirm())
+    expect(screen.getByRole('dialog', { name: '本局結算' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '關閉對話框' }))
     expect(screen.getByLabelText('長度比較')).toHaveTextContent('目標 3.00 cm')
     expect(screen.getByLabelText('長度比較')).toHaveTextContent('你的 2.50 cm')
     expect(screen.getByRole('status')).toHaveTextContent('比目標短了')
@@ -71,11 +76,15 @@ describe('Length Sense adjust and confirm', () => {
     fireEvent.change(slider(), { target: { value: '2.2' } })
     random.mockReturnValue(.8)
     fireEvent.click(confirm())
+    expect(screen.getByRole('dialog', { name: '本局結算' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '關閉對話框' }))
     expect(screen.getByLabelText('長度比較')).toHaveTextContent('目標 2.20 cm')
     expect(document.querySelector('.sense-random-target')).toHaveTextContent('下一局目標 4.2 公分')
     fireEvent.click(screen.getByRole('button', { name: '再挑戰一次' }))
     fireEvent.change(slider(), { target: { value: '4.2' } })
     fireEvent.click(confirm())
+    expect(screen.getByRole('dialog', { name: '本局結算' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '關閉對話框' }))
     expect(screen.getByLabelText('長度比較')).toHaveTextContent('目標 4.20 cm')
     expect(readAppStorage().games.lengthSense).toMatchObject({ gamesPlayed: 2, highScore: 1000 })
     fireEvent.click(screen.getByRole('button', { name: '5 公分挑戰' }))
@@ -89,6 +98,8 @@ describe('Length Sense adjust and confirm', () => {
     fireEvent.change(slider(), { target: { value: '8' } })
     expect(readAppStorage().games.lengthSense.gamesPlayed).toBe(0)
     fireEvent.click(confirm())
+    expect(screen.getByRole('dialog', { name: '本局結算' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '關閉對話框' }))
     vi.spyOn(Math, 'random').mockReturnValue(.8)
     fireEvent.click(screen.getByRole('button', { name: '再挑戰一次' }))
     expect((slider() as HTMLInputElement).value).not.toBe(initial)

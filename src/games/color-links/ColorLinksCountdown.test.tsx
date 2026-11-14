@@ -10,6 +10,7 @@ vi.mock('./board', async (importOriginal) => ({
   generateBoard: () => [[null, 'coral', null], ['blue', null, 'blue'], [null, 'coral', null]],
 }))
 vi.mock('../../shared/leaderboard/LeaderboardPanel', () => ({ LeaderboardPanel: () => null }))
+vi.mock('../../share/useShareResult', () => ({ useShareResult: () => ({ preparePreview: vi.fn(), previewUrl: null, isGenerating: false, status: null, hasSystemShare: false, hasImageShare: false, copy: vi.fn(), download: vi.fn(), systemShare: vi.fn() }) }))
 
 const settings: GlobalSettings = { soundEnabled: false, reducedMotion: false, effectIntensity: 'full' }
 
@@ -71,7 +72,8 @@ describe('Color Links countdown integration', () => {
     elapse(29)
     expect(container.querySelector('.board-countdown-badge')).toHaveTextContent('剩 1 秒')
     fireEvent.click(screen.getByRole('gridcell', { name: '第 2 列第 2 欄，空格' }))
-    expect(screen.getByRole('heading', { name: '全數色塊已清空' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '所有訊號，都連上了。' })).toBeInTheDocument()
+    expect(document.querySelector('.result-ticket-number')).toHaveTextContent('29秒')
     expect(container.querySelector('.color-board-frame')).toHaveAttribute('data-countdown-phase', 'idle')
   })
 

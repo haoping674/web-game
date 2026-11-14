@@ -6,7 +6,7 @@ export const SHARE_CARD_SIZE = { width: 1080, height: 1350 } as const
 
 type CanvasFactory = () => HTMLCanvasElement
 
-function drawRoundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+export function drawRoundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
   context.beginPath()
   if (typeof context.roundRect === 'function') context.roundRect(x, y, width, height, radius)
   else {
@@ -24,7 +24,7 @@ function drawRoundedRect(context: CanvasRenderingContext2D, x: number, y: number
   context.fill()
 }
 
-function drawFruit(context: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string): void {
+export function drawFruit(context: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string): void {
   context.fillStyle = color
   context.beginPath()
   context.ellipse(x, y, radius, radius * 0.92, -0.18, 0, Math.PI * 2)
@@ -56,6 +56,10 @@ async function waitForCardFonts(): Promise<void> {
 
 export async function renderShareCard(result: ShareResult, createCanvas: CanvasFactory = () => document.createElement('canvas')): Promise<Blob> {
   await waitForCardFonts()
+  if ('kind' in result) {
+    const { renderArcadeCard } = await import('./arcadeCardRenderer')
+    return renderArcadeCard(result, createCanvas)
+  }
   const canvas = createCanvas()
   canvas.width = SHARE_CARD_SIZE.width
   canvas.height = SHARE_CARD_SIZE.height

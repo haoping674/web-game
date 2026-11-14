@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ResultDialog } from './ResultDialog'
 import type { GameState, GameStatistics } from '../game/types'
@@ -12,7 +12,7 @@ const game: GameState = { mode: 'classic', board: [], score: 12, clearedFruitCou
 const statistics: GameStatistics = { highScore: 12, lastScore: 12, gamesPlayed: 1, totalCleared: 12, highestCombo: 3, totalScore: 12, bestClearsPerMinute: 6 }
 
 describe('result sharing dialog', () => {
-  afterEach(() => { document.body.innerHTML = '' })
+  afterEach(cleanup)
 
   it('opens with the keyboard and closes with Escape', async () => {
     render(<ResultDialog game={game} statistics={statistics} onRestart={vi.fn()} onHome={vi.fn()} />)

@@ -2,11 +2,21 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderShareCard } from './shareCardRenderer'
 import { copyShareText, createShareFilename, downloadShareCard, shareResult } from './shareService'
-import type { ShareResult } from './types'
+import type { LegacyShareResult as ShareResult } from './types'
 
 const result: ShareResult = { mode: 'classic', score: 72, maxCombo: 8, clearedFruitCount: 72, successfulMoves: 20, playedAt: new Date('2026-07-16T12:00:00Z'), pageUrl: 'https://orchard-ten.example/play' }
 
 describe('share service fallbacks', () => {
+  it('sends the PNG when file sharing is supported and otherwise keeps a link share', async () => {
+    const image = new File(['png'], 'result.png', { type: 'image/png' })
+    const share = vi.fn().mockResolvedValue(undefined)
+    await shareResult(result, image, { share, canShare: () => true })
+    expect(share).toHaveBeenLastCalledWith(expect.objectContaining({ files: [image], url: result.pageUrl }))
+    await shareResult(result, image, { share, canShare: () => false })
+    expect(share.mock.calls[1][0].files).toBeUndefined()
+    await shareResult(result, image, { share, canShare: () => { throw new Error('Not supported') } })
+    expect(share.mock.calls[2][0].files).toBeUndefined()
+  })
   it('reports unavailable when Web Share API is absent', async () => {
     await expect(shareResult(result, undefined, {})).resolves.toBe('unavailable')
   })
