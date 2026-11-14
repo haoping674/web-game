@@ -9,6 +9,25 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 }
 
+// Inline so the initial screen does not depend on the app's CSS or JS download.
+const bootStyles = `<style>
+body:has(.boot-screen){margin:0;background:#e8f0dc;color:#27322f;font-family:system-ui,sans-serif}
+.boot-screen{display:none;min-height:100vh;min-height:100dvh;box-sizing:border-box;padding:24px;place-content:center;justify-items:center;gap:16px;text-align:center}
+.app-booting .boot-screen{display:grid}
+.app-booting .boot-content{display:none}
+.boot-screen span{display:grid;place-items:center;width:54px;height:54px;border:2px solid #27322f;border-radius:50%;background:#fffdf6;color:#b44c3c;font-size:24px;box-shadow:4px 4px 0 #27322f;animation:boot-turn 1.2s ease-in-out infinite}
+@keyframes boot-turn{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(78deg)}}
+@media(prefers-reduced-motion:reduce){.boot-screen span{animation:none}}
+.boot-screen p{margin:0;color:#68746c;font-size:14px}
+.boot-content{box-sizing:border-box;width:min(760px,calc(100% - 32px));margin:32px auto;padding:clamp(20px,4vw,40px);border:2px solid #27322f;border-radius:18px;background:#fffdf6;line-height:1.8;overflow-wrap:anywhere}
+.boot-content h1{font:700 clamp(28px,5vw,48px)/1.2 system-ui,sans-serif;letter-spacing:-.03em}
+.boot-content a{color:#84362c}
+.boot-content a:focus-visible{outline:3px solid #216546;outline-offset:3px}
+</style>`
+
+// Restore the readable page if the module fails to start.
+const bootScript = `<script>document.documentElement.classList.add('app-booting');setTimeout(function(){document.documentElement.classList.remove('app-booting')},12000)</script>`
+
 export function seoPlugin(): Plugin {
   let base = '/'
   function renderPage(template: string, pathname: string): string {
@@ -30,7 +49,8 @@ export function seoPlugin(): Plugin {
       .replace(/<meta property="og:title" content="[^"]*"\s*\/>/, `<meta property="og:title" content="${escapeHtml(title)}" />`)
       .replace(/<meta property="og:description" content="[^"]*"\s*\/>/, `<meta property="og:description" content="${escapeHtml(description)}" />`)
       .replace('</head>', `${alternates}<link rel="canonical" href="${escapeHtml(url)}" /><meta name="robots" content="index, follow" /><meta property="og:type" content="website" /><meta property="og:site_name" content="Orchard Arcade" /><meta property="og:locale" content="${english ? 'en_US' : 'zh_TW'}" /><meta property="og:url" content="${escapeHtml(url)}" /><meta name="twitter:card" content="summary" /><meta name="twitter:title" content="${escapeHtml(title)}" /><meta name="twitter:description" content="${escapeHtml(description)}" /></head>`)
-      .replace('<div id="root"></div>', `<div id="root">${content}</div>`)
+      .replace('</head>', `${bootStyles}${bootScript}</head>`)
+      .replace('<div id="root"></div>', `<div id="root"><div class="boot-screen" role="status" aria-live="polite"><span aria-hidden="true">✦</span><p>${english ? 'Preparing the arcade…' : '正在準備遊戲廳…'}</p></div><div class="boot-content">${content}</div></div>`)
   }
 
   return {
