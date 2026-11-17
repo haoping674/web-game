@@ -145,11 +145,12 @@ export default function SlideTenGame({ globalSettings, onProgressChange, platfor
           </div>
         ) : (
           <div className="slide-play" onKeyDown={(event) => {
+            if (event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
             if (event.key === 'Escape' && playing) { event.preventDefault(); pause(); return }
             const direction = KEY_DIRECTIONS[event.key]
             if (direction && selected !== null && playing) { event.preventDefault(); move(selected, direction) }
           }}>
-            <div className="play-topbar"><div className="play-identity"><strong>{translate("滑滑湊十")}</strong><span className="mode-chip">SLIDE TEN</span></div><button type="button" className="text-button compact" onClick={() => { pause(); setHelpOpen(true) }}>{translate("玩法說明")}</button></div>
+            <div className="play-topbar"><div className="play-identity"><h1 className="game-play-title">{translate("滑滑湊十")}</h1><span className="mode-chip">SLIDE TEN</span></div><button type="button" className="text-button compact" onClick={() => { pause(); setHelpOpen(true) }}>{translate("玩法說明")}</button></div>
             <div className="hud slide-hud">
               <div><span>{translate("消除顆數")}</span><strong data-testid="slide-score">{game.score}</strong></div>
               <div className="slide-matches"><span>{translate("消除次數")}</span><strong>{game.pairs}{translate(" 次")}</strong></div>

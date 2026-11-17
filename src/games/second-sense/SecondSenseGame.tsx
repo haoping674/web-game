@@ -83,7 +83,7 @@ export default function SecondSenseGame({ globalSettings, onProgressChange, plat
     const interrupt = () => cancelRound(translate('這局已取消，不計成績。準備好就再來一次。'))
     const visibility = () => { if (document.visibilityState === 'hidden') interrupt() }
     const keydown = (event: KeyboardEvent) => {
-      if (platformSettingsOpen) return
+      if (platformSettingsOpen || event.defaultPrevented || event.isComposing || event.keyCode === 229) return
       if (event.code === 'Escape') { interrupt(); return }
       const element = event.target as HTMLElement | null
       if (event.code !== 'Space' || event.altKey || event.ctrlKey || event.metaKey || element?.closest('input, select, textarea, a, [contenteditable="true"], button:not(.sense-button), [role="dialog"]')) return

@@ -253,7 +253,7 @@ export function GameBoard({ board, onSelectionEnd, disabled = false, hint = null
     : { gridColumn: keyboardPoint.column + 1, gridRow: keyboardPoint.row + 1 }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (disabled || multiPointerBlockedRef.current) return
+    if (disabled || multiPointerBlockedRef.current || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
     const movement: Record<string, GridPoint> = isPortrait
       ? { ArrowUp: { row: 0, column: -1 }, ArrowDown: { row: 0, column: 1 }, ArrowLeft: { row: -1, column: 0 }, ArrowRight: { row: 1, column: 0 } }
       : { ArrowUp: { row: -1, column: 0 }, ArrowDown: { row: 1, column: 0 }, ArrowLeft: { row: 0, column: -1 }, ArrowRight: { row: 0, column: 1 } }

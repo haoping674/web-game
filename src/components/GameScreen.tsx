@@ -196,7 +196,7 @@ export function GameScreen({ game, dispatch, settings, tutorialOpen, onPause, on
   return (
     <section className="play-screen" inert={paused} aria-hidden={paused}>
       <header className="play-topbar">
-        <div className="play-identity"><div className="brand-lockup"><span className="brand-mark" aria-hidden="true">✦</span><span>Orchard Ten</span></div><span className={`mode-chip mode-${game.mode}`}>{translate(modeDetails.label)} · {translate(modeDetails.englishLabel)}</span></div>
+        <div className="play-identity"><h1 className="brand-lockup game-play-title"><span className="brand-mark" aria-hidden="true">✦</span><span>Orchard Ten</span></h1><span className={`mode-chip mode-${game.mode}`}>{translate(modeDetails.label)} · {translate(modeDetails.englishLabel)}</span></div>
         <div><button type="button" className="text-button compact" disabled={paused} onClick={onOpenSettings}>{translate("設定")}</button><button type="button" className="text-button compact" disabled={paused} onClick={onRestart}>{translate("重新開始")}</button></div>
       </header>
       <section className="hud" aria-label={translate("遊戲資訊")}>

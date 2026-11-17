@@ -297,7 +297,7 @@ export default function ColorLinksGame({
       <header className="color-game-topbar">
         <div>
           <p className="eyebrow">COLOR SIGNAL</p>
-          <strong>Color Links</strong>
+          <h1 className="game-play-title">Color Links</h1>
         </div>
         <button type="button" className="text-button compact" disabled={paused} onClick={restartGame}>{translate(" 重新開始 ")}</button>
       </header>

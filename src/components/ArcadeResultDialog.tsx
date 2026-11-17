@@ -21,30 +21,18 @@ export function ArcadeResultDialog({ result, onReplay, onClose, onHome, children
 }) {
   const [shareOpen, setShareOpen] = useState(false)
   const shareButton = useRef<HTMLButtonElement>(null)
-  const layerRef = useRef<HTMLDivElement>(null)
   const share = useShareResult(result)
   const { preparePreview } = share
   const english = result.locale === 'en'
   const theme = RESULT_THEMES[result.gameId]
   useEffect(() => { void preparePreview() }, [preparePreview])
-  useEffect(() => {
-    const background = Array.from(document.body.children)
-      .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== layerRef.current)
-      .map(element => ({ element, inert: element.inert, hidden: element.getAttribute('aria-hidden') }))
-    background.forEach(({ element }) => { element.inert = true; element.setAttribute('aria-hidden', 'true') })
-    return () => background.forEach(({ element, inert, hidden }) => {
-      element.inert = inert
-      if (hidden === null) element.removeAttribute('aria-hidden')
-      else element.setAttribute('aria-hidden', hidden)
-    })
-  }, [])
   const closeShare = useCallback(() => {
     setShareOpen(false)
     requestAnimationFrame(() => shareButton.current?.focus())
   }, [])
 
-  return createPortal(<div className="arcade-result-layer" ref={layerRef}>
-    <div aria-hidden={shareOpen || undefined} inert={shareOpen}>
+  return createPortal(<div className="arcade-result-layer">
+    <div>
     <OverlayDialog label={label ?? (english ? 'Round results' : '本局結算')} onClose={onClose}>
       <div className="arcade-result" style={{ '--result-accent': theme.accent, '--result-tint': theme.tint } as CSSProperties}>
         <p className="eyebrow">{result.gameName}</p>

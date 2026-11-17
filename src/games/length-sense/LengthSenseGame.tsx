@@ -87,7 +87,7 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
 
   useEffect(() => {
     const visibility = () => { if (document.visibilityState === 'hidden') cancel() }
-    const keys = (event: KeyboardEvent) => { if (event.code === 'Escape') cancel() }
+    const keys = (event: KeyboardEvent) => { if (!event.defaultPrevented && !event.isComposing && event.keyCode !== 229 && !platformSettingsOpen && event.code === 'Escape') cancel() }
     document.addEventListener('visibilitychange', visibility)
     window.addEventListener('orchard-arcade:settings-open', cancel)
     window.addEventListener('blur', cancel)
@@ -116,7 +116,7 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
       window.removeEventListener('keydown', keys)
       observer?.disconnect()
     }
-  }, [cancel])
+  }, [cancel, platformSettingsOpen])
 
   useEffect(() => { if (platformSettingsOpen) cancel() }, [platformSettingsOpen, cancel])
   useEffect(() => { if (!globalSettings.soundEnabled) audio.current?.stop() }, [globalSettings.soundEnabled])

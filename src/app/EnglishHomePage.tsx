@@ -16,7 +16,7 @@ export function EnglishHomePage({ data, onNavigate, onSettings }: {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All games')
   const games = ENGLISH_GAME_IDS.filter(id => filter === 'All games' || CATEGORIES[id] === filter)
   return <main className="platform-shell home-shell arcade-home">
-    <a className="home-skip-link" href="#game-library">Skip to games</a>
+    <a className="home-skip-link" href="#game-library-title">Skip to games</a>
     <AppHeader onSettings={onSettings} />
     <section className="home-hero">
       <div className="home-hero-copy">
@@ -28,7 +28,7 @@ export function EnglishHomePage({ data, onNavigate, onSettings }: {
       <div className="arcade-preview" aria-hidden="true"><div className="arcade-window-bar">ORCHARD TEN</div><div className="arcade-window-body"><div className="arcade-score"><strong>Find a little joy.<br />Make 10.</strong></div><div className="arcade-fruit-board">{[4, 6, 3, 7, 2, 8, 1, 9, 5, 5, 3, 2, 4, 6, 1, 9, 7, 3, 5, 2, 8, 4, 6, 1, 9].map((value, i) => <span key={i} className={`arcade-fruit fruit-tone-${i % 4}`}>{value}</span>)}</div></div></div>
     </section>
     <section id="game-library" className="home-library-heading">
-      <h2>Pick your next game</h2>
+      <h2 id="game-library-title" tabIndex={-1}>Pick your next game</h2>
       <div className="home-filters" role="group" aria-label="Game categories">{FILTERS.map(category => <button type="button" key={category} aria-pressed={filter === category} onClick={() => setFilter(category)}>{category}</button>)}</div>
     </section>
     <section className="game-choice-grid" aria-label="Games available in English">

@@ -1,8 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@500;700;900&family=Outfit:wght@500;600;700;800;900&display=swap');
-
 :root { --ink:#27322f; --muted:#68746c; --paper:#fffdf6; --canvas:#e8f0dc; --board:#f8f4e6; --line:#dfd8bf; --accent:#b44c3c; --accent-dark:#84362c; --mint:#d1e8c7; --radius:18px; --shadow:0 12px 0 #cbd8b9; --fast:180ms; --game-safe-inline:max(12px,env(safe-area-inset-left)); --game-safe-inline-end:max(12px,env(safe-area-inset-right)); --game-safe-bottom:max(16px,env(safe-area-inset-bottom)); }
 * { box-sizing:border-box; }
-body { margin:0; min-width:320px; overflow-x:hidden; background:var(--canvas); color:var(--ink); font-family:'Noto Sans TC',sans-serif; }
+body { margin:0; min-width:320px; background:var(--canvas); color:var(--ink); font-family:'Noto Sans TC',sans-serif; }
 button,input,select { font:inherit; } button { cursor:pointer; } button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid #216546; outline-offset:3px; }
 .app-shell { min-height:100vh; min-height:100dvh; padding:max(clamp(18px,4vw,52px), env(safe-area-inset-top)) max(clamp(18px,4vw,52px), env(safe-area-inset-right)) max(clamp(18px,4vw,52px), env(safe-area-inset-bottom)) max(clamp(18px,4vw,52px), env(safe-area-inset-left)); display:grid; place-items:center; background-image:radial-gradient(#cfddbd 1px,transparent 1px); background-size:18px 18px; }
 .game-card { width:min(100%,1000px); background:var(--paper); border:2px solid var(--ink); border-radius:var(--radius); padding:clamp(18px,3vw,38px); box-shadow:var(--shadow); }
@@ -243,6 +241,28 @@ h1,h2,.platform-wordmark,.game-card-copy h2,.mode-summary strong,.score-snapshot
 }
 html[lang='en'] .platform-header-actions a {
   white-space: nowrap;
+}
+
+/* Modern platform improvements preserve each game's board geometry. */
+.game-play-title { margin:0; font:inherit; letter-spacing:normal; }
+.brand-lockup.game-play-title { font-size:14px; font-weight:900; }
+.color-game-topbar .game-play-title { font:700 24px var(--display-font); }
+.slide-play .game-play-title { font:700 16px var(--body-font); }
+.dialog { overscroll-behavior:contain; overflow-wrap:break-word; }
+.dialog-backdrop { padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left)); }
+.dialog { max-height:calc(100vh - 40px); max-height:calc(100dvh - max(20px,env(safe-area-inset-top)) - max(20px,env(safe-area-inset-bottom))); }
+.ash-game :is(summary,[tabindex]):focus-visible { outline-color:#eac68b; }
+summary:focus-visible,textarea:focus-visible,[tabindex]:focus-visible { outline:3px solid #216546; outline-offset:3px; }
+@media (max-width:560px) {
+  .color-game-topbar .game-play-title { font-size:19px; }
+  .play-topbar .game-play-title span:last-child { display:block; position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+}
+@media (max-height:620px) and (orientation:landscape) {
+  .color-game-topbar { display:flex; }
+  .color-game-topbar .game-play-title { font-size:16px; }
+}
+@media (pointer:coarse) {
+  button.icon-button,button.text-button.compact,.dialog-close,.language-switch-option,.settings-list select,.settings-list label,.dialog summary { min-height:44px; min-width:44px; }
 }
 
 html[lang='en'] .game-route-shell:has(.dialog-backdrop) > .platform-header {

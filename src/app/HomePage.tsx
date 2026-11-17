@@ -110,7 +110,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
 
   return (
     <main className={`platform-shell home-shell arcade-home${data.globalSettings.reducedMotion || data.globalSettings.effectIntensity !== 'full' ? ' home-reduced-motion' : ''}`}>
-      <a className="home-skip-link" href="#game-library">跳到遊戲列表</a>
+      <a className="home-skip-link" href="#game-library-title">跳到遊戲列表</a>
       <AppHeader onSettings={onSettings} />
       <section className="home-hero">
         <div className="home-hero-copy">
@@ -123,7 +123,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
         <ArcadePreview />
       </section>
       <section id="game-library" className="home-library-heading" aria-labelledby="game-library-title">
-        <div><p className="eyebrow">PICK YOUR NEXT LITTLE JOY</p><h2 id="game-library-title">今天，想玩哪一種？<span>{String(GAME_REGISTRY.length).padStart(2, '0')} 款小遊戲</span></h2></div>
+        <div><p className="eyebrow">PICK YOUR NEXT LITTLE JOY</p><h2 id="game-library-title" tabIndex={-1}>今天，想玩哪一種？<span>{String(GAME_REGISTRY.length).padStart(2, '0')} 款小遊戲</span></h2></div>
         <button type="button" className="home-leaderboard-button" onClick={() => setLeaderboardOpen(true)}>線上排行榜 <span aria-hidden="true">↗</span></button>
         <div className="home-filters" role="group" aria-label="遊戲分類">{FILTERS.map((item) => <button key={item} type="button" aria-pressed={filter === item} onClick={() => setFilter(item)}>{item}{item === '全部遊戲' ? <span>{String(GAME_REGISTRY.length).padStart(2, '0')}</span> : null}</button>)}</div>
       </section>

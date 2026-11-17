@@ -84,7 +84,7 @@
 @media (max-height: 560px) and (orientation: landscape) {
   .slide-ten-shell { padding: 8px 12px; }
   .slide-ten-card { padding: 10px 14px; }
-  .slide-play .play-topbar { display: none; }
+  .slide-play .play-topbar { min-height:28px; margin-bottom:4px; }
   .slide-hud { padding: 5px 0; margin-bottom: 7px; }
   .slide-capacity { margin-bottom: 6px; }
   .slide-board-frame { width: min(100%, calc((100dvh - 220px) * 17 / 10)); }

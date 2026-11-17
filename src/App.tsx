@@ -10,6 +10,7 @@ import { GAME_REGISTRY } from './app/gameRegistry'
 import { updatePageMetadata } from './app/seoDocument'
 import { HOME_ROUTE, navigate, useAppPathname } from './app/router'
 import { AppHeader } from './shared/components/AppHeader'
+import { useRouteFocus } from './app/useRouteFocus'
 import { PlatformSettingsDialog } from './shared/components/PlatformSettingsDialog'
 import { readAppStorage, saveAppStorage, type AppStorage, type GlobalSettings } from './shared/storage/appStorage'
 import './index.css'
@@ -62,6 +63,7 @@ function RouteLoading() {
 
 function App() {
   const [fullPathname, navigateTo] = useAppPathname()
+  useRouteFocus(fullPathname)
   const locale = localeFromPath(fullPathname)
   const pathname = withoutLocale(fullPathname)
   const go = useCallback((route: string) => navigateTo(localizedPath(route, locale)), [navigateTo, locale])
@@ -107,7 +109,14 @@ function App() {
       {pathname === HOME_ROUTE ? (
         locale === 'en' ? <EnglishHomePage data={storage} onNavigate={go} onSettings={openSettings} /> : <HomePage data={storage} onNavigate={go} onSettings={openSettings} />
       ) : (
-        <main className="platform-shell game-route-shell">
+        <main id="game-content" className="platform-shell game-route-shell">
+          <a className="home-skip-link" href="#game-content" onClick={(event) => {
+            const heading = event.currentTarget.closest('main')?.querySelector('h1')
+            if (!heading) return
+            event.preventDefault()
+            heading.tabIndex = -1
+            heading.focus()
+          }}>{locale === 'en' ? 'Skip to game' : '跳到遊戲'}</a>
           <AppHeader compact onHome={returnHome} onSettings={openSettings} />
           <RouteErrorBoundary key={fullPathname} onHome={returnHome}>
             <Suspense fallback={<RouteLoading />}>
