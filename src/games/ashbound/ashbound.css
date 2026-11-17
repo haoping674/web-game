@@ -1,9 +1,9 @@
 .ash-game { --ash-ink: #e4decc; --ash-muted: #a0aca0; --ash-gold: #d8b47d; --ash-line: #3b4540; color: var(--ash-ink); background: #121b1a; width: min(1180px, 100%); margin: 18px auto 0; padding: 32px; border-radius: 4px; font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; color-scheme: dark; }
 .ash-game * { box-sizing: border-box; }
-.ash-game button { font: inherit; color: inherit; cursor: pointer; background: transparent; border: 1px solid var(--ash-line); border-radius: 2px; min-height: 44px; padding: 12px 16px; transition: background .15s, border-color .15s; }
-.ash-game button:hover:not(:disabled) { border-color: var(--ash-gold); background: #29312a; }
-.ash-game button:focus-visible { outline: 3px solid #eac68b; outline-offset: 4px; }
-.ash-game button:disabled { cursor: not-allowed; opacity: .48; }
+.ash-game button:where(:not(.dialog button)) { font: inherit; color: inherit; cursor: pointer; background: transparent; border: 1px solid var(--ash-line); border-radius: 2px; min-height: 44px; padding: 12px 16px; transition: background .15s, border-color .15s; }
+.ash-game button:where(:not(.dialog button)):hover:not(:disabled) { border-color: var(--ash-gold); background: #29312a; }
+.ash-game button:where(:not(.dialog button)):focus-visible { outline: 3px solid #eac68b; outline-offset: 4px; }
+.ash-game button:where(:not(.dialog button)):disabled { cursor: not-allowed; opacity: .48; }
 .ash-game h1, .ash-game h2, .ash-game h3, .ash-game p { margin: 0; }
 .ash-game h1, .ash-game h2, .ash-game h3 { font-family: Georgia, 'Noto Serif TC', 'PMingLiU', serif; }
 .ash-overline { font: 10px/1.6 'Courier New', monospace; letter-spacing: .16em; color: var(--ash-gold); }
@@ -124,7 +124,7 @@
 .ash-log .latest { color: var(--ash-ink) !important; }
 .ash-log span { padding-right: 10px; color: var(--ash-gold); }
 .ash-help { padding-left: 22px; line-height: 1.8; font-size: 14px; }.ash-help li { margin-bottom: 12px; }
-.ash-game .dialog { color-scheme: light; color: #253325; }.ash-game .dialog button { color: #253325; }.ash-game .dialog .primary-button { background: #d8b47d; }
+.ash-game .dialog { --dialog-primary: #d8b47d; --dialog-primary-hover: #c6a16a; --dialog-primary-ink: #253325; }
 
 @media (max-width: 900px) {
   .ash-game { padding: 24px; }.ash-camp { gap: 24px; grid-template-columns: .75fr 1.25fr; }.ash-camp-art { padding-right: 16px; }.ash-expedition { grid-template-columns: 190px 1fr; }.ash-stage { padding: 22px; }.ash-character { padding: 20px 14px; }.ash-doors { gap: 12px; }.ash-skills { gap: 5px; }.ash-game .ash-skills button { padding: 12px 8px; }
@@ -132,8 +132,8 @@
 @media (max-width: 640px) {
   .ash-game { padding: 18px 14px; margin-top: 10px; }.ash-heading { gap: 10px; padding-bottom: 18px; }.ash-heading h1 { font-size: 25px; }.ash-overline { font-size: 9px; letter-spacing: .1em; }.ash-heading .ash-small { padding: 8px; font-size: 10px; flex-shrink: 0; }.ash-camp { display: block; padding: 25px 0; }.ash-camp-art { display: none; }.ash-camp-copy h2 { font-size: 38px; }.ash-expedition { display: flex; flex-direction: column; }.ash-character { border-right: 0; border-bottom: 1px solid var(--ash-line); padding: 18px; }.ash-character > .ash-overline { display: none; }.ash-character h2 { margin: 0 0 12px; font-size: 23px; }.ash-attributes { padding: 12px 0 5px; }.ash-attributes span { display: flex; align-items: center; gap: 10px; }.ash-attributes strong { font-size: 18px; }.ash-game .ash-xp { padding-bottom: 8px; }.ash-equipment { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding-top: 5px; }.ash-equipment > .ash-overline { display: none; }.ash-equipment > div { border: 0; padding: 8px 0; }.ash-equipment strong { font-size: 10px; }.ash-gear-values { font-size: 9px; }.ash-game .ash-retire { margin-top: 7px; min-height: 44px; padding: 5px 10px; font-size: 10px; }.ash-stage { padding: 22px 16px; }.ash-stage h2 { font-size: 23px; }.ash-doors { margin-top: 22px; }.ash-game .ash-doors button { padding: 26px 12px 16px; }.ash-doors h3 { font-size: 18px; }.ash-doors p { font-size: 10px; min-height: 54px; }.ash-door-icon { font-size: 54px; margin: 20px 0; }.ash-depth { gap: 10px; font-size: 10px; }.ash-depth strong { font-size: 24px; padding: 0 3px; }.ash-depth > div { gap: 7px; }.ash-skills { grid-template-columns: repeat(2, 1fr); gap: 8px; }.ash-skills button:first-child { grid-column: 1 / -1; }.ash-game .ash-skills button { padding: 14px; }.ash-skill-icon { display: none; }.ash-skills strong { margin-bottom: 6px; }.ash-cooldown { margin-top: 8px; }.ash-skills small { font-size: 11px; }.ash-skillbar-label { flex-direction: column; gap: 5px; }.ash-effigy { height: 235px; }.ash-log { grid-template-columns: 1fr; gap: 8px; }.ash-footer { flex-direction: column; gap: 4px; }.ash-loot-comparison > div { padding: 15px 10px; }.ash-loot-comparison h3 { font-size: 15px; }.ash-choice-panel { gap: 17px; }.ash-ending h2 { font-size: 21px; }.ash-end-stats { gap: 25px; }
 }
-@media (prefers-reduced-motion: reduce) { .ash-game button { transition: none; } }
-:root[data-effect-intensity='off'] .ash-game button, :root[data-effect-intensity='reduced'] .ash-game button { transition: none; }
+@media (prefers-reduced-motion: reduce) { .ash-game button:where(:not(.dialog button)) { transition: none; } }
+:root[data-effect-intensity='off'] .ash-game button:where(:not(.dialog button)), :root[data-effect-intensity='reduced'] .ash-game button:where(:not(.dialog button)) { transition: none; }
 
 .ash-combat-readout:empty { display: none; }
 .ash-combat-readout { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 12px; margin-bottom: 10px; background: #253129; border-left: 2px solid var(--ash-gold); font-size: 11px; color: var(--ash-muted); }

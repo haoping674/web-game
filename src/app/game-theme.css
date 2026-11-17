@@ -187,11 +187,65 @@
   box-shadow: none;
 }
 .game-route-shell .leaderboard-panel { border-top-color: #d6dccd; }
-.game-route-shell .dialog {
+/* Dialogs own their platform theme, including those mounted outside a game
+   (shared settings and result/share portals). Game scenes keep their own theme. */
+.dialog-backdrop {
+  --ink: #293d30;
+  --muted: #6c7568;
+  --paper: #fffdf5;
+  --line: #d6dccd;
+  --accent: #264e3b;
+  --accent-dark: #193d2a;
+  --dialog-primary: #264e3b;
+  --dialog-primary-hover: #37664d;
+  --dialog-primary-ink: #fffdf3;
+  color: var(--ink);
+  color-scheme: light;
+}
+.dialog-backdrop .dialog {
   border: 1px solid #cbd4bf;
   border-radius: 18px;
-  background: #fffdf5;
+  background: var(--paper);
   box-shadow: 0 6px 0 #dce2d0;
+  font-family: var(--body-font);
+}
+.dialog-backdrop .dialog .primary-button {
+  min-height: 48px;
+  border: 1px solid var(--dialog-primary);
+  border-radius: 9px;
+  background: var(--dialog-primary);
+  color: var(--dialog-primary-ink);
+  box-shadow: 0 4px 0 #193d2a;
+  transition: transform 180ms, background 180ms, box-shadow 180ms;
+}
+.dialog-backdrop .dialog .primary-button:hover:not(:disabled) {
+  background: var(--dialog-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #193d2a;
+}
+.dialog-backdrop .dialog .primary-button:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #193d2a;
+}
+.dialog-backdrop .dialog .quiet-button {
+  border: 1px solid var(--muted);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.dialog-backdrop .dialog :is(.text-button, .dialog-close, .quiet-button):hover:not(:disabled) {
+  background: #eef1e3;
+  color: #264e3b;
+}
+.dialog-backdrop .dialog :is(button, summary, input, select, a):focus-visible {
+  outline: 3px solid #216546;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog-backdrop .dialog .primary-button { transition: none; }
+}
+@media (forced-colors: active) {
+  .dialog-backdrop .dialog :is(button, summary, input, select, a):focus-visible { outline-color: Highlight; }
 }
 .game-route-shell .second-sense { --sense-ink: #293d30; --sense-muted: #6c7568; margin-block: 32px; }
 .game-route-shell .sense-play { border-color: #cbd4bf; border-radius: 18px; background: #fffdf5; }
