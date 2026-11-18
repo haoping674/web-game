@@ -17,7 +17,7 @@ describe('SEO metadata during client navigation', () => {
     expect(document.title).toBe('Color Links｜限時色塊消除｜有空再來玩')
     expect(document.querySelector('meta[property="og:url"]')?.getAttribute('content')).toBe('https://games.haoping.tw/games/color-links')
     updatePageMetadata('/')
-    expect(document.title).toBe('免費線上遊戲，手機也能玩｜有空再來玩')
+    expect(document.title).toBe('免費網頁小遊戲，免下載直接玩｜有空再來玩')
     expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://games.haoping.tw/')
     expect(document.querySelector('meta[name="twitter:description"]')?.getAttribute('content')).toContain('七款')
   })

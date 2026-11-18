@@ -38,8 +38,11 @@ for (const url of urls) {
   assert.equal(document.querySelector('meta[property="og:title"]')?.content, document.title, file)
   assert.equal(document.querySelector('meta[name="twitter:title"]')?.content, document.title, file)
   if (pathname === '/' || pathname === '/en') {
-    assert.equal(heading, siteName, file)
-    assert.deepEqual(titleParts, [english ? 'Free Browser Games' : '免費線上遊戲，手機也能玩', siteName], file)
+    assert.equal(heading, english ? siteName : '免費網頁小遊戲，挑一款就開玩', file)
+    assert.deepEqual(titleParts, [english ? 'Free Browser Games' : '免費網頁小遊戲，免下載直接玩', siteName], file)
+    if (!english) {
+      assert.ok(document.querySelector('meta[name="description"]').content.includes('免費網頁小遊戲'), file)
+    }
   } else {
     assert.equal(titleParts.length, 3, file)
     assert.equal(titleParts[0], heading, file)

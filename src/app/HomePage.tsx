@@ -4,6 +4,7 @@ import { GAME_REGISTRY, type GameDefinition } from './gameRegistry'
 import type { AppStorage } from '../shared/storage/appStorage'
 import { AppHeader } from '../shared/components/AppHeader'
 import { SITE_NAMES } from './locale'
+import { CHINESE_HOME_HEADING, CHINESE_HOME_INTRO } from './seo'
 import './home.css'
 
 const GAME_CATEGORIES = { lengthSense: '憑感覺', secondSense: '憑感覺', fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險' } as const
@@ -116,8 +117,8 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
       <section className="home-hero">
         <div className="home-hero-copy">
           <p className="eyebrow"><span className="home-status-dot" /> YOUR LITTLE PLAY BREAK</p>
-          <h1>把日常暫停，<br /><em>快樂玩一下。</em></h1>
-          <p className="home-intro">收一籃水果、養一座小島，或來一場地城冒險。<br className="home-desktop-break" />留一點時間，給單純的快樂。</p>
+          <h1>{CHINESE_HOME_HEADING[0]}<br /><em>{CHINESE_HOME_HEADING[1]}</em></h1>
+          <p className="home-intro">{CHINESE_HOME_INTRO[0]}<br className="home-desktop-break" />{CHINESE_HOME_INTRO[1]}</p>
           <div className="home-hero-actions"><button type="button" className="home-play-button" onClick={() => onNavigate('/games/fruit-sum')}>來玩 Orchard Ten <span aria-hidden="true">↗</span></button><a href="#game-library">逛逛遊戲廳 <span aria-hidden="true">↓</span></a></div>
           <p className="home-hero-note"><span>✦</span> 打開就能玩 <i /> 進度自動存於本機</p>
         </div>

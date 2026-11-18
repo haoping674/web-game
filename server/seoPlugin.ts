@@ -3,7 +3,7 @@ import { ENGLISH_GAME_IDS, ENGLISH_GAMES, localizedPath, SITE_NAMES } from '../s
 import { GAME_GUIDES } from '../src/app/gameGuides.ts'
 import type { Plugin } from 'vite'
 import { GAME_REGISTRY } from '../src/app/gameRegistry.ts'
-import { pageMetadata, SITE_ORIGIN, languageAlternates } from '../src/app/seo.ts'
+import { CHINESE_HOME_HEADING, pageMetadata, SITE_ORIGIN, languageAlternates } from '../src/app/seo.ts'
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
@@ -36,7 +36,7 @@ export function seoPlugin(): Plugin {
     // Public content is served to every user agent; React replaces it on mount.
     const english = locale === 'en'
     const games = GAME_REGISTRY.filter(entry => !english || ENGLISH_GAME_IDS.some(id => id === entry.id))
-    const name = game ? (english ? ENGLISH_GAMES[game.id as keyof typeof ENGLISH_GAMES].name : game.name) : siteName
+    const name = game ? (english ? ENGLISH_GAMES[game.id as keyof typeof ENGLISH_GAMES].name : game.name) : english ? siteName : CHINESE_HOME_HEADING.join('')
     const guide = game ? (english ? ENGLISH_GUIDES[game.id as keyof typeof ENGLISH_GUIDES] : GAME_GUIDES[game.id]) : null
     const headings = english ? ['Controls', 'Rules', 'Scoring and records', 'Try this'] : ['操作方式', '遊戲規則', '計分與紀錄', '試試這個方法']
     const guideHtml = guide ? `<section aria-label="${english ? 'Play guide' : '遊玩指南'}"><h2>${escapeHtml(name)}${english ? ' play guide' : '遊玩指南'}</h2><p>${escapeHtml(guide.goal)}</p>${[[headings[0]!, guide.controls], [headings[1]!, guide.rules], [headings[2]!, guide.scoring], [headings[3]!, guide.tip]].map(([heading, text]) => `<h3>${escapeHtml(heading)}</h3><p>${escapeHtml(text)}</p>`).join('')}</section>` : ''

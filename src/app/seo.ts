@@ -2,9 +2,11 @@ import { localeFromPath, withoutLocale, ENGLISH_GAMES, ENGLISH_GAME_IDS, localiz
 import { GAME_REGISTRY, type GameId } from './gameRegistry.ts'
 
 export const SITE_ORIGIN = 'https://games.haoping.tw'
-export const SITE_DESCRIPTION = '有空再來玩有七款手機也能玩的免費線上遊戲。估長度、猜秒數、玩數字和色彩益智，或養一座小島、闖進暗黑地城。打開就能玩，進度儲存於本機。'
+export const CHINESE_HOME_HEADING = ['免費網頁小遊戲，', '挑一款就開玩'] as const
+export const CHINESE_HOME_INTRO = ['估長度、猜秒數、湊十、養小島或闖地城。', '手機和電腦打開瀏覽器就能玩。'] as const
+export const SITE_DESCRIPTION = `${SITE_NAMES['zh-Hant']}收錄七款免下載的免費網頁小遊戲。${CHINESE_HOME_INTRO.join('')}`
 
-const HOME_TITLES = { 'zh-Hant': '免費線上遊戲，手機也能玩', en: 'Free Browser Games' }
+const HOME_TITLES = { 'zh-Hant': '免費網頁小遊戲，免下載直接玩', en: 'Free Browser Games' }
 
 const CHINESE_GAME_SUBTITLES: Record<GameId, string> = {
   lengthSense: '目測長度挑戰',
