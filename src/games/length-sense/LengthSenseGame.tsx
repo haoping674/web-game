@@ -38,6 +38,11 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
   const round = useRef(0)
   useGameActivity(phase === 'adjusting' && dirty)
 
+  const interruptDrag = useCallback(() => {
+    setDragging(false)
+    audio.current?.stop()
+  }, [])
+
   const cancel = useCallback(() => {
     if (!roundOpen.current) return
     roundOpen.current = false
@@ -86,11 +91,11 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
   }
 
   useEffect(() => {
-    const visibility = () => { if (document.visibilityState === 'hidden') cancel() }
+    const visibility = () => { if (document.visibilityState === 'hidden') interruptDrag() }
     const keys = (event: KeyboardEvent) => { if (!event.defaultPrevented && !event.isComposing && event.keyCode !== 229 && !platformSettingsOpen && event.code === 'Escape') cancel() }
     document.addEventListener('visibilitychange', visibility)
     window.addEventListener('orchard-arcade:settings-open', cancel)
-    window.addEventListener('blur', cancel)
+    window.addEventListener('blur', interruptDrag)
     window.addEventListener('keydown', keys)
     const rail = railRef.current
     let width = rail?.getBoundingClientRect().width ?? 0
@@ -112,11 +117,11 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
     return () => {
       document.removeEventListener('visibilitychange', visibility)
       window.removeEventListener('orchard-arcade:settings-open', cancel)
-      window.removeEventListener('blur', cancel)
+      window.removeEventListener('blur', interruptDrag)
       window.removeEventListener('keydown', keys)
       observer?.disconnect()
     }
-  }, [cancel, platformSettingsOpen])
+  }, [cancel, interruptDrag, platformSettingsOpen])
 
   useEffect(() => { if (platformSettingsOpen) cancel() }, [platformSettingsOpen, cancel])
   useEffect(() => { if (!globalSettings.soundEnabled) audio.current?.stop() }, [globalSettings.soundEnabled])
@@ -138,7 +143,7 @@ export default function LengthSenseGame({ globalSettings, onProgressChange, plat
             <div className="length-stage-heading" aria-live="polite"><span>{result ? translate(result.label) : <>{translate("目標 ")}<strong className="length-target-number">{target}</strong>{translate(" 公分")}</>}</span><p>{result ? translate('兩條線的起點相同，看看終點相差多少。') : phase === 'cancelled' ? translate('重新開始，再找一次剛剛好的長度。') : translate('拖曳線段下方的圓鈕，調整到你覺得剛好的長度。')}</p></div>
             <div className="length-workspace" ref={railRef}>
               <div className="length-anchor" aria-hidden="true"><span>{translate("起點")}</span></div>
-              {!result ? phase === 'adjusting' ? <><div className="length-adjustable-line" aria-label={translate("待確認的線段")} style={{ width: `${length * PX_PER_CM}px` }}><i /></div><div className="length-handle-guide" aria-hidden="true" style={{ left: `${length * PX_PER_CM}px` }} /><input ref={sliderRef} className="length-slider" type="range" min={0} max={maxLength} step={0.01} value={length} aria-label={translate("調整線段長度")} aria-valuetext={translate("長度保密，確認後揭曉")} aria-describedby="length-input-help" disabled={platformSettingsOpen} style={{ width: `${maxLength * PX_PER_CM + 44}px` }} onChange={(event) => { if (roundOpen.current && !platformSettingsOpen) { setLength(Number(event.currentTarget.value)); setDirty(true) } }} onPointerDown={(event) => { if (event.button === 0 && event.isPrimary !== false) setDragging(true) }} onPointerUp={() => setDragging(false)} onPointerCancel={cancel} onLostPointerCapture={() => setDragging(false)} onBlur={() => setDragging(false)} /></> : null : <div className="length-comparison" key={round.current} aria-label={translate("長度比較")}><div className="length-original" style={{ width: `${result.target * PX_PER_CM}px` }}><span>{translate("目標 ")}{result.target.toFixed(2)} cm</span><i /></div><div className="length-answer" style={{ width: `${result.guess * PX_PER_CM}px` }}><span>{translate("你的 ")}{result.guess.toFixed(2)} cm</span><i /></div><div className="length-gap" style={{ left: `${Math.min(result.target, result.guess) * PX_PER_CM}px`, width: `${Math.abs(result.delta) * PX_PER_CM}px` }} /></div>}
+              {!result ? phase === 'adjusting' ? <><div className="length-adjustable-line" aria-label={translate("待確認的線段")} style={{ width: `${length * PX_PER_CM}px` }}><i /></div><div className="length-handle-guide" aria-hidden="true" style={{ left: `${length * PX_PER_CM}px` }} /><input ref={sliderRef} className="length-slider" type="range" min={0} max={maxLength} step={0.01} value={length} aria-label={translate("調整線段長度")} aria-valuetext={translate("長度保密，確認後揭曉")} aria-describedby="length-input-help" disabled={platformSettingsOpen} style={{ width: `${maxLength * PX_PER_CM + 44}px` }} onChange={(event) => { if (roundOpen.current && !platformSettingsOpen) { setLength(Number(event.currentTarget.value)); setDirty(true) } }} onPointerDown={(event) => { if (event.button === 0 && event.isPrimary !== false) setDragging(true) }} onPointerUp={() => setDragging(false)} onPointerCancel={interruptDrag} onLostPointerCapture={() => setDragging(false)} onBlur={() => setDragging(false)} /></> : null : <div className="length-comparison" key={round.current} aria-label={translate("長度比較")}><div className="length-original" style={{ width: `${result.target * PX_PER_CM}px` }}><span>{translate("目標 ")}{result.target.toFixed(2)} cm</span><i /></div><div className="length-answer" style={{ width: `${result.guess * PX_PER_CM}px` }}><span>{translate("你的 ")}{result.guess.toFixed(2)} cm</span><i /></div><div className="length-gap" style={{ left: `${Math.min(result.target, result.guess) * PX_PER_CM}px`, width: `${Math.abs(result.delta) * PX_PER_CM}px` }} /></div>}
               {resultTier && resultTier !== 'retry' ? <div className="length-celebration" key={`burst-${round.current}`} aria-hidden="true">{Array.from({ length: QUALITY[resultTier] * 10 }, (_, index) => <i key={index} style={{ '--angle': `${index * 137.5}deg`, '--distance': `${65 + index % 4 * 28}px`, '--delay': `${index % 4 * 25}ms` } as CSSProperties} />)}<span>✦</span></div> : null}
             </div>
             <p className="length-input-help" id="length-input-help">{translate("拖曳下方圓鈕，線段不遮手 · ← → 微調 · 確認才結算 · Esc 取消")}</p>
