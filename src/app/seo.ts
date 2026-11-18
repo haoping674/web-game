@@ -1,27 +1,48 @@
-import { localeFromPath, withoutLocale, ENGLISH_GAMES, ENGLISH_GAME_IDS, localizedPath } from './locale.ts'
-import { GAME_REGISTRY } from './gameRegistry.ts'
+import { localeFromPath, withoutLocale, ENGLISH_GAMES, ENGLISH_GAME_IDS, localizedPath, SITE_NAMES } from './locale.ts'
+import { GAME_REGISTRY, type GameId } from './gameRegistry.ts'
 
 export const SITE_ORIGIN = 'https://games.haoping.tw'
-export const SITE_TITLE = 'Orchard Arcade｜免費線上遊戲'
-export const SITE_DESCRIPTION = 'Orchard Arcade 提供七款手機也能玩的免費線上遊戲：長感挑戰、秒感挑戰、滑滑湊十、灰燼墓誌、芽芽小島、Orchard Ten 與 Color Links。打開就能玩，進度儲存於本機。'
+export const SITE_DESCRIPTION = '有空再來玩有七款手機也能玩的免費線上遊戲。估長度、猜秒數、玩數字和色彩益智，或養一座小島、闖進暗黑地城。打開就能玩，進度儲存於本機。'
 
-const ENGLISH_TITLES = {
-  lengthSense: 'Length Sense – Test Your Eye for Length',
-  secondSense: 'Second Sense – Test Your Inner Clock',
-  fruitSum: 'Orchard Ten – Free Make 10 Number Puzzle',
-  colorLinks: 'Color Links – Free Color Matching Puzzle',
-  slideTen: 'Slide Ten – Free Sliding Number Puzzle',
+const HOME_TITLES = { 'zh-Hant': '免費線上遊戲，手機也能玩', en: 'Free Browser Games' }
+
+const CHINESE_GAME_SUBTITLES: Record<GameId, string> = {
+  lengthSense: '目測長度挑戰',
+  secondSense: '直覺計時挑戰',
+  slideTen: '滑動數字湊十',
+  ashbound: '回合制地城冒險',
+  sproutIsland: '小島合成養成',
+  fruitSum: '框選數字湊十',
+  colorLinks: '限時色塊消除',
+}
+
+const ENGLISH_GAME_SUBTITLES: Record<keyof typeof ENGLISH_GAMES, string> = {
+  lengthSense: 'Length Estimation Game',
+  secondSense: 'Timing Challenge',
+  fruitSum: 'Make 10 Number Puzzle',
+  colorLinks: 'Timed Color Matching Puzzle',
+  slideTen: 'Sliding Number Puzzle',
 }
 
 export function pageMetadata(pathname: string, base = '/') {
-  const game = GAME_REGISTRY.find((entry) => entry.route === withoutLocale(pathname))
   const locale = localeFromPath(pathname)
-  const english = game && Object.hasOwn(ENGLISH_GAMES, game.id) ? ENGLISH_GAMES[game.id as keyof typeof ENGLISH_GAMES] : null
+  const isEnglish = locale === 'en'
+  const game = GAME_REGISTRY.find((entry) => entry.route === withoutLocale(pathname))
+  const englishGameId = ENGLISH_GAME_IDS.find(id => id === game?.id)
+  const english = englishGameId ? ENGLISH_GAMES[englishGameId] : null
+  const siteName = SITE_NAMES[locale]
+  let titleParts = [HOME_TITLES[locale]]
+  if (isEnglish && english && englishGameId) {
+    titleParts = [english.name, ENGLISH_GAME_SUBTITLES[englishGameId]]
+  } else if (!isEnglish && game) {
+    titleParts = [game.name, CHINESE_GAME_SUBTITLES[game.id]]
+  }
   const route = localizedPath(game?.route ?? '/', locale)
   const path = `${base.replace(/\/$/, '')}${route}`
   return {
     locale,
-    title: locale === 'en' ? (game && english ? `${ENGLISH_TITLES[game.id as keyof typeof ENGLISH_TITLES]} | Orchard Arcade` : 'Free Browser Games – Orchard Arcade') : game ? `${game.name}｜Orchard Arcade` : SITE_TITLE,
+    siteName,
+    title: [...titleParts, siteName].join(isEnglish ? ' | ' : '｜'),
     description: locale === 'en' ? english?.description ?? 'Play five free browser games on your phone or desktop. Test your timing and visual estimation, or try number and color puzzles. No download needed.' : game?.description ?? SITE_DESCRIPTION,
     url: `${SITE_ORIGIN}${path}`,
     game,

@@ -1,7 +1,7 @@
 import { AppHeader } from '../shared/components/AppHeader'
 import type { AppStorage } from '../shared/storage/appStorage'
 import { GAME_REGISTRY } from './gameRegistry'
-import { ENGLISH_GAMES, ENGLISH_GAME_IDS } from './locale'
+import { ENGLISH_GAMES, ENGLISH_GAME_IDS, SITE_NAMES } from './locale'
 import { toAppUrl } from './router'
 import './home.css'
 
@@ -42,7 +42,7 @@ export function EnglishHomePage({ data, onNavigate, onSettings }: {
         </article>
       })}
     </section>
-    <footer className="platform-footer"><span>ORCHARD ARCADE</span><span>Progress saved on this device</span></footer>
+    <footer className="platform-footer"><span>{SITE_NAMES.en}</span><span>Progress saved on this device</span></footer>
   </main>
 }
 import { useState } from 'react'

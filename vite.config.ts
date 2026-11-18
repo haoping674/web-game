@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv } from 'vite'
 import { leaderboardPlugin } from './server/viteLeaderboard.ts'
 import { seoPlugin } from './server/seoPlugin.ts'
+import { SITE_NAMES } from './src/app/locale.ts'
+import { SITE_DESCRIPTION } from './src/app/seo.ts'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -25,9 +27,9 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         injectRegister: false,
         manifest: {
-          name: 'Orchard Arcade',
-          short_name: 'Orchard Arcade',
-          description: 'Seven games: Length Sense, Second Sense, Slide Ten, Ashbound, Sprout Island, Orchard Ten and Color Links.',
+          name: SITE_NAMES['zh-Hant'],
+          short_name: SITE_NAMES['zh-Hant'],
+          description: SITE_DESCRIPTION,
           start_url: base,
           scope: base,
           display: 'standalone',

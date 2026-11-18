@@ -1,8 +1,7 @@
 import { translate } from '../../app/translate'
 import { readAppPathname, toAppUrl } from '../../app/router'
-import { localeFromPath, localizedPath, withoutLocale } from '../../app/locale'
+import { ENGLISH_GAME_IDS, SITE_NAMES, localeFromPath, localizedPath, withoutLocale } from '../../app/locale'
 import { GAME_REGISTRY } from '../../app/gameRegistry'
-import { ENGLISH_GAME_IDS } from '../../app/locale'
 type AppHeaderProps = {
   onHome?: () => void
   onSettings: () => void
@@ -11,12 +10,13 @@ type AppHeaderProps = {
 
 export function AppHeader({ onHome, onSettings, compact = false }: AppHeaderProps) {
   const path = readAppPathname()
-  const english = localeFromPath(path) === 'en'
+  const locale = localeFromPath(path)
+  const english = locale === 'en'
   const route = withoutLocale(path)
   const canSwitch = route === '/' || GAME_REGISTRY.some(game => game.route === route && ENGLISH_GAME_IDS.some(id => id === game.id))
   return (
     <header className={`platform-header${compact ? ' is-compact' : ''}`}>
-      <div className="platform-wordmark"><span aria-hidden="true">✦</span><strong>Orchard Arcade</strong></div>
+      <div className="platform-wordmark"><span aria-hidden="true">✦</span><strong>{SITE_NAMES[locale]}</strong></div>
       <div className="platform-header-actions">
         {canSwitch && (
           <nav className="language-switch" aria-label={english ? 'Language' : '語言切換'}>

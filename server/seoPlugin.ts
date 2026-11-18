@@ -1,5 +1,5 @@
 import { ENGLISH_GUIDES } from '../src/app/englishGuides.ts'
-import { ENGLISH_GAME_IDS, ENGLISH_GAMES, localizedPath } from '../src/app/locale.ts'
+import { ENGLISH_GAME_IDS, ENGLISH_GAMES, localizedPath, SITE_NAMES } from '../src/app/locale.ts'
 import { GAME_GUIDES } from '../src/app/gameGuides.ts'
 import type { Plugin } from 'vite'
 import { GAME_REGISTRY } from '../src/app/gameRegistry.ts'
@@ -31,24 +31,32 @@ const bootScript = `<script>document.documentElement.classList.add('app-booting'
 export function seoPlugin(): Plugin {
   let base = '/'
   function renderPage(template: string, pathname: string): string {
-    const { title, description, url, game, locale } = pageMetadata(pathname, base)
+    const { title, description, url, game, locale, siteName } = pageMetadata(pathname, base)
     const href = (route: string) => escapeHtml(`${base.replace(/\/$/, '')}${route}`)
     // Public content is served to every user agent; React replaces it on mount.
     const english = locale === 'en'
     const games = GAME_REGISTRY.filter(entry => !english || ENGLISH_GAME_IDS.some(id => id === entry.id))
-    const name = game ? (english ? ENGLISH_GAMES[game.id as keyof typeof ENGLISH_GAMES].name : game.name) : 'Orchard Arcade'
+    const name = game ? (english ? ENGLISH_GAMES[game.id as keyof typeof ENGLISH_GAMES].name : game.name) : siteName
     const guide = game ? (english ? ENGLISH_GUIDES[game.id as keyof typeof ENGLISH_GUIDES] : GAME_GUIDES[game.id]) : null
     const headings = english ? ['Controls', 'Rules', 'Scoring and records', 'Try this'] : ['操作方式', '遊戲規則', '計分與紀錄', '試試這個方法']
     const guideHtml = guide ? `<section aria-label="${english ? 'Play guide' : '遊玩指南'}"><h2>${escapeHtml(name)}${english ? ' play guide' : '遊玩指南'}</h2><p>${escapeHtml(guide.goal)}</p>${[[headings[0]!, guide.controls], [headings[1]!, guide.rules], [headings[2]!, guide.scoring], [headings[3]!, guide.tip]].map(([heading, text]) => `<h3>${escapeHtml(heading)}</h3><p>${escapeHtml(text)}</p>`).join('')}</section>` : ''
     const content = `<main><h1>${escapeHtml(name)}</h1><p>${escapeHtml(description)}</p>${game ? `<p>${english ? 'Enable JavaScript to play. Progress is saved on this device.' : '這款遊戲需要啟用 JavaScript。遊戲進度儲存在本機。'}</p><a href="${href(localizedPath('/', locale))}">${english ? 'Back to games' : '返回遊戲廳'}</a>` : ''}${guideHtml}<nav aria-label="${english ? 'Games' : '遊戲列表'}"><ul>${games.map((entry) => `<li><a href="${href(localizedPath(entry.route, locale))}">${escapeHtml(english ? ENGLISH_GAMES[entry.id as keyof typeof ENGLISH_GAMES].name : entry.name)}</a><p>${escapeHtml(english ? ENGLISH_GAMES[entry.id as keyof typeof ENGLISH_GAMES].description : entry.description)}</p></li>`).join('')}</ul></nav></main>`
     const alternates = languageAlternates(pathname, base).map(entry => `<link rel="alternate" hreflang="${entry.locale}" href="${escapeHtml(entry.url)}" />`).join('')
+    const websiteData = pathname === '/' ? `<script type="application/ld+json">${JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      url,
+      name: SITE_NAMES['zh-Hant'],
+      alternateName: SITE_NAMES.en,
+    }).replace(/</g, '\\u003c')}</script>` : ''
     return template
       .replace('<html lang="zh-Hant">', `<html lang="${locale}">`)
       .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(title)}</title>`)
       .replace(/<meta name="description" content="[^"]*"\s*\/>/, `<meta name="description" content="${escapeHtml(description)}" />`)
       .replace(/<meta property="og:title" content="[^"]*"\s*\/>/, `<meta property="og:title" content="${escapeHtml(title)}" />`)
       .replace(/<meta property="og:description" content="[^"]*"\s*\/>/, `<meta property="og:description" content="${escapeHtml(description)}" />`)
-      .replace('</head>', `${alternates}<link rel="canonical" href="${escapeHtml(url)}" /><meta name="robots" content="index, follow" /><meta property="og:type" content="website" /><meta property="og:site_name" content="Orchard Arcade" /><meta property="og:locale" content="${english ? 'en_US' : 'zh_TW'}" /><meta property="og:url" content="${escapeHtml(url)}" /><meta name="twitter:card" content="summary" /><meta name="twitter:title" content="${escapeHtml(title)}" /><meta name="twitter:description" content="${escapeHtml(description)}" /></head>`)
+      .replace(/<meta property="og:site_name" content="[^"]*"\s*\/>/, `<meta property="og:site_name" content="${escapeHtml(siteName)}" />`)
+      .replace('</head>', `${websiteData}${alternates}<link rel="canonical" href="${escapeHtml(url)}" /><meta name="robots" content="index, follow" /><meta property="og:type" content="website" /><meta property="og:locale" content="${english ? 'en_US' : 'zh_TW'}" /><meta property="og:url" content="${escapeHtml(url)}" /><meta name="twitter:card" content="summary" /><meta name="twitter:title" content="${escapeHtml(title)}" /><meta name="twitter:description" content="${escapeHtml(description)}" /></head>`)
       .replace('</head>', `${bootStyles}${bootScript}</head>`)
       .replace('<div id="root"></div>', `<div id="root"><div class="boot-screen" role="status" aria-live="polite"><span aria-hidden="true">✦</span><p>${english ? 'Preparing the arcade…' : '正在準備遊戲廳…'}</p></div><div class="boot-content">${content}</div></div>`)
   }

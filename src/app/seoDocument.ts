@@ -17,6 +17,7 @@ export function updatePageMetadata(pathname: string): void {
   for (const [selector, content] of [
     ['meta[name="description"]', metadata.description],
     ['meta[property="og:title"]', metadata.title],
+    ['meta[property="og:site_name"]', metadata.siteName],
     ['meta[property="og:description"]', metadata.description],
     ['meta[property="og:url"]', metadata.url],
     ['meta[name="twitter:title"]', metadata.title],

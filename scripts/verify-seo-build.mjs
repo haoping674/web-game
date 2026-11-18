@@ -30,6 +30,33 @@ for (const url of urls) {
     assert.ok(alternates.some(link => link.hreflang === 'zh-Hant'), file)
   }
   assert.ok(document.title && !titles.has(document.title), `Missing or duplicate title: ${file}`)
+  const siteName = english ? 'Got a Minute?' : '有空再來玩'
+  const titleParts = document.title.split(english ? ' | ' : '｜')
+  const heading = document.querySelector('#root h1').textContent
+  assert.equal(titleParts.at(-1), siteName, file)
+  assert.equal(document.querySelector('meta[property="og:site_name"]')?.content, siteName, file)
+  assert.equal(document.querySelector('meta[property="og:title"]')?.content, document.title, file)
+  assert.equal(document.querySelector('meta[name="twitter:title"]')?.content, document.title, file)
+  if (pathname === '/' || pathname === '/en') {
+    assert.equal(heading, siteName, file)
+    assert.deepEqual(titleParts, [english ? 'Free Browser Games' : '免費線上遊戲，手機也能玩', siteName], file)
+  } else {
+    assert.equal(titleParts.length, 3, file)
+    assert.equal(titleParts[0], heading, file)
+    assert.ok(titleParts[1].trim(), `Missing gameplay descriptor: ${file}`)
+  }
+  const websiteData = document.querySelector('script[type="application/ld+json"]')
+  if (pathname === '/') {
+    assert.deepEqual(JSON.parse(websiteData?.textContent ?? 'null'), {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      url,
+      name: '有空再來玩',
+      alternateName: 'Got a Minute?',
+    })
+  } else {
+    assert.equal(websiteData, null, file)
+  }
   titles.add(document.title)
   const script = document.querySelector('script[type="module"][src]')
   assert.ok(script, `React entry point missing: ${file}`)
@@ -43,4 +70,4 @@ assert.ok(robots.includes(`Sitemap: ${origin}/sitemap.xml`))
 assert.ok(!/Disallow:\s*\//i.test(robots))
 const config = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'))
 assert.deepEqual(config.rewrites, [{ source: '/en', destination: '/en.html' }, { source: '/en/games/:game', destination: '/en/games/:game.html' }, { source: '/games/:game', destination: '/games/:game.html' }])
-console.log('SEO build verified: 14 unique canonical pages, non-JS content, crawlable links, assets, sitemap and OpenAI robots rules.')
+console.log('SEO build verified: 14 unique titles and canonicals, site names, non-JS content, crawlable links, assets, sitemap and robots rules.')

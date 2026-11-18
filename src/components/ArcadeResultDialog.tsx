@@ -7,7 +7,7 @@ import { ShareResultContent } from './ShareResultDialog'
 import { translate } from '../app/translate'
 import './arcade-result.css'
 import { navigate } from '../app/router'
-import { localizedPath } from '../app/locale'
+import { localizedPath, SITE_NAMES } from '../app/locale'
 import { createPortal } from 'react-dom'
 
 export function ArcadeResultDialog({ result, onReplay, onClose, onHome, children, label, replayHint }: {
@@ -43,7 +43,7 @@ export function ArcadeResultDialog({ result, onReplay, onClose, onHome, children
           <p>{result.metricLabel}</p>
           <strong className="result-ticket-number">{result.value}<small>{result.unit}</small></strong>
           <span className="result-ticket-rule" aria-hidden="true" />
-          <span className="result-ticket-signature">ORCHARD ARCADE</span>
+          <span className="result-ticket-signature">{SITE_NAMES[result.locale]}</span>
         </div>
         <dl className="arcade-result-stats">{result.stats.map(stat => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}</dl>
         {replayHint && <p className="result-replay-hint">{replayHint}</p>}

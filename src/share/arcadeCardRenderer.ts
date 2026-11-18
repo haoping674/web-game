@@ -1,4 +1,5 @@
 import QRCode from 'qrcode'
+import { SITE_NAMES } from '../app/locale'
 import { drawFruit, drawRoundedRect, SHARE_CARD_SIZE } from './shareCardRenderer'
 import { formatShareDate } from './shareText'
 import { RESULT_THEMES } from './resultThemes'
@@ -110,7 +111,7 @@ export async function renderArcadeCard(result: ArcadeShareResult, createCanvas =
 
   ctx.fillStyle = INK
   ctx.font = `700 27px ${SANS}`
-  ctx.fillText('✦  ORCHARD ARCADE', 76, 105)
+  ctx.fillText(`✦  ${SITE_NAMES[result.locale]}`, 76, 105)
   ctx.fillStyle = MUTED
   ctx.font = `500 22px ${SANS}`
   ctx.fillText(formatShareDate(result.playedAt), 76, 143)

@@ -76,7 +76,7 @@ h1 { margin:0; font:700 clamp(28px,5vw,53px)/1.12 Fraunces,serif; letter-spacing
   .combo-evaluation { font-size:clamp(8px,2.6vw,10px); line-height:14px; }
 }
 
-/* Orchard Arcade platform shell */
+/* Shared platform shell */
 .platform-shell { min-height:100vh; min-height:100dvh; color:var(--ink); }
 .home-shell { padding:max(20px,env(safe-area-inset-top)) max(clamp(18px,5vw,70px),env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(clamp(18px,5vw,70px),env(safe-area-inset-left)); overflow:hidden; background:linear-gradient(115deg,#eef3df 0 54%,#dce9d3 54% 100%); }
 .home-shell::before { content:''; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.32; background-image:linear-gradient(rgb(39 50 47/.11) 1px,transparent 1px),linear-gradient(90deg,rgb(39 50 47/.11) 1px,transparent 1px); background-size:48px 48px; mask-image:linear-gradient(90deg,#000,transparent 76%); }

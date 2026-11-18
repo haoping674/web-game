@@ -3,6 +3,7 @@ import { LeaderboardDialog } from '../shared/leaderboard/LeaderboardDialog'
 import { GAME_REGISTRY, type GameDefinition } from './gameRegistry'
 import type { AppStorage } from '../shared/storage/appStorage'
 import { AppHeader } from '../shared/components/AppHeader'
+import { SITE_NAMES } from './locale'
 import './home.css'
 
 const GAME_CATEGORIES = { lengthSense: '憑感覺', secondSense: '憑感覺', fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險' } as const
@@ -140,7 +141,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
       </section>
       <aside className="home-closing-note"><span aria-hidden="true">✳</span><p>不用很厲害，也能玩得很開心。<small>每一局，都是留給自己的小休息。</small></p><a href="#game-library">再選一款 <span aria-hidden="true">↑</span></a></aside>
       <footer className="platform-footer">
-        <span>ORCHARD ARCADE · LOCAL-FIRST PLAY</span>
+        <span>{SITE_NAMES['zh-Hant']}</span>
         <span>遊戲進度儲存在本機 · 自選登錄線上前 10 名</span>
       </footer>
       {leaderboardOpen ? <LeaderboardDialog onClose={() => setLeaderboardOpen(false)} /> : null}

@@ -1,5 +1,7 @@
 export type Locale = 'zh-Hant' | 'en'
 
+export const SITE_NAMES = { 'zh-Hant': '有空再來玩', en: 'Got a Minute?' } as const
+
 export function localeFromPath(pathname: string): Locale {
   return pathname === '/en' || pathname.startsWith('/en/') ? 'en' : 'zh-Hant'
 }
