@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { Box3, Triangle, Vector3 } from 'three'
-import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, COLUMNS, FLOOR, PITCH, PaperPhysics, SHEET_ROWS } from './paperPhysics'
+import { Box3, Ray, Triangle, Vector3 } from 'three'
+import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, COLUMNS, FLOOR, PITCH, PaperPhysics, SHEET_ROWS, type PaperRow } from './paperPhysics'
 
 function setup() {
   const draws: number[] = []
@@ -9,7 +9,60 @@ function setup() {
   return { model, draws, advance }
 }
 
+function triangles(rows: PaperRow[]) {
+  return rows.slice(1).flatMap(({ points }, r) => points.slice(1).flatMap(({ position }, c) => {
+    const a = rows[r].points[c].position
+    const b = points[c].position
+    const d = rows[r].points[c + 1].position
+    return [new Triangle(a, b, d), new Triangle(d, b, position)]
+  }))
+}
+
+function crosses(edges: Triangle[], faces: Triangle[]) {
+  const ray = new Ray()
+  const hit = new Vector3()
+  return edges.some(({ a, b, c }) => [[a, b], [b, c], [c, a]].some(([start, end]) => {
+    const length = ray.direction.subVectors(end, start).length()
+    if (length < 0.0008) return false
+    ray.origin.copy(start)
+    ray.direction.divideScalar(length)
+    return faces.some((face) => {
+      if (!ray.intersectTriangle(face.a, face.b, face.c, false, hit)) return false
+      const distance = hit.distanceToSquared(start)
+      return distance > 0.0004 ** 2 && distance < (length - 0.0004) ** 2
+    })
+  }))
+}
+
 describe('boxed tissue interaction', () => {
+  it('keeps the held and anchored meshes from crossing during repeated presses into the slot', () => {
+    const { model, advance } = setup()
+    model.pull(true)
+    advance(580)
+    const [piece] = model.offcuts
+    const tip = model.rows.at(-1)!.points[7].position.clone()
+    for (let r = 0; r < piece.rows.length; r++) for (let c = 0; c < COLUMNS; c++) {
+      const point = piece.rows[r].points[c]
+      point.position.set(tip.x + (c - 7) * 0.125, tip.y + 0.17, tip.z - 0.75 + r * PITCH)
+      point.previous.copy(point.position)
+    }
+    const origin = piece.rows[0].points[7].position.clone()
+    const target = new Vector3()
+    expect(model.grab(0, 7, origin, piece)).toBe(true)
+    let crossingFrames = 0
+    for (let frame = 0; frame < 120; frame++) {
+      const phase = frame * 0.19
+      const press = 0.5 - 0.5 * Math.cos(phase)
+      model.move(target.set(origin.x + Math.sin(phase * 0.3) * 0.12, origin.y - 0.37 * press, origin.z + 0.525 * press))
+      advance(1)
+      if (frame % 3 !== 0) continue
+      const box = triangles(model.rows)
+      const held = triangles(piece.rows)
+      if (crosses(box, held) || crosses(held, box)) crossingFrames++
+    }
+    expect(crossingFrames).toBe(0)
+  }, 12_000)
+
   it('keeps an extended half-sheet stable when the hand stops moving', () => {
     const { model, draws, advance } = setup()
     const row = model.rows.length - 1

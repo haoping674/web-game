@@ -15,6 +15,34 @@ function flatSheet(y: number, previousY = y): ContactLayer {
 }
 
 describe('thin paper contacts', () => {
+  it('catches a moving face sweeping through held paper between repeated contacts', () => {
+    const held = flatSheet(0)
+    held.driven = true
+    // Isolate a corner: the opposing faces must sweep over this vertex to hit it.
+    const corner = held.rows[1].points[7]
+    for (const { points } of held.rows) for (const point of points) {
+      point.position.set(point === corner ? 0.72 : 3, 0, 0.13)
+      point.previous.copy(point.position)
+    }
+    const contacts = new PaperLayerContacts()
+    for (const direction of [1, -1, 1, -1]) {
+      const boxPaper = flatSheet(0)
+      boxPaper.anchored = true
+      for (const { points } of boxPaper.rows) for (const point of points) {
+        point.previous.y = 0.27 * direction
+        point.position.y = -0.27 * direction
+      }
+      for (const { points } of held.rows) for (const point of points) {
+        point.position.y = 0
+        point.previous.y = 0
+      }
+      paperBounds(held.rows, held.bounds, true)
+      paperBounds(boxPaper.rows, boxPaper.bounds, true)
+      contacts.solve([held, boxPaper])
+      expect(corner.position.y * direction).toBeLessThan(-0.10)
+    }
+  })
+
   it('uses the last contact step when a sheet crosses between collision checks', () => {
     const falling = flatSheet(0.20)
     const support = flatSheet(0)

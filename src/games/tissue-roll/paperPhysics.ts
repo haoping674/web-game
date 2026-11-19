@@ -1,6 +1,7 @@
 import { Box3, Vector3 } from 'three'
 import { BoxMotion } from './boxMotion'
 import { CartonContacts, projectTable } from './cartonContacts'
+import { PaperContactGuard } from './paperContactGuard'
 import { PaperLayerContacts, paperBounds, type ContactLayer } from './paperLayerContacts'
 import { COLUMNS, LIP_HALF_DEPTH, LIP_HALF_LENGTH, PITCH, SHEET_ROWS, TOP, WIDTH, type CartonPose, type PaperPoint, type PaperRow } from './tissueDimensions'
 
@@ -66,6 +67,7 @@ export class PaperPhysics {
   private readonly snag = new Vector3()
   private readonly carton = new CartonContacts()
   private readonly paperContacts = new PaperLayerContacts()
+  private readonly paperGuard = new PaperContactGuard()
   private readonly activeBounds = new Box3()
   private readonly upcomingBounds = new Box3()
   private readonly upcomingGuides = new WeakMap<Point, Vector3>()
@@ -298,6 +300,8 @@ export class PaperPhysics {
   }
 
   step(dt: number) {
+    const heldPiece = this.grip?.piece
+    if (heldPiece) this.paperGuard.capture(this.rows, heldPiece.rows)
     if (this.assistTime > 0 && this.grip) {
       this.grip.target.y += dt * (this.assistFast ? 9.8 : 2.15)
       this.grip.target.x += dt * (this.assistFast ? 2.9 : 0.08)
@@ -346,8 +350,18 @@ export class PaperPhysics {
     }
 
     this.contactPull.set(0, 0, 0)
+    const projectSurfaces = () => {
+      this.finishSurface(this.rows, true)
+      if (this.upcoming.length) this.finishSurface(this.upcoming, true)
+      for (const piece of this.offcuts) if (piece.awake > 0) this.finishSurface(piece.rows, false)
+    }
     const regularContactStep = this.contactTick++ % 3 === 0
-    if (regularContactStep || held || this.upcoming.length > 1) this.solveLayers()
+    if (held) this.solveLayers(projectSurfaces)
+    else {
+      if (regularContactStep || this.upcoming.length > 1) this.solveLayers()
+      projectSurfaces()
+    }
+    if (heldPiece) this.paperGuard.separate(this.rows, heldPiece.rows)
     if (held && this.contactPull.lengthSq() > 1.8 ** 2) {
       this.snag.lerp(this.contactPull, 1 - Math.exp(-dt * 25))
       this.snagTime = Math.min(0.16, this.snagTime + dt)
@@ -355,11 +369,8 @@ export class PaperPhysics {
       this.snag.multiplyScalar(Math.exp(-dt * 35))
       this.snagTime = Math.max(0, this.snagTime - dt * 2)
     }
-    this.finishSurface(this.rows, true)
-    if (this.upcoming.length) this.finishSurface(this.upcoming, true)
     for (const piece of this.offcuts) {
       if (piece.awake <= 0) continue
-      this.finishSurface(piece.rows, false)
       if (held?.piece !== piece) piece.awake = Math.max(0, piece.awake - dt)
       if (piece.awake === 0) for (const { points } of piece.rows) {
         for (const point of points) point.previous.copy(point.position)
@@ -427,9 +438,12 @@ export class PaperPhysics {
     }
   }
 
-  private solveLayers() {
+  private solveLayers(projectSurfaces?: () => void) {
     const activeFold = (this.grip !== null && !this.grip.piece || this.speed > 0.12) && this.rows.length > 8
-    if (!activeFold && !this.upcoming.length && this.offcuts.every((piece) => piece.awake <= 0)) return
+    if (!activeFold && !this.upcoming.length && this.offcuts.every((piece) => piece.awake <= 0)) {
+      projectSurfaces?.()
+      return
+    }
     const layers: ContactLayer[] = [{
       rows: this.rows,
       bounds: paperBounds(this.rows, this.activeBounds, true),
@@ -453,7 +467,7 @@ export class PaperPhysics {
       driven: this.grip?.piece === piece,
       wake: piece.awake <= 0 ? () => this.wake(piece) : undefined,
     })
-    this.paperContacts.solve(layers)
+    this.paperContacts.solve(layers, projectSurfaces)
   }
 
   private readonly receivePull = (motion: Vector3) => {

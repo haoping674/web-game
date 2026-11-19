@@ -49,14 +49,17 @@ export class PaperLayerContacts {
   private readonly correction = new Vector3()
   private readonly oldNormal = new Vector3()
   private readonly oldEdge = new Vector3()
+  private readonly sweepOrigin = new Vector3()
+  private readonly sweepBounds = new Box3()
   private readonly motion = new Vector3()
   private readonly friction = new Vector3()
   private readonly candidates: ContactLayer[] = []
   private readonly lastSolved = new WeakMap<PaperPoint, Vector3>()
   private serial = 0
+  private meetsBoxPaper = false
 
-  solve(layers: ContactLayer[]) {
-    this.cells.clear()
+  solve(layers: ContactLayer[], projectSurfaces?: () => void) {
+    this.meetsBoxPaper = false
     const visible = this.candidates
     visible.length = 0
     for (const layer of layers) if (!layer.sleeping) {
@@ -73,29 +76,13 @@ export class PaperLayerContacts {
         if (!nearMovingSheet) continue
       }
       visible.push(layer)
-      this.index(layer)
     }
-    for (const layer of visible) {
-      if (layer.sleeping) continue
-      for (let r = layer.anchored ? 1 : 0; r < layer.rows.length; r++) {
-        const row = layer.rows[r]
-        for (let c = 0; c < row.points.length; c++) this.resolvePoint(layer, row.points[c], r, c)
-      }
-    }
-    for (const layer of visible) {
-      if (layer.sleeping) continue
-      for (let r = 0; r < layer.rows.length; r++) {
-        const row = layer.rows[r].points
-        const next = layer.rows[r + 1]?.points
-        const pinned = layer.anchored && r === 0
-        for (let c = 0; c < row.length; c++) {
-          if (!pinned && row[c + 1]) this.resolveEdge(layer, row[c], row[c + 1], r, c, false)
-          if (next) {
-            this.resolveEdge(layer, row[c], next[c], r, c, pinned)
-            if (row[c + 1]) this.resolveEdge(layer, row[c + 1], next[c], r, c, pinned)
-          }
-        }
-      }
+    this.resolve(visible, false)
+    projectSurfaces?.()
+    if (this.meetsBoxPaper) {
+      // Re-index the faces after paper and carton constraints have both moved them.
+      this.resolve(visible.filter((layer) => layer.driven || layer.anchored), true)
+      projectSurfaces?.()
     }
     for (const layer of layers) if (!layer.sleeping) {
       for (const { points } of layer.rows) for (const point of points) {
@@ -106,11 +93,39 @@ export class PaperLayerContacts {
     }
   }
 
+  private resolve(visible: ContactLayer[], boxPairOnly: boolean) {
+    this.cells.clear()
+    const swept = visible.some((layer) => layer.driven) && visible.some((layer) => layer.anchored)
+    for (const layer of visible) this.index(layer, swept && !layer.sleeping && !!(layer.driven || layer.anchored))
+    for (const layer of visible) {
+      if (layer.sleeping) continue
+      for (let r = layer.anchored ? 1 : 0; r < layer.rows.length; r++) {
+        const row = layer.rows[r]
+        for (let c = 0; c < row.points.length; c++) this.resolvePoint(layer, row.points[c], r, c, boxPairOnly)
+      }
+    }
+    for (const layer of visible) {
+      if (layer.sleeping) continue
+      for (let r = 0; r < layer.rows.length; r++) {
+        const row = layer.rows[r].points
+        const next = layer.rows[r + 1]?.points
+        const pinned = layer.anchored && r === 0
+        for (let c = 0; c < row.length; c++) {
+          if (!pinned && row[c + 1]) this.resolveEdge(layer, row[c], row[c + 1], r, c, false, boxPairOnly)
+          if (next) {
+            this.resolveEdge(layer, row[c], next[c], r, c, pinned, boxPairOnly)
+            if (row[c + 1]) this.resolveEdge(layer, row[c + 1], next[c], r, c, pinned, boxPairOnly)
+          }
+        }
+      }
+    }
+  }
+
   private oldPosition(point: PaperPoint): Vector3 {
     return this.lastSolved.get(point) ?? point.previous
   }
 
-  private resolveEdge(layer: ContactLayer, start: PaperPoint, end: PaperPoint, row: number, column: number, pinned: boolean) {
+  private resolveEdge(layer: ContactLayer, start: PaperPoint, end: PaperPoint, row: number, column: number, pinned: boolean, boxPairOnly: boolean) {
     const a = start.position
     const b = end.position
     const minX = Math.floor(Math.min(a.x, b.x) / CELL)
@@ -126,6 +141,7 @@ export class PaperLayerContacts {
       for (const face of faces) {
         if (face.visited === serial) continue
         face.visited = serial
+        if (boxPairOnly && !this.boxPair(layer, face.layer)) continue
         if (face.layer === layer && (!layer.folding || (row >= face.row - 1 && row <= face.row + 2
           && column >= face.column - 1 && column <= face.column + 2))) continue
         if (this.separateCrossing(layer, start, end, face, pinned)) return
@@ -172,9 +188,13 @@ export class PaperLayerContacts {
     const wake = face.layer.sleeping && sameSide && Math.abs(distance) > LAYER_GAP * 2
       && Math.abs(this.normalMotion(point, normal)) > 0.025
     // Keep uncertain self crossings from snapping an entire edge to the other side.
-    const limit = self ? 0.018 : face.layer.sleeping ? Infinity : 0.065
+    const limit = self ? 0.018 : face.layer.sleeping ? Infinity : this.boxPair(layer, face.layer) ? 0.14 : 0.065
     this.respond(layer, point, face, side, Math.min(limit, LAYER_GAP - side * distance), wb, wc, wake, true)
     return true
+  }
+
+  private boxPair(a: ContactLayer, b: ContactLayer) {
+    return (a.driven && b.anchored) || (a.anchored && b.driven)
   }
 
   private overlap(a: Box3, b: Box3) {
@@ -183,28 +203,31 @@ export class PaperLayerContacts {
       && a.min.z <= b.max.z + LAYER_GAP && a.max.z >= b.min.z - LAYER_GAP
   }
 
-  private index(layer: ContactLayer) {
+  private index(layer: ContactLayer, swept: boolean) {
     for (let r = 0; r < layer.rows.length - 1; r++) {
       const top = layer.rows[r].points
       const below = layer.rows[r + 1].points
       const fixed = r === 0 && layer.anchored
       for (let c = 0; c < COLUMNS - 1; c++) {
-        this.insert({ layer, row: r, column: c, a: top[c], b: below[c], c: top[c + 1], fixed: fixed ? 5 : 0, visited: 0 })
-        this.insert({ layer, row: r, column: c, a: top[c + 1], b: below[c], c: below[c + 1], fixed: fixed ? 1 : 0, visited: 0 })
+        this.insert({ layer, row: r, column: c, a: top[c], b: below[c], c: top[c + 1], fixed: fixed ? 5 : 0, visited: 0 }, swept)
+        this.insert({ layer, row: r, column: c, a: top[c + 1], b: below[c], c: below[c + 1], fixed: fixed ? 1 : 0, visited: 0 }, swept)
       }
     }
   }
 
-  private insert(face: Face) {
+  private insert(face: Face, swept: boolean) {
     const { position: a } = face.a
     const { position: b } = face.b
     const { position: c } = face.c
-    const minX = Math.floor((Math.min(a.x, b.x, c.x) - LAYER_GAP) / CELL)
-    const minY = Math.floor((Math.min(a.y, b.y, c.y) - LAYER_GAP) / CELL)
-    const minZ = Math.floor((Math.min(a.z, b.z, c.z) - LAYER_GAP) / CELL)
-    const maxX = Math.floor((Math.max(a.x, b.x, c.x) + LAYER_GAP) / CELL)
-    const maxY = Math.floor((Math.max(a.y, b.y, c.y) + LAYER_GAP) / CELL)
-    const maxZ = Math.floor((Math.max(a.z, b.z, c.z) + LAYER_GAP) / CELL)
+    const { min, max } = this.sweepBounds.makeEmpty().expandByPoint(a).expandByPoint(b).expandByPoint(c)
+    if (swept) this.sweepBounds.expandByPoint(this.oldPosition(face.a))
+      .expandByPoint(this.oldPosition(face.b)).expandByPoint(this.oldPosition(face.c))
+    const minX = Math.floor((min.x - LAYER_GAP) / CELL)
+    const minY = Math.floor((min.y - LAYER_GAP) / CELL)
+    const minZ = Math.floor((min.z - LAYER_GAP) / CELL)
+    const maxX = Math.floor((max.x + LAYER_GAP) / CELL)
+    const maxY = Math.floor((max.y + LAYER_GAP) / CELL)
+    const maxZ = Math.floor((max.z + LAYER_GAP) / CELL)
     for (let x = minX; x <= maxX; x++) for (let y = minY; y <= maxY; y++) for (let z = minZ; z <= maxZ; z++) {
       const id = key(x, y, z)
       const bucket = this.cells.get(id)
@@ -213,7 +236,7 @@ export class PaperLayerContacts {
     }
   }
 
-  private resolvePoint(layer: ContactLayer, point: PaperPoint, row: number, column: number) {
+  private resolvePoint(layer: ContactLayer, point: PaperPoint, row: number, column: number, boxPairOnly: boolean) {
     const p = point.position
     const q = this.oldPosition(point)
     const moveX = Math.max(p.x - CELL * 2, Math.min(p.x + CELL * 2, q.x))
@@ -232,6 +255,7 @@ export class PaperLayerContacts {
       for (const face of faces) {
         if (face.visited === serial) continue
         face.visited = serial
+        if (boxPairOnly && !this.boxPair(layer, face.layer)) continue
         if (face.layer === layer && (!layer.folding || (row >= face.row - 1 && row <= face.row + 2
           && column >= face.column - 1 && column <= face.column + 2))) continue
         if (this.resolveFace(layer, point, face)) return
@@ -251,8 +275,6 @@ export class PaperLayerContacts {
     normal.multiplyScalar(1 / Math.sqrt(area))
     const relative = this.relative.subVectors(point.position, a)
     const distance = normal.dot(relative)
-    // Keep the interpolation in the current triangle frame, but use the previous
-    // triangle orientation to decide which side the point came from.
     this.prior.subVectors(this.oldPosition(point), this.oldPosition(face.a))
     const old = this.priorDistance(point, face)
     const crossed = old * distance < 0 && Math.abs(old) >= LAYER_GAP
@@ -261,7 +283,11 @@ export class PaperLayerContacts {
     if (distance * side >= LAYER_GAP) return false
 
     const contact = this.hit.copy(relative)
-    if (old * distance < 0 && Math.abs(distance) > LAYER_GAP) {
+    let contactArea = area
+    if (old * distance < 0 && this.boxPair(layer, face.layer)) {
+      contactArea = this.sweepContact(point, face, old, distance)
+      if (contactArea < 1e-9) return false
+    } else if (old * distance < 0 && Math.abs(distance) > LAYER_GAP) {
       contact.lerp(this.prior, Math.min(1, Math.abs(distance) / Math.abs(distance - old)))
     }
     const uu = ab.lengthSq()
@@ -269,8 +295,8 @@ export class PaperLayerContacts {
     const uv = ab.dot(ac)
     const hu = contact.dot(ab)
     const hv = contact.dot(ac)
-    const wb = (hu * vv - hv * uv) / area
-    const wc = (hv * uu - hu * uv) / area
+    const wb = (hu * vv - hv * uv) / contactArea
+    const wc = (hv * uu - hu * uv) / contactArea
     if (1 - wb - wc < -0.045 || wb < -0.045 || wc < -0.045) return false
 
     const normalTravel = this.normalMotion(point, normal)
@@ -278,6 +304,30 @@ export class PaperLayerContacts {
     const limit = layer === face.layer ? 0.025 : crossed ? 0.41 : 0.091
     this.respond(layer, point, face, side, Math.min(limit, LAYER_GAP - side * distance), wb, wc, wake)
     return true
+  }
+
+  private sweepContact(point: PaperPoint, face: Face, old: number, current: number) {
+    const startA = this.oldPosition(face.a)
+    const startB = this.oldPosition(face.b)
+    const startC = this.oldPosition(face.c)
+    const from = this.oldPosition(point)
+    let low = 0
+    let high = 1
+    let time = old / (old - current)
+    // Evaluate all four moving vertices in the same time slice.
+    for (let pass = 0; pass < 5; pass++) {
+      const a = this.sweepOrigin.copy(startA).lerp(face.a.position, time)
+      this.edgeA.copy(startB).lerp(face.b.position, time).sub(a)
+      this.edgeB.copy(startC).lerp(face.c.position, time).sub(a)
+      this.hit.copy(from).lerp(point.position, time).sub(a)
+      this.oldNormal.crossVectors(this.edgeA, this.edgeB)
+      const distance = this.oldNormal.dot(this.hit)
+      if (Math.abs(distance) < 1e-7) break
+      if (distance * old > 0) low = time
+      else high = time
+      time = (low + high) * 0.5
+    }
+    return this.oldNormal.lengthSq()
   }
 
   private priorDistance(point: PaperPoint, face: Face) {
@@ -307,6 +357,7 @@ export class PaperLayerContacts {
     const normalTravel = motion.dot(normal)
     const closing = Math.min(0, side * normalTravel) / inverseMass
     const response = depth / inverseMass
+    if (this.boxPair(layer, face.layer)) this.meetsBoxPaper = true
     const delta = this.correction.copy(normal).multiplyScalar(side * response)
     const previousDelta = this.prior.copy(delta).addScaledVector(normal, side * closing)
     if (layer !== face.layer && (layer.driven || face.layer.driven) && fixed !== 7) {
