@@ -1,19 +1,37 @@
 import {
   ACESFilmicToneMapping, AmbientLight, BufferAttribute, BufferGeometry, CanvasTexture, Color,
   DirectionalLight, DoubleSide, Float32BufferAttribute, HemisphereLight,
-  Mesh, MeshPhysicalMaterial, MeshStandardMaterial, PCFShadowMap, PerspectiveCamera, Plane, PlaneGeometry,
+  Mesh, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PCFShadowMap, PerspectiveCamera, Plane, PlaneGeometry,
   PMREMGenerator, Points, PointsMaterial, Raycaster, RepeatWrapping, Scene, Sphere, SRGBColorSpace, Vector2, Vector3, WebGLRenderer,
 } from 'three'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { adaptiveResolution } from '../../shared/immersive/adaptiveResolution'
 import { COLUMNS, FLOOR, PaperPhysics, SHEET_ROWS, type PaperRow } from './paperPhysics'
-import { REAR_WALL } from './tissueDimensions'
+import { BOX_DEPTH, BOX_LENGTH, REAR_WALL } from './tissueDimensions'
 import { createTissueBox, type TissueBrand } from './tissueBox'
 
 const PAPER_COLOR = '#ece3d3'
 const WALL = '#94998b'
 const MAP_SIZE = 512
+
+function contactShadowTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 96
+  canvas.height = 48
+  const context = canvas.getContext('2d')!
+  const pixels = context.createImageData(canvas.width, canvas.height)
+  for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+    const u = Math.max(0, Math.abs((x + 0.5) / canvas.width - 0.5) * 2 - 0.79)
+    const v = Math.max(0, Math.abs((y + 0.5) / canvas.height - 0.5) * 2 - 0.68)
+    const falloff = Math.max(0, 1 - Math.hypot(u / 0.20, v / 0.31))
+    const index = 4 * (y * canvas.width + x)
+    pixels.data[index] = pixels.data[index + 1] = pixels.data[index + 2] = 255
+    pixels.data[index + 3] = Math.round(255 * falloff * falloff)
+  }
+  context.putImageData(pixels, 0, 0)
+  return new CanvasTexture(canvas)
+}
 
 function tissueTexture(): CanvasTexture {
   const canvas = document.createElement('canvas')
@@ -204,9 +222,9 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
   key.shadow.camera.top = 4
   key.shadow.camera.bottom = -4
   key.shadow.bias = -0.0002
-  key.shadow.normalBias = 0.013
-  key.shadow.radius = 3.5
-  key.shadow.mapSize.set(1024, 1024)
+  key.shadow.normalBias = 0.007
+  key.shadow.radius = 1.5
+  key.shadow.mapSize.set(512, 512)
   scene.add(key)
 
   const wall = new Mesh(new PlaneGeometry(40, 40), new MeshStandardMaterial({ color: WALL, roughness: 0.94 }))
@@ -220,6 +238,12 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
   shelf.position.set(0, FLOOR - 0.095, 0.86)
   shelf.receiveShadow = true
   scene.add(shelf)
+
+  const contactTexture = contactShadowTexture()
+  const contactMaterial = new MeshBasicMaterial({ color: '#33251c', map: contactTexture, transparent: true, depthWrite: false })
+  const footprint = new PlaneGeometry(BOX_LENGTH + 0.20, BOX_DEPTH + 0.20).rotateX(-Math.PI / 2)
+  const contactShadow = new Mesh(footprint, contactMaterial)
+  scene.add(contactShadow)
 
   let packaging = createTissueBox(brand)
   const packages = new Map([[brand, packaging]])
@@ -244,7 +268,8 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
   const screen = new Vector2()
   const facing = new Vector3()
   const dragTarget = new Vector3()
-  const resolution = adaptiveResolution(Math.min(window.devicePixelRatio || 1, 1.65))
+  const packGrip = new Vector3()
+  const resolution = adaptiveResolution(Math.min(window.devicePixelRatio || 1, 1.25))
 
   function resize() {
     const w = host.clientWidth
@@ -291,6 +316,7 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
     if (cartonHit && (!hit || cartonHit.distance < hit.distance)) {
       camera.getWorldDirection(facing).negate()
       plane.setFromNormalAndCoplanarPoint(facing, cartonHit.point)
+      packaging.root.worldToLocal(packGrip.copy(cartonHit.point))
       physics.release()
       physics.boxMotion.grab(cartonHit.point, now)
       return 'box'
@@ -335,22 +361,18 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
   }
 
   function render(delta: number, showDust = true) {
-    if (resolution.observe(delta)) {
-      const shadowSize = resolution.scale > 0.93 ? 1024 : 512
-      if (shadowSize !== key.shadow.mapSize.x) {
-        key.shadow.radius = shadowSize === 1024 ? 3.5 : 1.5
-        key.shadow.mapSize.setScalar(shadowSize)
-        key.shadow.map?.dispose()
-        key.shadow.map = null
-      }
-      resize()
-    }
+    if (resolution.observe(delta)) resize()
     sheet.update(physics.rows)
     following.update(physics.upcoming)
     const { box } = physics
+    contactShadow.visible = box.lift < 0.36
+    contactShadow.position.set(box.x, FLOOR + 0.0015, box.z)
+    contactShadow.rotation.y = box.yaw
+    contactMaterial.opacity = 0.31 * Math.max(0, 1 - box.lift / 0.36) ** 2
     packaging.root.position.set(box.x, FLOOR + box.lift, box.z)
     packaging.root.rotation.y = box.yaw
-    packaging.flexFilm(physics.lipDeflection, physics.tension)
+    packaging.flexFilm(physics.lipDeflection, physics.tension,
+      physics.boxMotion.grabbed ? packGrip : null, physics.boxMotion.landing)
     for (const [rows, scrap] of scraps) {
       if (!physics.offcuts.some((entry) => entry.rows === rows)) {
         scene.remove(scrap.mesh)
@@ -406,11 +428,14 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
     scene.traverse((object) => {
       if (object instanceof Mesh) {
         object.geometry.dispose()
-        if (!Array.isArray(object.material)) object.material.dispose()
+        if (Array.isArray(object.material)) {
+          for (const material of new Set(object.material)) material.dispose()
+        } else object.material.dispose()
       }
     })
     tissue.dispose()
     oak.dispose()
+    contactTexture.dispose()
     for (const artwork of packages.values()) artwork.maps.forEach((map) => map.dispose())
     flakeGeometry.dispose()
     flakeMaterial.dispose()

@@ -14,8 +14,8 @@ export const GAME_REGISTRY = [
   {
     id: 'tissueRoll',
     name: '無限抽衛生紙',
-    eyebrow: 'TISSUE BOX',
-    description: '換一盒面紙，捏住就能抽。也可以抓起紙盒往旁邊甩，看它彈回來。',
+    eyebrow: 'TISSUE PULL',
+    description: '捏住面紙就能抽，也能抓起軟包往旁邊甩。想換手感時，可以切換硬盒。',
     route: '/games/tissue-roll',
     status: 'available',
     accent: '#776047',

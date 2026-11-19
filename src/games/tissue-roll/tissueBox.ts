@@ -1,12 +1,27 @@
 import {
   BoxGeometry, BufferAttribute, CanvasTexture, DoubleSide, Group, Mesh, MeshPhysicalMaterial,
-  MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, SRGBColorSpace,
+  MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, SRGBColorSpace, Vector3,
 } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { printSoftTissue, type SoftTissueBrand } from './softTissuePrint'
 import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, LIP_HALF_DEPTH, LIP_HALF_LENGTH, SLOT_HALF_DEPTH, SLOT_HALF_LENGTH } from './tissueDimensions'
 
-export const TISSUE_BRANDS = { mayflower: '五月花', kleenex: '舒潔' } as const
+export const SOFT_PACKS = {
+  'soft-kleenex': '舒潔綠色軟包',
+  'soft-mayflower': '五月花厚款軟包',
+  'soft-kirkland': 'Kirkland 紫色軟包',
+} as const
+export const HARD_BOXES = { mayflower: '五月花硬盒', kleenex: '舒潔硬盒' } as const
+export const TISSUE_BRANDS = { ...SOFT_PACKS, ...HARD_BOXES }
 export type TissueBrand = keyof typeof TISSUE_BRANDS
+type HardBrand = keyof typeof HARD_BOXES
+export const DEFAULT_TISSUE: TissueBrand = 'soft-kleenex'
+export const isSoftPack = (brand: TissueBrand): brand is SoftTissueBrand => Object.hasOwn(SOFT_PACKS, brand)
+type TissuePackage = {
+  root: Group
+  maps: CanvasTexture[]
+  flexFilm: (deflection: number, tension: number, grip: Vector3 | null, landing: number) => void
+}
 
 type Face = 'front' | 'top' | 'side' | 'back'
 
@@ -137,7 +152,7 @@ function drawMayflower(ctx: CanvasRenderingContext2D, w: number, h: number, face
 
 }
 
-function print(face: Face, brand: TissueBrand): CanvasTexture {
+function print(face: Face, brand: HardBrand): CanvasTexture {
   const canvas = document.createElement('canvas')
   canvas.width = 1024
   canvas.height = face === 'top' ? 515 : face === 'side' ? 630 : 328
@@ -193,14 +208,121 @@ function panelWithHole(w: number, d: number, holeX: number, holeZ: number, round
   return geometry
 }
 
-export function createTissueBox(brand: TissueBrand) {
+const softShape = {
+  'soft-kleenex': { width: 2.23, depth: 1.18, radius: 0.113, taper: 0.16, folds: 0.010, roughness: 0.39,
+    side: '#497823', seal: '#53832d', seamWidth: 0.086, seamHeight: 0.32, pinch: 0.081 },
+  'soft-mayflower': { width: 2.18, depth: 1.15, radius: 0.13, taper: 0.24, folds: 0.014, roughness: 0.43,
+    side: '#e5e3e5', seal: '#dfe4ee', seamWidth: 0.109, seamHeight: 0.43, pinch: 0.066 },
+  'soft-kirkland': { width: 2.25, depth: 1.17, radius: 0.083, taper: 0.12, folds: 0.008, roughness: 0.49,
+    side: '#8368a7', seal: '#9b82be', seamWidth: 0.102, seamHeight: 0.48, pinch: 0.073 },
+}
+
+function createSoftPack(brand: SoftTissueBrand): TissuePackage {
+  const root = new Group()
+  const profile = softShape[brand]
+  const front = printSoftTissue(brand, false)
+  const top = printSoftTissue(brand, true)
+  const film = new MeshPhysicalMaterial({ map: front, roughness: profile.roughness, clearcoat: 0.55, clearcoatRoughness: 0.31 })
+  const side = new MeshPhysicalMaterial({ color: profile.side, roughness: profile.roughness + 0.05, clearcoat: 0.50 })
+  const opening = new MeshPhysicalMaterial({ map: top, alphaTest: 0.45, roughness: profile.roughness, clearcoat: 0.55, side: DoubleSide })
+  const skin = new BoxGeometry(profile.width, BOX_HEIGHT, profile.depth, 20, 6, 10)
+  const position = skin.getAttribute('position')
+  const normals = skin.getAttribute('normal')
+  const half = new Vector3(profile.width / 2, BOX_HEIGHT / 2, profile.depth / 2)
+  const radius = profile.radius
+  const core = half.clone().addScalar(-radius)
+  const low = core.clone().negate()
+  const vertex = new Vector3()
+  const flat = new Vector3()
+  const normal = new Vector3()
+  for (let i = 0; i < position.count; i++) {
+    vertex.fromBufferAttribute(position, i)
+    flat.copy(vertex).clamp(low, core)
+    normal.subVectors(vertex, flat).normalize()
+    vertex.copy(flat).addScaledVector(normal, radius)
+    const flank = Math.abs(vertex.x / half.x)
+    const endGather = Math.max(0, (flank - 0.60) / 0.40)
+    const across = vertex.z / half.z
+    const fold = Math.sin(vertex.z * 29 + vertex.x * 12) * profile.folds * endGather
+    vertex.y *= 1 - profile.taper * endGather ** 2
+    vertex.addScaledVector(normal, fold * Math.abs(across) + 0.006 * Math.cos(vertex.x * 18) * Math.abs(normal.z))
+    vertex.y += half.y
+    position.setXYZ(i, vertex.x, vertex.y, vertex.z)
+    normals.setXYZ(i, normal.x, normal.y, normal.z)
+  }
+  const rest = Float32Array.from(position.array)
+  const body = new Mesh(skin, [side, side, opening, side, film, film])
+  body.castShadow = body.receiveShadow = true
+  root.add(body)
+
+  // The short ends flatten into the thin welded strips of a flexible wrapper.
+  const seal = new MeshPhysicalMaterial({ color: profile.seal, roughness: profile.roughness, clearcoat: 0.62, side: DoubleSide })
+  for (const sign of [-1, 1]) {
+    const edge = new PlaneGeometry(profile.seamWidth, profile.depth * 0.85, 3, 20).rotateX(-Math.PI / 2)
+    const vertices = edge.getAttribute('position')
+    for (let i = 0; i < vertices.count; i++) {
+      const z = vertices.getZ(i)
+      vertices.setY(i, profile.folds * Math.sin(z * 22 + sign) + 0.004 * Math.sin(z * 86))
+    }
+    edge.computeVertexNormals()
+    const flap = new Mesh(edge, seal)
+    flap.position.set(sign * (half.x - profile.seamWidth * 0.05), BOX_HEIGHT * profile.seamHeight, 0)
+    flap.castShadow = flap.receiveShadow = true
+    root.add(flap)
+  }
+
+  const stack = new Mesh(new RoundedBoxGeometry(1.86, 0.10, 0.78, 2, 0.029),
+    new MeshStandardMaterial({ color: '#d7ccbf', roughness: 0.98 }))
+  stack.position.y = BOX_HEIGHT - 0.115
+  stack.receiveShadow = true
+  root.add(stack)
+
+  const grasp = new Vector3()
+  let pressure = 0
+  let lastPressure = -1
+  let lastLanding = -1
+  let lastTension = -1
+  let lastDeflection = -1
+  function flexFilm(deflection: number, tension: number, grip: Vector3 | null, landing: number) {
+    const movedGrip = grip && grasp.distanceToSquared(grip) > 0.00001
+    if (grip) grasp.copy(grip)
+    pressure += ((grip ? 1 : 0) - pressure) * 0.29
+    if (pressure < 0.004) pressure = 0
+    if (Math.abs(lastPressure - pressure) < 0.004 && Math.abs(lastLanding - landing) < 0.004
+      && Math.abs(lastTension - tension) < 0.04 && Math.abs(lastDeflection - deflection) < 0.001 && !movedGrip) return
+    lastPressure = pressure
+    lastLanding = landing
+    lastTension = tension
+    lastDeflection = deflection
+    const draw = Math.min(0.016, tension * 0.0025 + Math.abs(deflection) * 0.33)
+    for (let i = 0; i < position.count; i++) {
+      const x = rest[i * 3]
+      const y = rest[i * 3 + 1]
+      const z = rest[i * 3 + 2]
+      const distance = (x - grasp.x) ** 2 + (y - grasp.y) ** 2 + (z - grasp.z) ** 2
+      const pinch = Math.max(0, 1 - distance / 0.19) ** 2 * pressure * profile.pinch
+      const lip = Math.max(0, 1 - Math.abs(z) / 0.27) * Math.max(0, 1 - Math.abs(x) / 0.87)
+        * Math.max(0, (y - 0.52) / 0.21)
+      const compression = Math.max(0, 1 - y / BOX_HEIGHT) * landing * 0.065
+      position.setXYZ(i, x - normals.getX(i) * pinch + x * compression,
+        y * (1 - landing * 0.072) - normals.getY(i) * pinch - draw * lip,
+        z - normals.getZ(i) * pinch + z * compression)
+    }
+    position.needsUpdate = true
+  }
+  return { root, maps: [front, top], flexFilm }
+}
+
+export function createTissueBox(brand: TissueBrand): TissuePackage {
+  if (isSoftPack(brand)) return createSoftPack(brand)
   const root = new Group()
   const maps = (['front', 'top', 'side', 'back'] as const).map((face) => print(face, brand))
   const cardboard = new MeshStandardMaterial({ color: brand === 'kleenex' ? '#1f4076' : '#7c8557', roughness: 0.79 })
   const innerBoard = new MeshStandardMaterial({ color: '#a49a78', roughness: 0.96, side: DoubleSide })
   const printed = maps.map((map) => new MeshPhysicalMaterial({ map, roughness: 0.65, clearcoat: 0.21, clearcoatRoughness: 0.49, side: DoubleSide }))
   const base = new Mesh(new RoundedBoxGeometry(BOX_LENGTH, 0.025, BOX_DEPTH, 2, 0.011), cardboard)
-  base.position.y = 0.015
+  base.position.y = 0.0125
+  base.castShadow = true
   root.add(base)
 
   function wall(w: number, x: number, z: number, angle: number, mat: MeshPhysicalMaterial) {

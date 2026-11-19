@@ -1,9 +1,8 @@
 import { Box3, Vector3 } from 'three'
 import { BoxMotion } from './boxMotion'
 import { CartonContacts, projectTable } from './cartonContacts'
-import { PaperContactGuard } from './paperContactGuard'
-import { PaperLayerContacts, paperBounds, type ContactLayer } from './paperLayerContacts'
-import { COLUMNS, LIP_HALF_DEPTH, LIP_HALF_LENGTH, PITCH, SHEET_ROWS, TOP, WIDTH, type CartonPose, type PaperPoint, type PaperRow } from './tissueDimensions'
+import { PaperLayerContacts, paperBounds } from './paperLayerContacts'
+import { COLUMNS, FLOOR, LIP_HALF_DEPTH, LIP_HALF_LENGTH, PAPER_CLEARANCE, PITCH, SHEET_ROWS, TOP, WIDTH, type CartonPose, type PaperPoint, type PaperRow } from './tissueDimensions'
 
 export { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, COLUMNS, FLOOR, PITCH, SHEET_ROWS, SLOT_HALF_DEPTH, SLOT_HALF_LENGTH, WIDTH } from './tissueDimensions'
 export type { PaperRow } from './tissueDimensions'
@@ -16,7 +15,12 @@ type Point = PaperPoint
 type PaperBends = { across: Float32Array; along: Float32Array }
 export type Offcut = { rows: PaperRow[]; bends: PaperBends; age: number; awake: number; version: number; bounds: Box3 }
 type Grip = { point: Point; target: Vector3; offset: Vector3; piece?: Offcut }
-export type PaperEvents = { draw: (strength: number, pan: number) => void; impact?: (strength: number, pan: number) => void }
+export type PaperEvents = {
+  draw: (strength: number, x: number, z: number) => void
+  impact?: (strength: number, x: number, z: number, surface: 'table' | 'edge') => void
+  land?: (strength: number, x: number, z: number) => void
+  brush?: (strength: number, x: number, z: number) => void
+}
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 const node = (): Point => ({ position: new Vector3(), previous: new Vector3() })
@@ -61,19 +65,12 @@ export class PaperPhysics {
   private difference = new Vector3()
   private profile = new Vector3()
   private load = new Vector3()
-  private readonly contactPull = new Vector3()
-  private readonly pullDirection = new Vector3()
   private readonly heldPosition = new Vector3()
-  private readonly snag = new Vector3()
   private readonly carton = new CartonContacts()
   private readonly paperContacts = new PaperLayerContacts()
-  private readonly paperGuard = new PaperContactGuard()
-  private readonly activeBounds = new Box3()
-  private readonly upcomingBounds = new Box3()
   private readonly upcomingGuides = new WeakMap<Point, Vector3>()
   private readonly previousBox: CartonPose = { x: 0, z: 0, lift: 0, yaw: 0 }
   private contactTick = 0
-  private snagTime = 0
   private priorLip = 0
 
   constructor(events: PaperEvents) {
@@ -155,8 +152,6 @@ export class PaperPhysics {
     const piece = this.grip?.piece
     if (piece) piece.awake = Math.max(piece.awake, 1.25)
     this.grip = null
-    this.snag.set(0, 0, 0)
-    this.snagTime = 0
     this.assistTime = 0
     this.releaseTime = 0
   }
@@ -204,6 +199,11 @@ export class PaperPhysics {
   }
 
   private integrate(rows: PaperRow[], attached: boolean, dt: number) {
+    const land = attached ? undefined : this.events.land
+    const desk = FLOOR + PAPER_CLEARANCE
+    const gravity = 56 * dt * dt
+    let landingSpeed = 0.65
+    let landing: Vector3 | undefined
     for (let r = attached ? 1 : 0; r < rows.length; r++) {
       for (let c = 0; c < COLUMNS; c++) {
         const sample = rows[r].points[c]
@@ -212,7 +212,14 @@ export class PaperPhysics {
         velocity.clampLength(0, 0.24)
         sample.previous.copy(sample.position)
         sample.position.add(velocity)
-        sample.position.y -= 56 * dt * dt
+        sample.position.y -= gravity
+        if (land && sample.previous.y > desk + 0.004 && sample.position.y <= desk) {
+          const speed = (gravity - velocity.y) / dt
+          if (speed > landingSpeed) {
+            landing = sample.position
+            landingSpeed = speed
+          }
+        }
         if (attached && (!this.grip || this.grip.piece || r < 3)) {
           const guide = this.silhouette(r, c, this.exposed, false, this.profile)
           const folding = r < 3 ? 0.32 : 0.225 / (1 + Math.max(0, r - 7) * 0.20)
@@ -220,6 +227,7 @@ export class PaperPhysics {
         }
       }
     }
+    if (landing) land?.(landingSpeed, landing.x, landing.z)
   }
 
   replaceBox() {
@@ -243,7 +251,7 @@ export class PaperPhysics {
     const followsBox = this.boxMotion.grabbed || this.boxMotion.moving
     const impact = this.boxMotion.update(dt, this.load, grip ? grip.point.position.x - x : 0)
     this.carton.begin(this.previousBox, this.box)
-    if (impact > 0.95) this.events.impact?.(impact, this.box.x)
+    if (impact > 0.48) this.events.impact?.(impact, this.box.x, this.box.z, this.boxMotion.impactSurface)
     if (!followsBox || (x === this.box.x && z === this.box.z && yaw === this.box.yaw && lift === this.box.lift)) return
     const c = Math.cos(this.box.yaw - yaw)
     const s = Math.sin(this.box.yaw - yaw)
@@ -262,9 +270,6 @@ export class PaperPhysics {
   private feed(dt: number) {
     const grip = this.grip?.piece ? null : this.grip
     if (grip) this.load.subVectors(grip.target, grip.point.position).multiplyScalar(7.4).clampLength(0, 10)
-    else if (this.grip?.piece && this.snagTime >= 0.09) {
-      this.load.copy(this.snag).setLength(clamp(this.snag.length() - 1.4, 0, 3.5))
-    }
     else this.load.set(0, 0, 0)
     this.advanceBox(dt, grip)
     const upward = Math.max(0, this.load.y)
@@ -300,8 +305,6 @@ export class PaperPhysics {
   }
 
   step(dt: number) {
-    const heldPiece = this.grip?.piece
-    if (heldPiece) this.paperGuard.capture(this.rows, heldPiece.rows)
     if (this.assistTime > 0 && this.grip) {
       this.grip.target.y += dt * (this.assistFast ? 9.8 : 2.15)
       this.grip.target.x += dt * (this.assistFast ? 2.9 : 0.08)
@@ -327,61 +330,47 @@ export class PaperPhysics {
       }
     }
     this.enforce(this.rows, true, true)
-    const held = this.grip?.piece ? this.grip : null
-    if (held) {
-      this.pullDirection.subVectors(held.target, held.point.position)
-      this.heldPosition.copy(held.point.position).add(this.difference.copy(this.pullDirection).clampLength(0, 0.25))
+    const grip = this.grip
+    const held = grip?.piece
+    if (held && grip) {
+      const delta = this.difference.subVectors(grip.target, grip.point.position).clampLength(0, 0.25)
+      this.heldPosition.copy(grip.point.position).add(delta)
     }
     for (let i = 0; i < 6; i++) {
       this.relax(this.rows, true)
-      const grip = this.grip
       if (grip && !grip.piece) this.applyGrip(grip)
       this.enforce(this.rows, true, false)
-      for (const offcut of this.offcuts) {
-        if (offcut.awake <= 0) continue
-        this.relax(offcut.rows, false, offcut.bends)
-        if (held?.piece === offcut) {
-          const strain = this.difference.subVectors(this.heldPosition, held.point.position)
-          if (strain.y > this.pullDirection.y) this.pullDirection.copy(strain)
-          held.point.position.copy(this.heldPosition)
-        }
-        this.enforce(offcut.rows, false, false)
-      }
     }
-
-    this.contactPull.set(0, 0, 0)
-    const projectSurfaces = () => {
-      this.finishSurface(this.rows, true)
-      if (this.upcoming.length) this.finishSurface(this.upcoming, true)
-      for (const piece of this.offcuts) if (piece.awake > 0) this.finishSurface(piece.rows, false)
-    }
-    const regularContactStep = this.contactTick++ % 3 === 0
-    if (held) this.solveLayers(projectSurfaces)
-    else {
-      if (regularContactStep || this.upcoming.length > 1) this.solveLayers()
-      projectSurfaces()
-    }
-    if (heldPiece) this.paperGuard.separate(this.rows, heldPiece.rows)
-    if (held && this.contactPull.lengthSq() > 1.8 ** 2) {
-      this.snag.lerp(this.contactPull, 1 - Math.exp(-dt * 25))
-      this.snagTime = Math.min(0.16, this.snagTime + dt)
-    } else {
-      this.snag.multiplyScalar(Math.exp(-dt * 35))
-      this.snagTime = Math.max(0, this.snagTime - dt * 2)
-    }
-    for (const piece of this.offcuts) {
+    for (let i = 0; i < this.offcuts.length; i++) {
+      const piece = this.offcuts[i]
       if (piece.awake <= 0) continue
-      if (held?.piece !== piece) piece.awake = Math.max(0, piece.awake - dt)
+      const iterations = piece === held ? 6 : i >= this.offcuts.length - 2 ? 4 : 2
+      for (let pass = 0; pass < iterations; pass++) {
+        this.relax(piece.rows, false, piece.bends)
+        if (piece === held && grip) grip.point.position.copy(this.heldPosition)
+        this.enforce(piece.rows, false, false)
+      }
+      this.finishSurface(piece.rows, false)
+      if (piece !== held) piece.awake = Math.max(0, piece.awake - dt)
       if (piece.awake === 0) for (const { points } of piece.rows) {
         for (const point of points) point.previous.copy(point.position)
       }
       piece.version++
       paperBounds(piece.rows, piece.bounds)
     }
+    if (this.contactTick++ % 2 === 0 && held && grip) {
+      const contact = this.paperContacts.touch(this.rows, held.rows)
+      const { position, previous } = grip.point
+      if (contact > 0.16 && position.distanceToSquared(previous) > (0.55 * dt) ** 2) {
+        this.events.brush?.(contact, position.x, position.z)
+      }
+    }
+    this.finishSurface(this.rows, true)
+    if (this.upcoming.length) this.finishSurface(this.upcoming, true)
 
     if (this.exposed >= TOTAL - 1e-6) {
       const strength = Math.min(6, this.speed + this.tension * 0.35)
-      const pan = this.grip?.point.position.x ?? this.box.x
+      const source = this.grip?.point.position
       // Transfer the remaining pull to the folds that were held back by the slot.
       const impulse = this.difference.copy(this.load).multiplyScalar(dt * 0.56).clampLength(0, 0.052)
       for (let r = 0; r < this.rows.length; r++) {
@@ -406,7 +395,7 @@ export class PaperPhysics {
         if (this.grip && this.assistTime <= 0 && this.releaseTime <= 0) this.grip.piece = piece
         else this.release()
       }
-      this.events.draw(strength, pan)
+      this.events.draw(strength, source?.x ?? this.box.x, source?.z ?? this.box.z)
     }
     if (this.releaseTime > 0) {
       this.releaseTime -= dt
@@ -435,49 +424,6 @@ export class PaperPhysics {
     // An edge can enter a corner even when all its vertices are outside the carton.
     for (let pass = 0; pass < 3; pass++) {
       if (!this.carton.projectSurface(rows, anchored)) break
-    }
-  }
-
-  private solveLayers(projectSurfaces?: () => void) {
-    const activeFold = (this.grip !== null && !this.grip.piece || this.speed > 0.12) && this.rows.length > 8
-    if (!activeFold && !this.upcoming.length && this.offcuts.every((piece) => piece.awake <= 0)) {
-      projectSurfaces?.()
-      return
-    }
-    const layers: ContactLayer[] = [{
-      rows: this.rows,
-      bounds: paperBounds(this.rows, this.activeBounds, true),
-      anchored: true,
-      sleeping: false,
-      folding: activeFold,
-      receivePull: this.grip?.piece ? this.receivePull : undefined,
-    }]
-    if (this.upcoming.length) layers.push({
-      rows: this.upcoming,
-      bounds: paperBounds(this.upcoming, this.upcomingBounds),
-      anchored: true,
-      sleeping: false,
-    })
-    for (const piece of this.offcuts) layers.push({
-      rows: piece.rows,
-      bounds: piece.awake > 0 ? paperBounds(piece.rows, piece.bounds, true) : piece.bounds,
-      anchored: false,
-      sleeping: piece.awake <= 0,
-      folding: this.grip?.piece === piece || piece.age < 0.82,
-      driven: this.grip?.piece === piece,
-      wake: piece.awake <= 0 ? () => this.wake(piece) : undefined,
-    })
-    this.paperContacts.solve(layers, projectSurfaces)
-  }
-
-  private readonly receivePull = (motion: Vector3) => {
-    const lift = Math.max(0, motion.y)
-    const alongPull = motion.dot(this.pullDirection)
-    if (lift < 0.008 || alongPull <= 0 || this.pullDirection.y < 0.06) return
-    // Use the strongest coherent contact so a denser mesh cannot increase the pull.
-    const force = Math.min(motion.length() * 110, this.pullDirection.length() * 20)
-    if (force * force > this.contactPull.lengthSq()) {
-      this.contactPull.copy(motion).setLength(force)
     }
   }
 

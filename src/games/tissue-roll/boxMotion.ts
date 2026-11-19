@@ -8,6 +8,9 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
 
 /** A light carton constrained to the fixed camera's tabletop play area. */
 export class BoxMotion {
+  soft = false
+  landing = 0
+  impactSurface: 'table' | 'edge' = 'table'
   readonly pose: Pose = { x: 0, z: 0, yaw: 0, lift: 0 }
   private readonly velocity = new Vector3()
   private readonly gestureVelocity = new Vector3()
@@ -63,7 +66,7 @@ export class BoxMotion {
 
   toss() {
     if (this.hold) return
-    this.velocity.set((this.pose.x > 0.05 ? -1 : 1) * 6.4, 4.3, -0.84)
+    this.velocity.set((this.pose.x > 0.05 ? -1 : 1) * (this.soft ? 5.6 : 6.4), this.soft ? 3.8 : 4.3, -0.84)
     this.spin = this.velocity.x * 0.6
     this.rolling = true
   }
@@ -71,6 +74,7 @@ export class BoxMotion {
   reset() {
     this.hold = null
     this.rolling = false
+    this.landing = 0
     this.velocity.set(0, 0, 0)
     this.spin = 0
     this.restX = this.restZ = this.restYaw = 0
@@ -81,11 +85,23 @@ export class BoxMotion {
     const box = this.pose
     const vel = this.velocity
     const { x: side, lift: ceiling } = this.bounds
+    if (this.landing > 0) {
+      this.landing *= Math.exp(-dt * 15)
+      if (this.landing < 0.004) this.landing = 0
+    }
     if (this.hold) {
       const amount = 1 - Math.exp(-dt * 32)
+      const beforeLift = box.lift
+      const targetLift = clamp(this.target.y, 0, ceiling)
       box.x += (clamp(this.target.x, -side, side) - box.x) * amount
-      box.lift += (clamp(this.target.y, 0, ceiling) - box.lift) * amount
+      box.lift += (targetLift - box.lift) * amount
       box.z += (clamp(this.target.z, -0.72, 0.56) - box.z) * amount
+      if (this.soft && targetLift < 0.005 && beforeLift > 0.026 && box.lift <= 0.026) {
+        this.impactSurface = 'table'
+        const strength = clamp(-this.gestureVelocity.y * 0.32, 0.51, 1.45)
+        this.landing = 0.18 + strength * 0.10
+        return strength
+      }
       return 0
     }
     if (!this.rolling) {
@@ -118,22 +134,26 @@ export class BoxMotion {
     if (Math.abs(box.x) > side) {
       this.spin += vel.x * 0.31
       impact = Math.max(impact, Math.abs(vel.x))
+      this.impactSurface = 'edge'
       box.x = Math.sign(box.x) * side
-      vel.x = -Math.sign(box.x) * Math.abs(vel.x) * 0.68
+      vel.x = -Math.sign(box.x) * Math.abs(vel.x) * (this.soft ? 0.43 : 0.68)
     }
     if (box.z < -0.72 || box.z > 0.56) {
       const back = box.z < 0
       box.z = back ? -0.72 : 0.56
       impact = Math.max(impact, Math.abs(vel.z))
-      vel.z = (back ? 1 : -1) * Math.abs(vel.z) * 0.56
+      this.impactSurface = 'edge'
+      vel.z = (back ? 1 : -1) * Math.abs(vel.z) * (this.soft ? 0.38 : 0.56)
     }
     if (box.lift > ceiling) {
       box.lift = ceiling
       vel.y = -Math.abs(vel.y) * 0.55
     } else if (box.lift < 0) {
       box.lift = 0
+      if (-vel.y > impact) this.impactSurface = 'table'
       impact = Math.max(impact, -vel.y)
-      vel.y = vel.y < -0.75 ? -vel.y * 0.34 : 0
+      if (this.soft && vel.y < -0.75) this.landing = Math.min(1, -vel.y * 0.21)
+      vel.y = vel.y < -0.75 ? -vel.y * (this.soft ? 0.13 : 0.34) : 0
       vel.x *= 0.84
       vel.z *= 0.84
     }

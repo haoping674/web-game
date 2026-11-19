@@ -4,8 +4,8 @@ import { useGameActivity } from '../../hooks/useGameActivity'
 import { useGamePauseShortcut } from '../../hooks/useGamePauseShortcut'
 import { fixedClock } from '../../shared/immersive/fixedClock'
 import { addPaperProgress, type GameProgress, type GlobalSettings } from '../../shared/storage/appStorage'
-import { PaperPhysics } from './paperPhysics'
-import { TISSUE_BRANDS, type TissueBrand } from './tissueBox'
+import { FLOOR, PaperPhysics } from './paperPhysics'
+import { DEFAULT_TISSUE, HARD_BOXES, isSoftPack, SOFT_PACKS, TISSUE_BRANDS, type TissueBrand } from './tissueBox'
 import { createTissueAudio } from './tissueAudio'
 import { createTissueScene } from './tissueScene'
 import './tissueRoll.css'
@@ -32,7 +32,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [generation, setGeneration] = useState(0)
   const [holding, setHolding] = useState(false)
-  const [brand, setBrand] = useState<TissueBrand>('mayflower')
+  const [brand, setBrand] = useState<TissueBrand>(DEFAULT_TISSUE)
   const [active, setActive] = useState(false)
   const [notice, setNotice] = useState('')
   const [liveLength, setLiveLength] = useState(0)
@@ -62,18 +62,22 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     if (!host) return
     let uncommittedSheets = 0
     let committedLength = 0
+    const initialBrand = selectedBrand()
     const audio = createTissueAudio()
-    const physics = new PaperPhysics({
-      draw: (strength, pan) => {
+    const physics: PaperPhysics = new PaperPhysics({
+      draw: (strength, x, z) => {
         uncommittedSheets += 1
-        audio.draw(strength, pan)
+        audio.draw(strength, x, z)
         if (config().rumble && typeof navigator.vibrate === 'function') navigator.vibrate(Math.min(18, 7 + Math.round(strength * 2)))
       },
-      impact: (strength, pan) => audio.impact(strength, pan),
+      impact: (strength, x, z, surface) => audio.impact(strength, x, z, surface, physics.boxMotion.soft),
+      land: audio.land,
+      brush: audio.brush,
     })
+    physics.boxMotion.soft = isSoftPack(initialBrand)
     let scene: ReturnType<typeof createTissueScene>
     try {
-      scene = createTissueScene(host, physics, selectedBrand())
+      scene = createTissueScene(host, physics, initialBrand)
       scene.render(0)
     } catch (error) {
       console.warn('Tissue Roll 3D initialization failed', error)
@@ -95,6 +99,8 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     let failed = false
     let needsDraw = true
     let isActive = false
+    let priorBoxX = physics.box.x
+    let priorBoxZ = physics.box.z
     const clock = fixedClock((dt) => physics.step(dt))
 
     function flush(announce = true) {
@@ -122,6 +128,8 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
       audio.unlock()
       const grabbed = scene.grab(event.clientX, event.clientY, now)
       if (!grabbed) return
+      const source = physics.grip?.point.position ?? physics.box
+      audio.grab(grabbed === 'box' && physics.boxMotion.soft ? 'soft-pack' : grabbed, source.x, source.z)
       pointer = event.pointerId
       host!.setPointerCapture(pointer)
       if (grabbed === 'paper') paperTap = { x: event.clientX, y: event.clientY, time: now }
@@ -143,6 +151,10 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
       const tap = completed && paperTap && !physics.grip?.piece && lastInput - paperTap.time < 400
         && Math.hypot(event.clientX - paperTap.x, event.clientY - paperTap.y) <= 5
       if (completed && !tap) scene.move(event.clientX, event.clientY, lastInput)
+      if (completed && physics.grip?.piece) {
+        const { x, z } = physics.grip.point.position
+        audio.release(x, z)
+      }
       release(completed && !tap)
       if (tap) physics.pull(false)
     }
@@ -195,7 +207,25 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
         isActive = interacting
         setActive(interacting)
       }
-      audio.tick(physics.speed, physics.tension, (physics.grip?.point.position.x ?? 0) * 0.9, physics.lipDeflection)
+      const { grip, box } = physics
+      const source = grip?.point.position ?? box
+      const boxSlide = dt > 0 && box.lift < 0.035 && (physics.boxMotion.grabbed || physics.boxMotion.moving || physics.speed > 0.1)
+        ? Math.hypot(box.x - priorBoxX, box.z - priorBoxZ) / dt : 0
+      priorBoxX = box.x
+      priorBoxZ = box.z
+      const loose = grip?.piece
+      audio.tick({
+        feed: physics.speed,
+        tension: physics.tension,
+        film: physics.lipDeflection,
+        x: source.x,
+        z: source.z,
+        loose: loose && grip ? grip.point.position.distanceTo(grip.point.previous) * 120 : 0,
+        onDesk: !!loose && loose.bounds.min.y < FLOOR + 0.035,
+        boxSlide,
+        boxX: box.x,
+        boxZ: box.z,
+      })
       if (interacting || needsDraw || now - lastDraw >= 250) {
         scene.render(interacting ? Math.min(0.075, dt) : 0, settings.rumble)
         lastDraw = now
@@ -230,6 +260,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
         release()
         flush()
         scene.changeBrand(nextBrand)
+        physics.boxMotion.soft = isSoftPack(nextBrand)
         physics.replaceBox()
         setBrand(nextBrand)
         setNotice(`換上${TISSUE_BRANDS[nextBrand]}。`)
@@ -238,6 +269,17 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
       clear() {
         if (config().blocked || failed) return
         if (physics.grip?.piece) release()
+        const count = physics.offcuts.length
+        if (count > 0) {
+          let x = 0
+          let z = 0
+          for (const { bounds } of physics.offcuts) {
+            x += (bounds.min.x + bounds.max.x) / 2
+            z += (bounds.min.z + bounds.max.z) / 2
+          }
+          audio.unlock()
+          audio.clear(count, x / count, z / count)
+        }
         physics.offcuts = []
         needsDraw = true
         setNotice('桌面已清理。')
@@ -297,6 +339,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
 
   const meters = ((progress.paperMillimeters ?? 0) + liveLength) / 1000
   const disabled = status !== 'ready' || blocked
+  const soft = isSoftPack(brand)
 
   return (
     <section className="tissue-game" aria-labelledby="tissue-title">
@@ -305,23 +348,27 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
         <button type="button" className="tissue-button" disabled={disabled} onClick={pause}>暫停</button>
       </header>
       <div className="tissue-frame">
-        <div ref={stage} className={`tissue-stage${holding ? ' is-holding' : ''}`} aria-label={`木桌上的${TISSUE_BRANDS[brand]}盒裝面紙`} role="img" />
-        {status === 'loading' && <p className="tissue-message" role="status">正在準備面紙盒…</p>}
+        <div ref={stage} className={`tissue-stage${holding ? ' is-holding' : ''}`} aria-label={`木桌上的${TISSUE_BRANDS[brand]}面紙`} role="img" />
+        {status === 'loading' && <p className="tissue-message" role="status">正在準備面紙…</p>}
         {status === 'failed' && <div className="tissue-message" role="alert"><p>這個瀏覽器目前無法開啟 3D 場景。請確認 WebGL 2 可用。</p><button className="tissue-button" onClick={() => { setStatus('loading'); setGeneration((value) => value + 1) }}>重試</button></div>}
       </div>
       <div className="tissue-console">
-        <div className="tissue-instructions"><p>點一下輕抽，按住可拉紙。桌上的紙和紙盒也能拖動。</p><p className="tissue-record">累積抽出 <strong>{progress.paperSheets ?? 0} 張</strong><span aria-hidden="true"> · </span>拉出 <strong>{meters.toFixed(2)} 公尺</strong></p></div>
+        <div className="tissue-instructions"><p>點一下輕抽，按住可拉紙。桌上的紙和包裝也能拖動。</p><p className="tissue-record">累積抽出 <strong>{progress.paperSheets ?? 0} 張</strong><span aria-hidden="true"> · </span>拉出 <strong>{meters.toFixed(2)} 公尺</strong></p></div>
         <div className="tissue-tools" aria-label="衛生紙操作" role="group">
           <button type="button" className="tissue-button" disabled={disabled} onClick={() => controls.current?.pull(false)}>輕抽</button>
           <button type="button" className="tissue-button tissue-flick" disabled={disabled} onClick={() => controls.current?.pull(true)}>快抽</button>
-          <button type="button" className="tissue-button" disabled={disabled} onClick={() => controls.current?.toss()}>丟紙盒</button>
+          <button type="button" className="tissue-button" disabled={disabled} onClick={() => controls.current?.toss()}>{soft ? '丟軟包' : '丟紙盒'}</button>
           <button type="button" className="tissue-button tissue-clear" disabled={disabled} onClick={() => controls.current?.clear()}>清理桌面</button>
-          <select className="tissue-button" aria-label="面紙品牌" disabled={disabled} value={brand} onChange={(event) => {
+          <select className="tissue-button" aria-label="面紙包裝" disabled={disabled} value={brand} onChange={(event) => {
             const next = event.currentTarget.value
-            if (next === 'mayflower' || next === 'kleenex') controls.current?.changeBrand(next)
+            if (Object.hasOwn(TISSUE_BRANDS, next)) controls.current?.changeBrand(next as TissueBrand)
           }}>
-            <option value="mayflower">五月花</option>
-            <option value="kleenex">舒潔</option>
+            <optgroup label="軟包">
+              {Object.entries(SOFT_PACKS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </optgroup>
+            <optgroup label="硬盒">
+              {Object.entries(HARD_BOXES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </optgroup>
           </select>
         </div>
       </div>
@@ -329,7 +376,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
       {paused && !platformSettingsOpen && (
         <OverlayDialog label="無限抽衛生紙已暫停" onClose={() => setPaused(false)}>
           <h2>先歇一下</h2>
-          <p>面紙盒等你回來。</p>
+          <p>面紙等你回來。</p>
           <div className="dialog-actions"><button type="button" className="primary-button" onClick={() => setPaused(false)}>繼續抽紙</button></div>
         </OverlayDialog>
       )}
