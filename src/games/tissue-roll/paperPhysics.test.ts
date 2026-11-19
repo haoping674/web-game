@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Box3, Triangle, Vector3 } from 'three'
-import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, FLOOR, PaperPhysics, SHEET_ROWS } from './paperPhysics'
+import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, COLUMNS, FLOOR, PITCH, PaperPhysics, SHEET_ROWS } from './paperPhysics'
 
 function setup() {
   const draws: number[] = []
@@ -10,6 +10,60 @@ function setup() {
 }
 
 describe('boxed tissue interaction', () => {
+  it('keeps an extended half-sheet stable when the hand stops moving', () => {
+    const { model, draws, advance } = setup()
+    const row = model.rows.length - 1
+    const origin = model.rows[row].points[7].position.clone()
+    expect(model.grab(row, 7, origin)).toBe(true)
+    model.move(origin.add(new Vector3(0.12, 0.45, 0)))
+    advance(50)
+    let largestStep = 0
+    for (let frame = 0; frame < 125; frame++) {
+      const before = new Map(model.rows.flatMap(({ points }) => points.map((point) => [point, point.position.clone()] as const)))
+      advance(1)
+      for (const { points } of model.rows) for (const point of points) {
+        const prior = before.get(point)
+        if (prior) largestStep = Math.max(largestStep, prior.distanceTo(point.position))
+      }
+    }
+    expect(model.rows.length).toBeGreaterThan(8)
+    expect(draws).toHaveLength(0)
+    expect(largestStep).toBeLessThan(0.067)
+  })
+
+  it.each([
+    { lift: 0.10, pullsPaper: false },
+    { lift: 1.0, pullsPaper: true },
+  ])('only feeds the box when a held sheet snags and transfers a sustained pull ($lift)', ({ lift, pullsPaper }) => {
+    const { model, advance } = setup()
+    model.pull(true)
+    advance(580)
+    const [piece] = model.offcuts
+    const tip = model.rows.at(-1)!.points[7].position
+    const boxPaper = tip.clone()
+    for (let r = 0; r < piece.rows.length; r++) for (let c = 0; c < COLUMNS; c++) {
+      const point = piece.rows[r].points[c]
+      point.position.set(boxPaper.x + (c - 7) * 0.125, boxPaper.y - 0.08, boxPaper.z - 1.10 + r * PITCH)
+      point.previous.copy(point.position)
+    }
+    const start = piece.rows[0].points[7].position.clone()
+    const path = new Vector3(0, lift, 0.825)
+    const target = new Vector3()
+    const produced = model.produced
+    expect(model.grab(0, 7, start, piece)).toBe(true)
+    let movement = 0
+    for (let frame = 0; frame < 105; frame++) {
+      const distance = Math.min(1, frame / 65)
+      model.move(target.copy(start).addScaledVector(path, distance))
+      advance(1)
+      movement = Math.max(movement, tip.distanceTo(boxPaper))
+    }
+    expect(movement).toBeGreaterThan(0.02)
+    if (pullsPaper) expect(model.produced - produced).toBeGreaterThan(0.20)
+    else expect(model.produced).toBeCloseTo(produced, 5)
+    expect(model.grip?.piece).toBe(piece)
+  }, 12_000)
+
   it('feeds part of a sheet under a short pull and permits a new grip after release', () => {
     const { model, draws, advance } = setup()
     const column = 7

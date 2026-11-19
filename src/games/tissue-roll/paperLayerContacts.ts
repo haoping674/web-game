@@ -10,6 +10,8 @@ export type ContactLayer = {
   anchored: boolean
   sleeping: boolean
   folding?: boolean
+  driven?: boolean
+  receivePull?: (motion: Vector3) => void
   wake?: () => void
 }
 
@@ -45,6 +47,10 @@ export class PaperLayerContacts {
   private readonly prior = new Vector3()
   private readonly hit = new Vector3()
   private readonly correction = new Vector3()
+  private readonly oldNormal = new Vector3()
+  private readonly oldEdge = new Vector3()
+  private readonly motion = new Vector3()
+  private readonly friction = new Vector3()
   private readonly candidates: ContactLayer[] = []
   private readonly lastSolved = new WeakMap<PaperPoint, Vector3>()
   private serial = 0
@@ -122,12 +128,12 @@ export class PaperLayerContacts {
         face.visited = serial
         if (face.layer === layer && (!layer.folding || (row >= face.row - 1 && row <= face.row + 2
           && column >= face.column - 1 && column <= face.column + 2))) continue
-        if (this.separateCrossing(start, end, face, pinned)) return
+        if (this.separateCrossing(layer, start, end, face, pinned)) return
       }
     }
   }
 
-  private separateCrossing(start: PaperPoint, end: PaperPoint, face: Face, pinned: boolean): boolean {
+  private separateCrossing(layer: ContactLayer, start: PaperPoint, end: PaperPoint, face: Face, pinned: boolean): boolean {
     const a = face.a.position
     const b = face.b.position
     const c = face.c.position
@@ -155,21 +161,19 @@ export class PaperLayerContacts {
     const wc = (hv * uu - hu * uv) / area
     if (wb < -0.0001 || wc < -0.0001 || wb + wc > 1.0001) return false
 
-    const oldFace = this.oldPosition(face.a)
-    const old0 = normal.dot(this.prior.subVectors(this.oldPosition(start), oldFace))
-    const old1 = normal.dot(this.prior.subVectors(this.oldPosition(end), oldFace))
-    const remembered = old0 * old1 > 0 ? old0 + old1 : Math.abs(d0) > Math.abs(d1) ? d0 : d1
+    const old0 = this.priorDistance(start, face)
+    const old1 = this.priorDistance(end, face)
+    const sameSide = old0 * old1 > 0 && Math.min(Math.abs(old0), Math.abs(old1)) > 0.003
+    const remembered = sameSide ? old0 + old1 : Math.abs(d0) > Math.abs(d1) ? d0 : d1
     const side = Math.sign(pinned ? d0 : remembered)
     const point = side * d0 < 0 ? start : end
     const distance = point === start ? d0 : d1
-    const normalTravel = this.normalMotion(point, normal)
-    const faceTravel = (1 - wb - wc) * this.normalMotion(face.a, normal)
-      + wb * this.normalMotion(face.b, normal) + wc * this.normalMotion(face.c, normal)
-    const closing = Math.min(0, side * (normalTravel - faceTravel))
-    const delta = this.correction.copy(normal).multiplyScalar(side * LAYER_GAP - distance)
-    point.position.add(delta)
-    point.previous.add(delta).addScaledVector(normal, side * closing)
-    if (face.layer.sleeping && Math.abs(normalTravel) > 0.025 && old0 * old1 > 0 && Math.abs(distance) > LAYER_GAP * 2) face.layer.wake?.()
+    const self = face.layer === layer
+    const wake = face.layer.sleeping && sameSide && Math.abs(distance) > LAYER_GAP * 2
+      && Math.abs(this.normalMotion(point, normal)) > 0.025
+    // Keep uncertain self crossings from snapping an entire edge to the other side.
+    const limit = self ? 0.018 : face.layer.sleeping ? Infinity : 0.065
+    this.respond(layer, point, face, side, Math.min(limit, LAYER_GAP - side * distance), wb, wc, wake, true)
     return true
   }
 
@@ -230,12 +234,12 @@ export class PaperLayerContacts {
         face.visited = serial
         if (face.layer === layer && (!layer.folding || (row >= face.row - 1 && row <= face.row + 2
           && column >= face.column - 1 && column <= face.column + 2))) continue
-        if (this.resolveFace(point, face)) return
+        if (this.resolveFace(layer, point, face)) return
       }
     }
   }
 
-  private resolveFace(point: PaperPoint, face: Face): boolean {
+  private resolveFace(layer: ContactLayer, point: PaperPoint, face: Face): boolean {
     const a = face.a.position
     const b = face.b.position
     const c = face.c.position
@@ -247,7 +251,10 @@ export class PaperLayerContacts {
     normal.multiplyScalar(1 / Math.sqrt(area))
     const relative = this.relative.subVectors(point.position, a)
     const distance = normal.dot(relative)
-    const old = normal.dot(this.prior.subVectors(this.oldPosition(point), this.oldPosition(face.a)))
+    // Keep the interpolation in the current triangle frame, but use the previous
+    // triangle orientation to decide which side the point came from.
+    this.prior.subVectors(this.oldPosition(point), this.oldPosition(face.a))
+    const old = this.priorDistance(point, face)
     const crossed = old * distance < 0 && Math.abs(old) >= LAYER_GAP
     if (Math.abs(distance) > (crossed ? 0.39 : 0.18)) return false
     const side = Math.sign(Math.abs(old) > 0.002 ? old : distance) || 1
@@ -264,29 +271,59 @@ export class PaperLayerContacts {
     const hv = contact.dot(ac)
     const wb = (hu * vv - hv * uv) / area
     const wc = (hv * uu - hu * uv) / area
-    const wa = 1 - wb - wc
-    if (wa < -0.045 || wb < -0.045 || wc < -0.045) return false
+    if (1 - wb - wc < -0.045 || wb < -0.045 || wc < -0.045) return false
 
     const normalTravel = this.normalMotion(point, normal)
     const wake = face.layer.sleeping && Math.abs(normalTravel) > 0.024 && (Math.abs(old - distance) > 0.016 || distance * side < -0.004)
-    const fixed = face.layer.sleeping && !wake ? 7 : face.fixed
-    const sa = fixed & 1 ? 0 : Math.max(0, wa)
-    const sb = fixed & 2 ? 0 : Math.max(0, wb)
-    const sc = fixed & 4 ? 0 : Math.max(0, wc)
+    const limit = layer === face.layer ? 0.025 : crossed ? 0.41 : 0.091
+    this.respond(layer, point, face, side, Math.min(limit, LAYER_GAP - side * distance), wb, wc, wake)
+    return true
+  }
+
+  private priorDistance(point: PaperPoint, face: Face) {
+    const a = this.oldPosition(face.a)
+    const normal = this.oldNormal.subVectors(this.oldPosition(face.b), a)
+      .cross(this.oldEdge.subVectors(this.oldPosition(face.c), a))
+    const area = normal.lengthSq()
+    if (area < 1e-9 || normal.dot(this.normal) < 0) normal.copy(this.normal)
+    else normal.multiplyScalar(1 / Math.sqrt(area))
+    return normal.dot(this.oldEdge.subVectors(this.oldPosition(point), a))
+  }
+
+  private respond(layer: ContactLayer, point: PaperPoint, face: Face, side: number, depth: number, wb: number, wc: number, wake: boolean, edge = false) {
+    const wa = Math.max(0, 1 - wb - wc)
+    wb = Math.max(0, wb)
+    wc = Math.max(0, wc)
+    const fixed = face.layer.sleeping && (edge || !wake) ? 7 : face.fixed
+    const sa = fixed & 1 ? 0 : wa
+    const sb = fixed & 2 ? 0 : wb
+    const sc = fixed & 4 ? 0 : wc
     const inverseMass = 1 + sa * sa + sb * sb + sc * sc
-    const faceTravel = wa * this.normalMotion(face.a, normal)
-      + wb * this.normalMotion(face.b, normal) + wc * this.normalMotion(face.c, normal)
-    const closing = Math.min(0, side * (normalTravel - faceTravel)) / inverseMass
-    const response = Math.min(crossed ? 0.41 : 0.091, LAYER_GAP - side * distance) / inverseMass
+    const normal = this.normal
+    const motion = this.motion.subVectors(point.position, point.previous)
+    motion.addScaledVector(this.relative.subVectors(face.a.position, face.a.previous), -wa)
+    motion.addScaledVector(this.relative.subVectors(face.b.position, face.b.previous), -wb)
+    motion.addScaledVector(this.relative.subVectors(face.c.position, face.c.previous), -wc)
+    const normalTravel = motion.dot(normal)
+    const closing = Math.min(0, side * normalTravel) / inverseMass
+    const response = depth / inverseMass
     const delta = this.correction.copy(normal).multiplyScalar(side * response)
     const previousDelta = this.prior.copy(delta).addScaledVector(normal, side * closing)
+    if (layer !== face.layer && (layer.driven || face.layer.driven) && fixed !== 7) {
+      // Dry paper slides once tangential motion exceeds what the contact can support.
+      const friction = this.friction.copy(motion).addScaledVector(normal, -normalTravel)
+        .multiplyScalar(1 / inverseMass).clampLength(0, (response - closing) * 0.28)
+      previousDelta.add(friction)
+      friction.addScaledVector(normal, side * (closing - response))
+      if (layer.driven && (sa || sb || sc)) face.layer.receivePull?.(friction)
+      if (face.layer.driven) layer.receivePull?.(friction.negate())
+    }
     point.position.add(delta)
     point.previous.add(previousDelta)
     this.shift(face.a, delta, previousDelta, sa)
     this.shift(face.b, delta, previousDelta, sb)
     this.shift(face.c, delta, previousDelta, sc)
     if (wake) face.layer.wake?.()
-    return true
   }
 
   private normalMotion(point: PaperPoint, normal: Vector3) {
