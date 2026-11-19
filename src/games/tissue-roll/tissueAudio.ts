@@ -129,6 +129,7 @@ export function createTissueAudio() {
       }
     },
     draw(strength: number, pan: number) { play('draw', Math.min(0.65, 0.26 + strength * 0.085), pan, 0.88 + Math.random() * 0.18 + strength * 0.045, 0.27) },
+    impact(strength: number, pan: number) { play('slide', Math.min(0.36, strength * 0.055), pan, 0.53, 0.10) },
     dispose() {
       alive = false
       load.abort()

@@ -8,7 +8,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { adaptiveResolution } from '../../shared/immersive/adaptiveResolution'
 import { COLUMNS, FLOOR, PaperPhysics, SHEET_ROWS, type PaperRow } from './paperPhysics'
-import { createTissueBox } from './tissueBox'
+import { createTissueBox, type TissueBrand } from './tissueBox'
 
 const PAPER_COLOR = '#ece3d3'
 const WALL = '#94998b'
@@ -164,7 +164,7 @@ class PaperMesh {
   }
 }
 
-export function createTissueScene(host: HTMLElement, physics: PaperPhysics) {
+export function createTissueScene(host: HTMLElement, physics: PaperPhysics, brand: TissueBrand) {
   const scene = new Scene()
   scene.background = new Color(WALL)
   const renderer = new WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' })
@@ -208,7 +208,8 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics) {
   shelf.receiveShadow = true
   scene.add(shelf)
 
-  const packaging = createTissueBox()
+  let packaging = createTissueBox(brand)
+  const packages = new Map([[brand, packaging]])
   scene.add(packaging.root)
   const tissue = tissueTexture()
   const paper = paperMaterial(tissue)
@@ -229,6 +230,7 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics) {
   const plane = new Plane()
   const screen = new Vector2()
   const facing = new Vector3()
+  const dragTarget = new Vector3()
   const resolution = adaptiveResolution(Math.min(window.devicePixelRatio || 1, 1.65))
 
   function resize() {
@@ -236,11 +238,15 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics) {
     const h = host.clientHeight
     if (!w || !h) return
     camera.aspect = w / h
-    const distance = Math.max(5.65, 4.16 / Math.max(camera.aspect, 0.4))
+    const distance = Math.max(5.65, 5.4 / Math.max(camera.aspect, 0.4))
     camera.position.set(distance * 0.33, distance * 0.39, distance * 0.91)
     camera.lookAt(0.01, 0.40, 0.12)
     camera.updateProjectionMatrix()
     camera.updateMatrixWorld()
+    physics.boxMotion.setBounds({
+      x: Math.max(0.43, distance * camera.aspect * 0.30 - 1.09),
+      lift: Math.min(2.0, distance * 0.29),
+    })
     renderer.setPixelRatio(resolution.scale)
     renderer.setSize(w, h, false)
   }
@@ -255,23 +261,45 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics) {
     ray.setFromCamera(screen, camera)
   }
 
-  function grab(x: number, y: number) {
+  function grab(x: number, y: number, now: number): 'paper' | 'box' | null {
     setRay(x, y)
     const hit = ray.intersectObject(sheet.mesh)[0]
-    if (!hit?.face) return false
+    const cartonHit = ray.intersectObject(packaging.root, true)[0]
+    if (cartonHit && (!hit || cartonHit.distance < hit.distance)) {
+      camera.getWorldDirection(facing).negate()
+      plane.setFromNormalAndCoplanarPoint(facing, cartonHit.point)
+      physics.release()
+      physics.boxMotion.grab(cartonHit.point, now)
+      return 'box'
+    }
+    if (!hit?.face) return null
     const index = [hit.face.a, hit.face.b, hit.face.c].reduce((a, b) => {
       const distance = (i: number) => physics.rows[Math.floor(i / COLUMNS)]?.points[i % COLUMNS].position.distanceToSquared(hit.point) ?? Infinity
       return distance(a) < distance(b) ? a : b
     })
     camera.getWorldDirection(facing).negate()
     plane.setFromNormalAndCoplanarPoint(facing, hit.point)
-    return physics.grab(Math.floor(index / COLUMNS), index % COLUMNS, hit.point)
+    return physics.grab(Math.floor(index / COLUMNS), index % COLUMNS, hit.point) ? 'paper' : null
   }
 
-  function move(x: number, y: number) {
+  function move(x: number, y: number, now: number) {
     setRay(x, y)
-    const target = ray.ray.intersectPlane(plane, new Vector3())
-    if (target) physics.move(target)
+    const target = ray.ray.intersectPlane(plane, dragTarget)
+    if (!target) return
+    if (physics.boxMotion.grabbed) physics.boxMotion.move(target, now)
+    else physics.move(target)
+  }
+
+  function changeBrand(nextBrand: TissueBrand) {
+    packaging.root.visible = false
+    let next = packages.get(nextBrand)
+    if (!next) {
+      next = createTissueBox(nextBrand)
+      packages.set(nextBrand, next)
+      scene.add(next.root)
+    }
+    packaging = next
+    packaging.root.visible = true
   }
 
   function render(delta: number, showDust = true) {
@@ -348,7 +376,7 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics) {
     })
     tissue.dispose()
     oak.dispose()
-    packaging.maps.forEach((map) => map.dispose())
+    for (const artwork of packages.values()) artwork.maps.forEach((map) => map.dispose())
     flakeGeometry.dispose()
     flakeMaterial.dispose()
     lighting.dispose()
@@ -356,5 +384,5 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics) {
     renderer.dispose()
     renderer.domElement.remove()
   }
-  return { canvas: renderer.domElement, render, dispose, grab, move }
+  return { canvas: renderer.domElement, render, dispose, grab, move, changeBrand }
 }

@@ -15,7 +15,7 @@ export const GAME_REGISTRY = [
     id: 'tissueRoll',
     name: '無限抽衛生紙',
     eyebrow: 'TISSUE BOX',
-    description: '桌上放了一盒五月花。捏住面紙往上拉，抽完一張，下一張會跟著冒出來。',
+    description: '換一盒面紙，捏住就能抽。也可以抓起紙盒往旁邊甩，看它彈回來。',
     route: '/games/tissue-roll',
     status: 'available',
     accent: '#776047',

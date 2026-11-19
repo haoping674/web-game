@@ -5,6 +5,7 @@ import { useGamePauseShortcut } from '../../hooks/useGamePauseShortcut'
 import { fixedClock } from '../../shared/immersive/fixedClock'
 import { addPaperProgress, type GameProgress, type GlobalSettings } from '../../shared/storage/appStorage'
 import { PaperPhysics } from './paperPhysics'
+import { TISSUE_BRANDS, type TissueBrand } from './tissueBox'
 import { createTissueAudio } from './tissueAudio'
 import { createTissueScene } from './tissueScene'
 import './tissueRoll.css'
@@ -16,7 +17,7 @@ type Props = {
   onProgressChange: () => void
 }
 
-type Controls = { pull: (fast: boolean) => void; clear: () => void; configure: () => void }
+type Controls = { pull: (fast: boolean) => void; toss: () => void; changeBrand: (brand: TissueBrand) => void; clear: () => void; configure: () => void }
 
 const easterEggs = [
   { sheets: 7, line: '第七張：今天的煩惱，也從盒裡抽走了。' },
@@ -31,6 +32,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [generation, setGeneration] = useState(0)
   const [holding, setHolding] = useState(false)
+  const [brand, setBrand] = useState<TissueBrand>('mayflower')
   const [active, setActive] = useState(false)
   const [notice, setNotice] = useState('')
   const [liveLength, setLiveLength] = useState(0)
@@ -44,6 +46,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     rumble: !globalSettings.reducedMotion && globalSettings.effectIntensity === 'full'
       && !matchMedia('(prefers-reduced-motion: reduce)').matches,
   }))
+  const selectedBrand = useEffectEvent(() => brand)
   const save = useEffectEvent((millimeters: number, sheets: number, announce: boolean) => {
     const record = addPaperProgress(millimeters, sheets).games.tissueRoll
     onProgressChange()
@@ -66,10 +69,11 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
         audio.draw(strength, pan)
         if (config().rumble && typeof navigator.vibrate === 'function') navigator.vibrate(Math.min(18, 7 + Math.round(strength * 2)))
       },
+      impact: (strength, pan) => audio.impact(strength, pan),
     })
     let scene: ReturnType<typeof createTissueScene>
     try {
-      scene = createTissueScene(host, physics)
+      scene = createTissueScene(host, physics, selectedBrand())
       scene.render(0)
     } catch (error) {
       console.warn('Tissue Roll 3D initialization failed', error)
@@ -103,6 +107,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     function release(fling = false) {
       const captured = pointer
       pointer = null
+      physics.boxMotion.release(fling, performance.now())
       physics.release(fling)
       setHolding(false)
       if (captured !== null && host!.hasPointerCapture(captured)) host!.releasePointerCapture(captured)
@@ -111,7 +116,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     function down(event: PointerEvent) {
       if (event.button !== 0 || pointer !== null || config().blocked || failed) return
       audio.unlock()
-      if (!scene.grab(event.clientX, event.clientY)) return
+      if (!scene.grab(event.clientX, event.clientY, performance.now())) return
       pointer = event.pointerId
       host!.setPointerCapture(pointer)
       setHolding(true)
@@ -120,13 +125,13 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
 
     function move(event: PointerEvent) {
       if (event.pointerId !== pointer) return
-      scene.move(event.clientX, event.clientY)
+      scene.move(event.clientX, event.clientY, performance.now())
       lastInput = performance.now()
     }
 
     function up(event: PointerEvent) {
       if (event.pointerId === pointer) {
-        if (event.type === 'pointerup') scene.move(event.clientX, event.clientY)
+        if (event.type === 'pointerup') scene.move(event.clientX, event.clientY, performance.now())
         release(event.type === 'pointerup')
         lastInput = performance.now()
       }
@@ -161,8 +166,8 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
       const settings = config()
       if (hidden || settings.blocked || failed) return
       clock.advance(dt)
-      if (pointer !== null && !physics.grip) release()
-      const interacting = pointer !== null || now - lastInput < 2400 || physics.speed > 0.12
+      if (pointer !== null && !physics.grip && !physics.boxMotion.grabbed) release()
+      const interacting = pointer !== null || now - lastInput < 2400 || physics.speed > 0.12 || physics.boxMotion.moving
       if (interacting !== isActive) {
         isActive = interacting
         setActive(interacting)
@@ -189,6 +194,23 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
         audio.unlock()
         physics.pull(fast)
         lastInput = performance.now()
+      },
+      toss() {
+        if (config().blocked || failed || pointer !== null) return
+        audio.unlock()
+        physics.release()
+        physics.boxMotion.toss()
+        lastInput = performance.now()
+      },
+      changeBrand(nextBrand) {
+        if (config().blocked || failed) return
+        release()
+        flush()
+        scene.changeBrand(nextBrand)
+        physics.replaceBox()
+        setBrand(nextBrand)
+        setNotice(`換上${TISSUE_BRANDS[nextBrand]}。`)
+        needsDraw = true
       },
       clear() {
         if (config().blocked || failed) return
@@ -241,20 +263,28 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
   return (
     <section className="tissue-game" aria-labelledby="tissue-title">
       <header className="tissue-heading">
-        <div><p className="eyebrow">廢廢發洩研究所</p><h1 id="tissue-title">無限抽衛生紙</h1></div>
+        <div><p className="eyebrow">解解壓</p><h1 id="tissue-title">無限抽衛生紙</h1></div>
         <button type="button" className="tissue-button" disabled={disabled} onClick={pause}>暫停</button>
       </header>
       <div className="tissue-frame">
-        <div ref={stage} className={`tissue-stage${holding ? ' is-holding' : ''}`} aria-label="木桌上的五月花盒裝面紙" role="img" />
+        <div ref={stage} className={`tissue-stage${holding ? ' is-holding' : ''}`} aria-label={`木桌上的${TISSUE_BRANDS[brand]}盒裝面紙`} role="img" />
         {status === 'loading' && <p className="tissue-message" role="status">正在準備面紙盒…</p>}
         {status === 'failed' && <div className="tissue-message" role="alert"><p>這個瀏覽器目前無法開啟 3D 場景。請確認 WebGL 2 可用。</p><button className="tissue-button" onClick={() => { setStatus('loading'); setGeneration((value) => value + 1) }}>重試</button></div>}
       </div>
       <div className="tissue-console">
-        <div className="tissue-instructions"><p>捏住露出來的面紙往上抽，放手讓它落下。</p><p className="tissue-record">累積抽出 <strong>{progress.paperSheets ?? 0} 張</strong><span aria-hidden="true"> · </span>拉出 <strong>{meters.toFixed(2)} 公尺</strong></p></div>
+        <div className="tissue-instructions"><p>捏住紙往上抽，或抓住盒身提起來甩。</p><p className="tissue-record">累積抽出 <strong>{progress.paperSheets ?? 0} 張</strong><span aria-hidden="true"> · </span>拉出 <strong>{meters.toFixed(2)} 公尺</strong></p></div>
         <div className="tissue-tools" aria-label="衛生紙操作" role="group">
           <button type="button" className="tissue-button" disabled={disabled} onClick={() => controls.current?.pull(false)}>輕抽</button>
           <button type="button" className="tissue-button tissue-flick" disabled={disabled} onClick={() => controls.current?.pull(true)}>快抽</button>
+          <button type="button" className="tissue-button" disabled={disabled} onClick={() => controls.current?.toss()}>丟紙盒</button>
           <button type="button" className="tissue-button tissue-clear" disabled={disabled} onClick={() => controls.current?.clear()}>清理桌面</button>
+          <select className="tissue-button" aria-label="面紙品牌" disabled={disabled} value={brand} onChange={(event) => {
+            const next = event.currentTarget.value
+            if (next === 'mayflower' || next === 'kleenex') controls.current?.changeBrand(next)
+          }}>
+            <option value="mayflower">五月花</option>
+            <option value="kleenex">舒潔</option>
+          </select>
         </div>
       </div>
       <p className="tissue-notice" aria-live="polite">{notice}</p>

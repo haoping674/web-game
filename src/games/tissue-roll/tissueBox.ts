@@ -5,6 +5,9 @@ import {
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, SLOT_HALF_DEPTH, SLOT_HALF_LENGTH } from './paperPhysics'
 
+export const TISSUE_BRANDS = { mayflower: '五月花', kleenex: '舒潔' } as const
+export type TissueBrand = keyof typeof TISSUE_BRANDS
+
 type Face = 'front' | 'top' | 'side' | 'back'
 
 function blossom(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, petals: string, turn: number) {
@@ -34,12 +37,43 @@ function blossom(ctx: CanvasRenderingContext2D, x: number, y: number, size: numb
   ctx.restore()
 }
 
-function print(face: Face): CanvasTexture {
-  const canvas = document.createElement('canvas')
-  canvas.width = 1024
-  canvas.height = face === 'top' ? 515 : face === 'side' ? 630 : 328
-  const ctx = canvas.getContext('2d')!
-  const { width: w, height: h } = canvas
+function printKleenex(ctx: CanvasRenderingContext2D, w: number, h: number, top: boolean) {
+  const blue = ctx.createLinearGradient(0, 0, w, h)
+  blue.addColorStop(0, '#395e99')
+  blue.addColorStop(0.57, '#16417b')
+  blue.addColorStop(1, '#081f50')
+  ctx.fillStyle = blue
+  ctx.fillRect(0, 0, w, h)
+  for (const [index, color] of ['#faf7ec', '#94c7df', '#4f96c3', '#ffffff'].entries()) {
+    const offset = index * h / 13
+    ctx.beginPath()
+    ctx.moveTo(0, h * 0.71 + offset)
+    ctx.bezierCurveTo(w * 0.33, h * 0.52 + offset, w * 0.61, h * 1.04 + offset, w, h * 0.63 + offset)
+    ctx.lineTo(w, h)
+    ctx.lineTo(0, h)
+    ctx.fillStyle = color
+    ctx.fill()
+  }
+  ctx.save()
+  if (top) {
+    ctx.translate(w, h)
+    ctx.rotate(Math.PI)
+  }
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#fffdf5'
+  ctx.font = 'italic 700 95px Georgia, serif'
+  ctx.fillText('Kleenex', w / 2, h * (top ? 0.72 : 0.40))
+  ctx.font = '800 51px "Microsoft JhengHei", sans-serif'
+  ctx.fillText('舒潔', w / 2, h * (top ? 0.84 : 0.59))
+  if (!top) {
+    ctx.fillStyle = '#123e73'
+    ctx.font = '700 31px "Microsoft JhengHei", sans-serif'
+    ctx.fillText('柔感盒裝面紙', w / 2, h * 0.89)
+  }
+  ctx.restore()
+}
+
+function drawMayflower(ctx: CanvasRenderingContext2D, w: number, h: number, face: Face) {
   const base = ctx.createLinearGradient(0, 0, w, h)
   base.addColorStop(0, '#d6e9be')
   base.addColorStop(0.56, '#b7d9b5')
@@ -101,6 +135,17 @@ function print(face: Face): CanvasTexture {
     ctx.fillText('180 抽', w * 0.07, h * 0.23)
   }
 
+}
+
+function print(face: Face, brand: TissueBrand): CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1024
+  canvas.height = face === 'top' ? 515 : face === 'side' ? 630 : 328
+  const ctx = canvas.getContext('2d')!
+  const { width: w, height: h } = canvas
+  if (brand === 'kleenex') printKleenex(ctx, w, h, face === 'top')
+  else drawMayflower(ctx, w, h, face)
+
   const pixels = ctx.getImageData(0, 0, w, h)
   let seed = 18263
   for (let i = 0; i < pixels.data.length; i += 4) {
@@ -148,10 +193,10 @@ function panelWithHole(w: number, d: number, holeX: number, holeZ: number, round
   return geometry
 }
 
-export function createTissueBox() {
+export function createTissueBox(brand: TissueBrand) {
   const root = new Group()
-  const maps = (['front', 'top', 'side', 'back'] as const).map(print)
-  const cardboard = new MeshStandardMaterial({ color: '#7c8557', roughness: 0.79 })
+  const maps = (['front', 'top', 'side', 'back'] as const).map((face) => print(face, brand))
+  const cardboard = new MeshStandardMaterial({ color: brand === 'kleenex' ? '#1f4076' : '#7c8557', roughness: 0.79 })
   const innerBoard = new MeshStandardMaterial({ color: '#a49a78', roughness: 0.96, side: DoubleSide })
   const printed = maps.map((map) => new MeshPhysicalMaterial({ map, roughness: 0.65, clearcoat: 0.21, clearcoatRoughness: 0.49, side: DoubleSide }))
   const base = new Mesh(new RoundedBoxGeometry(BOX_LENGTH, 0.025, BOX_DEPTH, 2, 0.011), cardboard)

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Vector3 } from 'three'
 import { BOX_HEIGHT, BOX_LENGTH, FLOOR, PaperPhysics, SHEET_ROWS } from './paperPhysics'
 
 function setup() {
@@ -21,7 +22,36 @@ describe('boxed tissue interaction', () => {
     advance(80)
     expect(model.produced).toBeGreaterThan(0.04)
     expect(draws).toEqual([])
+    const tip = model.rows.at(-1)!.points[column].position
+    expect(tip.y - model.box.lift - (FLOOR + BOX_HEIGHT)).toBeGreaterThan(0.31)
     expect(model.grab(model.rows.length - 1, column, model.rows.at(-1)!.points[column].position)).toBe(true)
+  })
+
+  it('lifts the paper with its box and rebounds from the side before landing', () => {
+    const { model, draws, advance } = setup()
+    model.boxMotion.setBounds({ x: 0.72, lift: 1.45 })
+    const top = FLOOR + BOX_HEIGHT
+    const hit = new Vector3(0, top - 0.25, 0.57)
+    model.boxMotion.grab(hit, 0)
+    model.boxMotion.move(hit.clone().add(new Vector3(0.28, 0.72, 0)), 65)
+    advance(20)
+    expect(model.box.lift).toBeGreaterThan(0.6)
+    expect(model.rows[0].points[7].position.y).toBeCloseTo(top + model.box.lift, 1)
+    model.boxMotion.move(hit.clone().add(new Vector3(0.68, 0.88, 0)), 90)
+    model.boxMotion.release(true, 95)
+    const reached = []
+    for (let i = 0; i < 380; i++) {
+      advance(1)
+      reached.push(model.box.x)
+    }
+    expect(Math.max(...reached)).toBeCloseTo(0.72, 4)
+    expect(model.box.x).toBeLessThan(0.6)
+    expect(model.box.lift).toBe(0)
+    expect(model.boxMotion.moving).toBe(false)
+    expect(draws).toEqual([])
+    model.pull(true)
+    advance(185)
+    expect(draws).toHaveLength(1)
   })
 
   it('draws the overlapping next sheet before the first sheet leaves the box', () => {

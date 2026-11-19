@@ -7,8 +7,8 @@ import { SITE_NAMES } from './locale'
 import { CHINESE_HOME_HEADING, CHINESE_HOME_INTRO } from './seo'
 import './home.css'
 
-const GAME_CATEGORIES = { lengthSense: '憑感覺', secondSense: '憑感覺', fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險', tissueRoll: '廢廢發洩研究所' } as const
-const FILTERS = ['全部遊戲', '憑感覺', '動動腦', '慢慢養', '去冒險', '廢廢發洩研究所'] as const
+const GAME_CATEGORIES = { lengthSense: '憑感覺', secondSense: '憑感覺', fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險', tissueRoll: '解解壓' } as const
+const FILTERS = ['全部遊戲', '憑感覺', '動動腦', '慢慢養', '去冒險', '解解壓'] as const
 const HERO_FRUIT = [2, 4, 6, 3, 1, 5, 1, 3, 2, 7, 4, 8, 6, 2, 9, 3, 5, 1, 4, 6, 7, 2, 8, 3, 1]
 
 function ArcadePreview() {

@@ -4,8 +4,8 @@ export type GameGuide = { goal: string; controls: string; rules: string; scoring
 export const GAME_GUIDES: Record<GameId, GameGuide> = {
   tissueRoll: {
     goal: '從桌上的紙盒一張一張抽面紙。沒有時間限制，也沒有輸贏。',
-    controls: '用滑鼠或手指捏住盒口露出來的面紙，往上拉。也可點按「輕抽」或「快抽」，或以 Tab 選擇後用 Enter 或空白鍵操作。',
-    rules: '這一張快要離開盒口時，交疊的紙邊會帶出下一張。斜抽會讓紙在盒口收皺，紙盒也會受力移動。',
+    controls: '捏住盒口的面紙往上抽。抓盒身可以提起來，甩動放手就能丟。也可點按「輕抽」、「快抽」或「丟紙盒」，或用鍵盤操作。',
+    rules: '抽到一半放手，面紙會留在盒口。抽完一張會帶出下一張，紙盒撞到畫面邊緣會彈回桌上。下方可切換五月花和舒潔。',
     scoring: '會記錄這台裝置累積抽出的張數和拉出的長度。',
     tip: '試試只拉一半就放手，再從另一側捏住繼續抽。',
   },
