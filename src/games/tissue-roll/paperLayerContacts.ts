@@ -26,9 +26,12 @@ type Face = {
 
 const key = (x: number, y: number, z: number) => x + y * 1024 + z * 1048576
 
-export function paperBounds(rows: PaperRow[], out: Box3): Box3 {
+export function paperBounds(rows: PaperRow[], out: Box3, swept = false): Box3 {
   out.makeEmpty()
-  for (const { points } of rows) for (const point of points) out.expandByPoint(point.position)
+  for (const { points } of rows) for (const point of points) {
+    out.expandByPoint(point.position)
+    if (swept) out.expandByPoint(point.previous)
+  }
   return out
 }
 
@@ -43,12 +46,19 @@ export class PaperLayerContacts {
   private readonly hit = new Vector3()
   private readonly correction = new Vector3()
   private readonly candidates: ContactLayer[] = []
+  private readonly lastSolved = new WeakMap<PaperPoint, Vector3>()
   private serial = 0
 
   solve(layers: ContactLayer[]) {
     this.cells.clear()
     const visible = this.candidates
     visible.length = 0
+    for (const layer of layers) if (!layer.sleeping) {
+      for (const { points } of layer.rows) for (const point of points) {
+        const prior = this.lastSolved.get(point)
+        if (prior) layer.bounds.expandByPoint(prior)
+      }
+    }
     for (const layer of layers) {
       if (layer.rows.length < 2) continue
       if (!layer.folding || layer.sleeping) {
@@ -66,6 +76,99 @@ export class PaperLayerContacts {
         for (let c = 0; c < row.points.length; c++) this.resolvePoint(layer, row.points[c], r, c)
       }
     }
+    for (const layer of visible) {
+      if (layer.sleeping) continue
+      for (let r = 0; r < layer.rows.length; r++) {
+        const row = layer.rows[r].points
+        const next = layer.rows[r + 1]?.points
+        const pinned = layer.anchored && r === 0
+        for (let c = 0; c < row.length; c++) {
+          if (!pinned && row[c + 1]) this.resolveEdge(layer, row[c], row[c + 1], r, c, false)
+          if (next) {
+            this.resolveEdge(layer, row[c], next[c], r, c, pinned)
+            if (row[c + 1]) this.resolveEdge(layer, row[c + 1], next[c], r, c, pinned)
+          }
+        }
+      }
+    }
+    for (const layer of layers) if (!layer.sleeping) {
+      for (const { points } of layer.rows) for (const point of points) {
+        const saved = this.lastSolved.get(point)
+        if (saved) saved.copy(point.position)
+        else this.lastSolved.set(point, point.position.clone())
+      }
+    }
+  }
+
+  private oldPosition(point: PaperPoint): Vector3 {
+    return this.lastSolved.get(point) ?? point.previous
+  }
+
+  private resolveEdge(layer: ContactLayer, start: PaperPoint, end: PaperPoint, row: number, column: number, pinned: boolean) {
+    const a = start.position
+    const b = end.position
+    const minX = Math.floor(Math.min(a.x, b.x) / CELL)
+    const minY = Math.floor(Math.min(a.y, b.y) / CELL)
+    const minZ = Math.floor(Math.min(a.z, b.z) / CELL)
+    const maxX = Math.floor(Math.max(a.x, b.x) / CELL)
+    const maxY = Math.floor(Math.max(a.y, b.y) / CELL)
+    const maxZ = Math.floor(Math.max(a.z, b.z) / CELL)
+    const serial = ++this.serial
+    for (let x = minX; x <= maxX; x++) for (let y = minY; y <= maxY; y++) for (let z = minZ; z <= maxZ; z++) {
+      const faces = this.cells.get(key(x, y, z))
+      if (!faces) continue
+      for (const face of faces) {
+        if (face.visited === serial) continue
+        face.visited = serial
+        if (face.layer === layer && (!layer.folding || (row >= face.row - 1 && row <= face.row + 2
+          && column >= face.column - 1 && column <= face.column + 2))) continue
+        if (this.separateCrossing(start, end, face, pinned)) return
+      }
+    }
+  }
+
+  private separateCrossing(start: PaperPoint, end: PaperPoint, face: Face, pinned: boolean): boolean {
+    const a = face.a.position
+    const b = face.b.position
+    const c = face.c.position
+    const p = start.position
+    const q = end.position
+    if (Math.max(p.x, q.x) < Math.min(a.x, b.x, c.x) || Math.min(p.x, q.x) > Math.max(a.x, b.x, c.x)
+      || Math.max(p.y, q.y) < Math.min(a.y, b.y, c.y) || Math.min(p.y, q.y) > Math.max(a.y, b.y, c.y)
+      || Math.max(p.z, q.z) < Math.min(a.z, b.z, c.z) || Math.min(p.z, q.z) > Math.max(a.z, b.z, c.z)) return false
+    const ab = this.edgeA.subVectors(b, a)
+    const ac = this.edgeB.subVectors(c, a)
+    const normal = this.normal.crossVectors(ab, ac)
+    const area = normal.lengthSq()
+    if (area < 1e-9) return false
+    normal.multiplyScalar(1 / Math.sqrt(area))
+    const d0 = normal.dot(this.relative.subVectors(p, a))
+    const d1 = normal.dot(this.prior.subVectors(q, a))
+    if (d0 * d1 >= -1e-9) return false
+    const hit = this.hit.copy(this.relative).lerp(this.prior, d0 / (d0 - d1))
+    const uu = ab.lengthSq()
+    const vv = ac.lengthSq()
+    const uv = ab.dot(ac)
+    const hu = hit.dot(ab)
+    const hv = hit.dot(ac)
+    const wb = (hu * vv - hv * uv) / area
+    const wc = (hv * uu - hu * uv) / area
+    if (wb < -0.0001 || wc < -0.0001 || wb + wc > 1.0001) return false
+
+    const oldFace = this.oldPosition(face.a)
+    const old0 = normal.dot(this.prior.subVectors(this.oldPosition(start), oldFace))
+    const old1 = normal.dot(this.prior.subVectors(this.oldPosition(end), oldFace))
+    const remembered = old0 * old1 > 0 ? old0 + old1 : Math.abs(d0) > Math.abs(d1) ? d0 : d1
+    const side = Math.sign(pinned ? d0 : remembered)
+    const point = side * d0 < 0 ? start : end
+    const distance = point === start ? d0 : d1
+    const normalTravel = Math.abs(normal.dot(this.prior.subVectors(point.position, point.previous)))
+    const delta = this.correction.copy(normal).multiplyScalar(side * LAYER_GAP - distance)
+    point.position.add(delta)
+    // Preserve the incoming motion without turning the geometric correction into a bounce.
+    point.previous.add(delta)
+    if (face.layer.sleeping && normalTravel > 0.025 && old0 * old1 > 0 && Math.abs(distance) > LAYER_GAP * 2) face.layer.wake?.()
+    return true
   }
 
   private overlap(a: Box3, b: Box3) {
@@ -106,10 +209,10 @@ export class PaperLayerContacts {
 
   private resolvePoint(layer: ContactLayer, point: PaperPoint, row: number, column: number) {
     const p = point.position
-    const q = point.previous
-    const moveX = Math.max(p.x - CELL, Math.min(p.x + CELL, q.x))
-    const moveY = Math.max(p.y - CELL, Math.min(p.y + CELL, q.y))
-    const moveZ = Math.max(p.z - CELL, Math.min(p.z + CELL, q.z))
+    const q = this.oldPosition(point)
+    const moveX = Math.max(p.x - CELL * 2, Math.min(p.x + CELL * 2, q.x))
+    const moveY = Math.max(p.y - CELL * 2, Math.min(p.y + CELL * 2, q.y))
+    const moveZ = Math.max(p.z - CELL * 2, Math.min(p.z + CELL * 2, q.z))
     const minX = Math.floor(Math.min(p.x, moveX) / CELL)
     const minY = Math.floor(Math.min(p.y, moveY) / CELL)
     const minZ = Math.floor(Math.min(p.z, moveZ) / CELL)
@@ -142,8 +245,9 @@ export class PaperLayerContacts {
     normal.multiplyScalar(1 / Math.sqrt(area))
     const relative = this.relative.subVectors(point.position, a)
     const distance = normal.dot(relative)
-    if (Math.abs(distance) > 0.18) return false
-    const old = normal.dot(this.prior.subVectors(point.previous, face.a.previous))
+    const old = normal.dot(this.prior.subVectors(this.oldPosition(point), this.oldPosition(face.a)))
+    const crossed = old * distance < 0 && Math.abs(old) >= LAYER_GAP
+    if (Math.abs(distance) > (crossed ? 0.39 : 0.18)) return false
     const side = Math.sign(Math.abs(old) > 0.002 ? old : distance) || 1
     if (distance * side >= LAYER_GAP) return false
 
@@ -161,12 +265,13 @@ export class PaperLayerContacts {
     const wa = 1 - wb - wc
     if (wa < -0.045 || wb < -0.045 || wc < -0.045) return false
 
-    const wake = face.layer.sleeping && (Math.abs(old - distance) > 0.016 || distance * side < -0.004)
+    const normalTravel = Math.abs(normal.dot(this.correction.subVectors(point.position, point.previous)))
+    const wake = face.layer.sleeping && normalTravel > 0.024 && (Math.abs(old - distance) > 0.016 || distance * side < -0.004)
     const fixed = face.layer.sleeping && !wake ? 7 : face.fixed
     const sa = fixed & 1 ? 0 : Math.max(0, wa)
     const sb = fixed & 2 ? 0 : Math.max(0, wb)
     const sc = fixed & 4 ? 0 : Math.max(0, wc)
-    const response = Math.min(0.091, LAYER_GAP - side * distance) / (1 + sa * sa + sb * sb + sc * sc)
+    const response = Math.min(crossed ? 0.41 : 0.091, LAYER_GAP - side * distance) / (1 + sa * sa + sb * sb + sc * sc)
     const delta = this.correction.copy(normal).multiplyScalar(side * response)
     point.position.add(delta)
     point.previous.addScaledVector(delta, 0.78)

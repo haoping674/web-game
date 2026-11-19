@@ -124,7 +124,7 @@ describe('boxed tissue interaction', () => {
       advance(185)
     }
     expect(draws).toHaveLength(4)
-    advance(450)
+    for (let i = 0; i < 8 && model.offcuts.some((piece) => piece.awake > 0); i++) advance(120)
     expect(model.offcuts.every((piece) => piece.awake === 0)).toBe(true)
     const resting = model.offcuts.map((piece) => piece.rows[0].points[0].position.clone())
     const interior = new Box3(

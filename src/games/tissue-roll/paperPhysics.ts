@@ -289,7 +289,7 @@ export class PaperPhysics {
       }
     }
 
-    if (this.contactTick++ % 3 === 0 || this.upcoming.length > 1 && this.contactTick % 2 === 0) this.solveLayers()
+    if (this.contactTick++ % 3 === 0 || this.upcoming.length > 1) this.solveLayers()
     this.finishSurface(this.rows, true)
     if (this.upcoming.length) this.finishSurface(this.upcoming, true)
     for (const piece of this.offcuts) {
@@ -359,7 +359,7 @@ export class PaperPhysics {
     if (!activeFold && !this.upcoming.length && this.offcuts.every((piece) => piece.awake <= 0)) return
     const layers: ContactLayer[] = [{
       rows: this.rows,
-      bounds: paperBounds(this.rows, this.activeBounds),
+      bounds: paperBounds(this.rows, this.activeBounds, true),
       anchored: true,
       sleeping: false,
       folding: activeFold,
@@ -372,7 +372,7 @@ export class PaperPhysics {
     })
     for (const piece of this.offcuts) layers.push({
       rows: piece.rows,
-      bounds: piece.awake > 0 ? paperBounds(piece.rows, piece.bounds) : piece.bounds,
+      bounds: piece.awake > 0 ? paperBounds(piece.rows, piece.bounds, true) : piece.bounds,
       anchored: false,
       sleeping: piece.awake <= 0,
       folding: this.grip?.piece === piece || piece.age < 0.82,
