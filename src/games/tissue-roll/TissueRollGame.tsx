@@ -89,6 +89,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     let lastDraw = -Infinity
     let frame = 0
     let pointer: number | null = null
+    let paperTap: { x: number; y: number; time: number } | null = null
     let hidden = document.hidden
     let offscreen = false
     let failed = false
@@ -108,6 +109,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     function release(fling = false) {
       const captured = pointer
       pointer = null
+      paperTap = null
       physics.boxMotion.release(fling, performance.now())
       physics.release(fling)
       setHolding(false)
@@ -115,27 +117,34 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     }
 
     function down(event: PointerEvent) {
-      if (event.button !== 0 || pointer !== null || config().blocked || failed) return
+      if (event.button !== 0 || !event.isPrimary || pointer !== null || config().blocked || failed) return
+      const now = performance.now()
       audio.unlock()
-      if (!scene.grab(event.clientX, event.clientY, performance.now())) return
+      const grabbed = scene.grab(event.clientX, event.clientY, now)
+      if (!grabbed) return
       pointer = event.pointerId
       host!.setPointerCapture(pointer)
+      if (grabbed === 'paper') paperTap = { x: event.clientX, y: event.clientY, time: now }
       setHolding(true)
-      lastInput = performance.now()
+      lastInput = now
     }
 
     function move(event: PointerEvent) {
       if (event.pointerId !== pointer) return
-      scene.move(event.clientX, event.clientY, performance.now())
+      if (paperTap && Math.hypot(event.clientX - paperTap.x, event.clientY - paperTap.y) > 5) paperTap = null
       lastInput = performance.now()
+      scene.move(event.clientX, event.clientY, lastInput)
     }
 
     function up(event: PointerEvent) {
-      if (event.pointerId === pointer) {
-        if (event.type === 'pointerup') scene.move(event.clientX, event.clientY, performance.now())
-        release(event.type === 'pointerup')
-        lastInput = performance.now()
-      }
+      if (event.pointerId !== pointer) return
+      const completed = event.type === 'pointerup'
+      lastInput = performance.now()
+      const tap = completed && paperTap && !physics.grip?.piece && lastInput - paperTap.time < 400
+        && Math.hypot(event.clientX - paperTap.x, event.clientY - paperTap.y) <= 5
+      if (completed && !tap) scene.move(event.clientX, event.clientY, lastInput)
+      release(completed && !tap)
+      if (tap) physics.pull(false)
     }
 
     function visibility() {
@@ -228,6 +237,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
       },
       clear() {
         if (config().blocked || failed) return
+        if (physics.grip?.piece) release()
         physics.offcuts = []
         needsDraw = true
         setNotice('桌面已清理。')
@@ -300,7 +310,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
         {status === 'failed' && <div className="tissue-message" role="alert"><p>這個瀏覽器目前無法開啟 3D 場景。請確認 WebGL 2 可用。</p><button className="tissue-button" onClick={() => { setStatus('loading'); setGeneration((value) => value + 1) }}>重試</button></div>}
       </div>
       <div className="tissue-console">
-        <div className="tissue-instructions"><p>捏住紙往上抽，或抓住盒身提起來甩。</p><p className="tissue-record">累積抽出 <strong>{progress.paperSheets ?? 0} 張</strong><span aria-hidden="true"> · </span>拉出 <strong>{meters.toFixed(2)} 公尺</strong></p></div>
+        <div className="tissue-instructions"><p>點一下輕抽，按住可拉紙。桌上的紙和紙盒也能拖動。</p><p className="tissue-record">累積抽出 <strong>{progress.paperSheets ?? 0} 張</strong><span aria-hidden="true"> · </span>拉出 <strong>{meters.toFixed(2)} 公尺</strong></p></div>
         <div className="tissue-tools" aria-label="衛生紙操作" role="group">
           <button type="button" className="tissue-button" disabled={disabled} onClick={() => controls.current?.pull(false)}>輕抽</button>
           <button type="button" className="tissue-button tissue-flick" disabled={disabled} onClick={() => controls.current?.pull(true)}>快抽</button>

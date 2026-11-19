@@ -12,12 +12,33 @@ const EXPOSED = 0.52
 const TOTAL = (SHEET_ROWS - 1) * PITCH
 
 type Point = PaperPoint
-export type Offcut = { rows: PaperRow[]; age: number; awake: number; version: number; bounds: Box3 }
+type PaperBends = { across: Float32Array; along: Float32Array }
+export type Offcut = { rows: PaperRow[]; bends: PaperBends; age: number; awake: number; version: number; bounds: Box3 }
 type Grip = { point: Point; target: Vector3; offset: Vector3; piece?: Offcut }
 export type PaperEvents = { draw: (strength: number, pan: number) => void; impact?: (strength: number, pan: number) => void }
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 const node = (): Point => ({ position: new Vector3(), previous: new Vector3() })
+
+function captureBends(rows: PaperRow[]): PaperBends {
+  const across = new Float32Array(rows.length * COLUMNS)
+  const along = new Float32Array(rows.length * COLUMNS)
+  const acrossSpan = 2 * WIDTH / (COLUMNS - 1)
+  const alongSpan = 2 * PITCH
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < COLUMNS; c++) {
+      const point = rows[r].points[c].position
+      const index = r * COLUMNS + c
+      if (c + 2 < COLUMNS) {
+        across[index] = clamp(point.distanceTo(rows[r].points[c + 2].position), acrossSpan * 0.52, acrossSpan)
+      }
+      if (r + 2 < rows.length) {
+        along[index] = clamp(point.distanceTo(rows[r + 2].points[c].position), alongSpan * 0.52, alongSpan)
+      }
+    }
+  }
+  return { across, along }
+}
 
 export class PaperPhysics {
   rows: PaperRow[] = []
@@ -44,6 +65,7 @@ export class PaperPhysics {
   private readonly paperContacts = new PaperLayerContacts()
   private readonly activeBounds = new Box3()
   private readonly upcomingBounds = new Box3()
+  private readonly upcomingGuides = new WeakMap<Point, Vector3>()
   private readonly previousBox: CartonPose = { x: 0, z: 0, lift: 0, yaw: 0 }
   private contactTick = 0
   private priorLip = 0
@@ -85,18 +107,33 @@ export class PaperPhysics {
     for (let r = 0; r < rows.length; r++) {
       for (let c = 0; c < COLUMNS; c++) {
         const sample = rows[r].points[c]
-        this.silhouette(r, c, exposed, pending, sample.position)
-        sample.previous.copy(sample.position)
+        const guide = this.silhouette(r, c, exposed, pending, this.profile)
+        const prior = pending ? this.upcomingGuides.get(sample) : undefined
+        if (prior && r > 0) {
+          // Feed from the slot without erasing a fold displaced by another sheet.
+          const delta = this.difference.subVectors(guide, prior)
+          sample.position.add(delta)
+          sample.previous.add(delta)
+        } else {
+          sample.position.copy(guide)
+          sample.previous.copy(guide)
+        }
+        if (pending) {
+          if (prior) prior.copy(guide)
+          else this.upcomingGuides.set(sample, guide.clone())
+        }
       }
     }
   }
 
-  grab(row: number, column: number, target: Vector3): boolean {
-    const sample = this.rows[row]?.points[column]
-    if (!sample || row < 1) return false
+  grab(row: number, column: number, target: Vector3, piece?: Offcut): boolean {
+    if (piece ? !this.offcuts.includes(piece) : row < 1) return false
+    const sample = (piece?.rows ?? this.rows)[row]?.points[column]
+    if (!sample) return false
     this.assistTime = 0
     this.releaseTime = 0
-    this.grip = { point: sample, target: target.clone(), offset: sample.position.clone().sub(target) }
+    this.grip = { point: sample, target: sample.position.clone(), offset: sample.position.clone().sub(target), piece }
+    if (piece) this.wake(piece)
     return true
   }
 
@@ -109,6 +146,8 @@ export class PaperPhysics {
       this.releaseTime = 1 / 44
       return
     }
+    const piece = this.grip?.piece
+    if (piece) piece.awake = Math.max(piece.awake, 1.25)
     this.grip = null
     this.assistTime = 0
     this.releaseTime = 0
@@ -132,7 +171,7 @@ export class PaperPhysics {
     b.position.addScaledVector(delta, fixed ? -1 : -0.5)
   }
 
-  private relax(rows: PaperRow[], attached: boolean) {
+  private relax(rows: PaperRow[], attached: boolean, bends?: PaperBends) {
     for (let r = 0; r < rows.length; r++) {
       const span = WIDTH * (attached && r === 1 ? 0.88 : 1) / (COLUMNS - 1)
       const spacing = attached && r === 0 ? this.leadingGap(this.exposed) : PITCH
@@ -142,15 +181,16 @@ export class PaperPhysics {
       const far = rows[r + 2]
       const fixed = attached && r === 0
       for (let c = 0; c < COLUMNS; c++) {
+        const index = r * COLUMNS + c
         if (c + 1 < COLUMNS && !fixed) this.constrain(current.points[c], current.points[c + 1], span, 0.88)
-        if (c + 2 < COLUMNS && !fixed) this.constrain(current.points[c], current.points[c + 2], span * 1.95, 0.21)
+        if (c + 2 < COLUMNS && !fixed) this.constrain(current.points[c], current.points[c + 2], bends?.across[index] ?? span * 1.95, bends ? 0.30 : 0.21)
         if (!next) continue
         this.constrain(current.points[c], next.points[c], spacing, 0.93, fixed)
         if (c + 1 < COLUMNS) {
           this.constrain(current.points[c], next.points[c + 1], diagonal, fixed ? 0.22 : 0.42, fixed)
           this.constrain(current.points[c + 1], next.points[c], diagonal, fixed ? 0.22 : 0.42, fixed)
         }
-        if (far) this.constrain(current.points[c], far.points[c], spacing + PITCH, 0.19, fixed)
+        if (far) this.constrain(current.points[c], far.points[c], bends?.along[index] ?? spacing + PITCH, bends ? 0.28 : 0.19, fixed)
       }
     }
   }
@@ -165,9 +205,9 @@ export class PaperPhysics {
         sample.previous.copy(sample.position)
         sample.position.add(velocity)
         sample.position.y -= 56 * dt * dt
-        if (attached && (!this.grip || r < 3)) {
+        if (attached && (!this.grip || this.grip.piece || r < 3)) {
           const guide = this.silhouette(r, c, this.exposed, false, this.profile)
-          const folding = r < 3 ? 0.32 : 0.225
+          const folding = r < 3 ? 0.32 : 0.225 / (1 + Math.max(0, r - 7) * 0.20)
           sample.position.lerp(guide, folding / (1 + this.tension * 0.34))
         }
       }
@@ -257,7 +297,10 @@ export class PaperPhysics {
       if (this.assistTime <= 0) this.release()
     }
     this.feed(dt)
-    this.rows[0].points.forEach((sample, column) => this.silhouette(0, column, this.exposed, false, sample.position))
+    this.rows[0].points.forEach((sample, column) => {
+      sample.previous.copy(sample.position)
+      this.silhouette(0, column, this.exposed, false, sample.position)
+    })
     this.integrate(this.rows, true, dt)
     for (const offcut of this.offcuts) {
       if (this.grip?.piece !== offcut) offcut.age += dt
@@ -283,7 +326,7 @@ export class PaperPhysics {
       this.enforce(this.rows, true, false)
       for (const offcut of this.offcuts) {
         if (offcut.awake <= 0) continue
-        this.relax(offcut.rows, false)
+        this.relax(offcut.rows, false, offcut.bends)
         if (held?.piece === offcut) held.point.position.copy(this.heldPosition)
         this.enforce(offcut.rows, false, false)
       }
@@ -312,16 +355,24 @@ export class PaperPhysics {
         const weight = 0.92 - r / this.rows.length * 0.75
         for (const sample of this.rows[r].points) sample.previous.addScaledVector(impulse, -weight)
       }
-      const piece: Offcut = { rows: this.rows, age: 0, awake: 3.0, version: 0, bounds: paperBounds(this.rows, new Box3()) }
+      const piece: Offcut = {
+        rows: this.rows, bends: captureBends(this.rows), age: 0, awake: 3.0, version: 0,
+        bounds: paperBounds(this.rows, new Box3()),
+      }
       this.offcuts.push(piece)
-      if (this.offcuts.length > 7) this.offcuts.shift()
+      if (this.offcuts.length > 7) {
+        const oldestFree = this.offcuts[0] === this.grip?.piece ? 1 : 0
+        this.offcuts.splice(oldestFree, 1)
+      }
       this.rows = this.upcoming
       this.upcoming = []
       this.exposed = EXPOSED
       this.serial++
       this.speed = 0
-      if (this.grip && this.assistTime <= 0 && this.releaseTime <= 0) this.grip.piece = piece
-      else this.release()
+      if (!this.grip?.piece) {
+        if (this.grip && this.assistTime <= 0 && this.releaseTime <= 0) this.grip.piece = piece
+        else this.release()
+      }
       this.events.draw(strength, pan)
     }
     if (this.releaseTime > 0) {

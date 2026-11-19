@@ -40,12 +40,16 @@ describe('thin paper contacts', () => {
       id: r,
       points: Array.from({ length: COLUMNS }, (_, c) => ({
         position: new Vector3(0.65, r === 0 ? 0.42 : -0.42, 0.045 + c * 0.014),
-        previous: new Vector3(0.65, r === 0 ? 0.20 : 0.08, 0.045 + c * 0.014),
+        previous: new Vector3(0.63, r === 0 ? 0.20 : 0.08, 0.045 + c * 0.014),
       })),
     }))
     const edge = { rows, bounds: paperBounds(rows, new Box3(), true), anchored: false, sleeping: false }
     new PaperLayerContacts().solve([edge, support])
     expect(rows[1].points.every(({ position }) => position.y >= LAYER_GAP - 1e-6)).toBe(true)
+    for (const { position, previous } of rows[1].points) {
+      expect(position.y - previous.y).toBeCloseTo(0, 6)
+      expect(position.x - previous.x).toBeCloseTo(0.02, 6)
+    }
   })
 
   it('stops a paper vertex moving through the face of another sheet and wakes the struck sheet', () => {

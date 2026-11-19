@@ -162,12 +162,14 @@ export class PaperLayerContacts {
     const side = Math.sign(pinned ? d0 : remembered)
     const point = side * d0 < 0 ? start : end
     const distance = point === start ? d0 : d1
-    const normalTravel = Math.abs(normal.dot(this.prior.subVectors(point.position, point.previous)))
+    const normalTravel = this.normalMotion(point, normal)
+    const faceTravel = (1 - wb - wc) * this.normalMotion(face.a, normal)
+      + wb * this.normalMotion(face.b, normal) + wc * this.normalMotion(face.c, normal)
+    const closing = Math.min(0, side * (normalTravel - faceTravel))
     const delta = this.correction.copy(normal).multiplyScalar(side * LAYER_GAP - distance)
     point.position.add(delta)
-    // Preserve the incoming motion without turning the geometric correction into a bounce.
-    point.previous.add(delta)
-    if (face.layer.sleeping && normalTravel > 0.025 && old0 * old1 > 0 && Math.abs(distance) > LAYER_GAP * 2) face.layer.wake?.()
+    point.previous.add(delta).addScaledVector(normal, side * closing)
+    if (face.layer.sleeping && Math.abs(normalTravel) > 0.025 && old0 * old1 > 0 && Math.abs(distance) > LAYER_GAP * 2) face.layer.wake?.()
     return true
   }
 
@@ -265,26 +267,35 @@ export class PaperLayerContacts {
     const wa = 1 - wb - wc
     if (wa < -0.045 || wb < -0.045 || wc < -0.045) return false
 
-    const normalTravel = Math.abs(normal.dot(this.correction.subVectors(point.position, point.previous)))
-    const wake = face.layer.sleeping && normalTravel > 0.024 && (Math.abs(old - distance) > 0.016 || distance * side < -0.004)
+    const normalTravel = this.normalMotion(point, normal)
+    const wake = face.layer.sleeping && Math.abs(normalTravel) > 0.024 && (Math.abs(old - distance) > 0.016 || distance * side < -0.004)
     const fixed = face.layer.sleeping && !wake ? 7 : face.fixed
     const sa = fixed & 1 ? 0 : Math.max(0, wa)
     const sb = fixed & 2 ? 0 : Math.max(0, wb)
     const sc = fixed & 4 ? 0 : Math.max(0, wc)
-    const response = Math.min(crossed ? 0.41 : 0.091, LAYER_GAP - side * distance) / (1 + sa * sa + sb * sb + sc * sc)
+    const inverseMass = 1 + sa * sa + sb * sb + sc * sc
+    const faceTravel = wa * this.normalMotion(face.a, normal)
+      + wb * this.normalMotion(face.b, normal) + wc * this.normalMotion(face.c, normal)
+    const closing = Math.min(0, side * (normalTravel - faceTravel)) / inverseMass
+    const response = Math.min(crossed ? 0.41 : 0.091, LAYER_GAP - side * distance) / inverseMass
     const delta = this.correction.copy(normal).multiplyScalar(side * response)
+    const previousDelta = this.prior.copy(delta).addScaledVector(normal, side * closing)
     point.position.add(delta)
-    point.previous.addScaledVector(delta, 0.78)
-    this.shift(face.a, delta, sa)
-    this.shift(face.b, delta, sb)
-    this.shift(face.c, delta, sc)
+    point.previous.add(previousDelta)
+    this.shift(face.a, delta, previousDelta, sa)
+    this.shift(face.b, delta, previousDelta, sb)
+    this.shift(face.c, delta, previousDelta, sc)
     if (wake) face.layer.wake?.()
     return true
   }
 
-  private shift(point: PaperPoint, delta: Vector3, weight: number) {
+  private normalMotion(point: PaperPoint, normal: Vector3) {
+    return normal.dot(this.relative.subVectors(point.position, point.previous))
+  }
+
+  private shift(point: PaperPoint, delta: Vector3, previousDelta: Vector3, weight: number) {
     if (!weight) return
     point.position.addScaledVector(delta, -weight)
-    point.previous.addScaledVector(delta, -weight * 0.78)
+    point.previous.addScaledVector(previousDelta, -weight)
   }
 }

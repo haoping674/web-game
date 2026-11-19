@@ -274,9 +274,19 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
     ray.setFromCamera(screen, camera)
   }
 
-  function grab(x: number, y: number, now: number): 'paper' | 'box' | null {
+  function grab(x: number, y: number, now: number): 'paper' | 'loose-paper' | 'box' | null {
     setRay(x, y)
-    const hit = ray.intersectObject(sheet.mesh)[0]
+    let hit = ray.intersectObject(sheet.mesh)[0]
+    let piece: (typeof physics.offcuts)[number] | undefined
+    for (const offcut of physics.offcuts) {
+      const mesh = scraps.get(offcut.rows)?.mesh
+      if (!mesh) continue
+      const scrapHit = ray.intersectObject(mesh)[0]
+      if (scrapHit && (!hit || scrapHit.distance < hit.distance)) {
+        hit = scrapHit
+        piece = offcut
+      }
+    }
     const cartonHit = ray.intersectObject(packaging.root, true)[0]
     if (cartonHit && (!hit || cartonHit.distance < hit.distance)) {
       camera.getWorldDirection(facing).negate()
@@ -286,13 +296,22 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
       return 'box'
     }
     if (!hit?.face) return null
-    const index = [hit.face.a, hit.face.b, hit.face.c].reduce((a, b) => {
-      const distance = (i: number) => physics.rows[Math.floor(i / COLUMNS)]?.points[i % COLUMNS].position.distanceToSquared(hit.point) ?? Infinity
-      return distance(a) < distance(b) ? a : b
-    })
+    const rows = piece?.rows ?? physics.rows
+    let closest = Infinity
+    let index = -1
+    for (const candidate of [hit.face.a, hit.face.b, hit.face.c]) {
+      const row = Math.floor(candidate / COLUMNS)
+      if (!piece && row === 0) continue
+      const distance = rows[row]?.points[candidate % COLUMNS].position.distanceToSquared(hit.point) ?? Infinity
+      if (distance < closest) {
+        closest = distance
+        index = candidate
+      }
+    }
+    if (index < 0 || !physics.grab(Math.floor(index / COLUMNS), index % COLUMNS, hit.point, piece)) return null
     camera.getWorldDirection(facing).negate()
     plane.setFromNormalAndCoplanarPoint(facing, hit.point)
-    return physics.grab(Math.floor(index / COLUMNS), index % COLUMNS, hit.point) ? 'paper' : null
+    return piece ? 'loose-paper' : 'paper'
   }
 
   function move(x: number, y: number, now: number) {

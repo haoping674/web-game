@@ -96,6 +96,37 @@ describe('boxed tissue interaction', () => {
     expect(model.offcuts[0].age).toBeGreaterThan(0)
   })
 
+  it('wakes a settled sheet for another grab, retains its folds, and releases it without feeding new paper', () => {
+    const { model, draws, advance } = setup()
+    model.pull(true)
+    advance(590)
+    const [piece] = model.offcuts
+    expect(piece.awake).toBe(0)
+    const point = piece.rows.at(-1)!.points[6]
+    const origin = point.position.clone()
+    const target = origin.clone().add(new Vector3(0, 1.15, 0.75))
+    const produced = model.produced
+    expect(model.grab(piece.rows.length - 1, 6, origin, piece)).toBe(true)
+    model.move(target)
+    advance(100)
+    expect(point.position.distanceTo(target)).toBeLessThan(0.18)
+    model.release()
+    advance(320)
+    expect(point.position.y).toBeLessThan(target.y - 0.35)
+    expect(piece.awake).toBe(0)
+    expect(point.position.equals(point.previous)).toBe(true)
+    const foldedSpans = piece.rows.slice(2).flatMap(({ points }, row) =>
+      points.map(({ position }, column) => {
+        const a = piece.rows[row].points[column].position
+        const b = piece.rows[row + 1].points[column].position
+        return a.distanceTo(position) / (a.distanceTo(b) + b.distanceTo(position))
+      }),
+    )
+    expect(foldedSpans.filter((ratio) => ratio < 0.92).length).toBeGreaterThan(15)
+    expect(model.produced).toBeCloseTo(produced, 5)
+    expect(draws).toHaveLength(1)
+  }, 15_000)
+
   it('transmits an angled pull to the box and keeps repeated draws stable', () => {
     const { model, draws, advance } = setup()
     model.pull(true)
