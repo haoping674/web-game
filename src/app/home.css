@@ -74,6 +74,7 @@
 .arcade-home .game-start-button { min-height: 28px; width: 100%; display: flex; justify-content: space-between; align-items: center; border: 0; border-top: 1px solid #738f5330; border-radius: 0; padding: 13px 0 0; box-shadow: none; background: transparent; color: #405b35; font-size: 11px; pointer-events: none; font-weight: 700; }
 .arcade-home .game-start-button > span { font-size: 20px; line-height: 1; }
 .arcade-home .home-preview { max-width: 150px; margin: 0; }
+.arcade-home .tissue-preview { display: block; object-fit: cover; height: auto; }
 .arcade-home .game-ashbound { background: #2b4039; border-color: #2b4039; color: #f0efe2; }
 .arcade-home .game-ashbound .eyebrow, .arcade-home .game-ashbound .game-card-copy > p:not(.eyebrow), .arcade-home .game-ashbound .local-record { color: #bdc8b8; }
 .arcade-home .game-ashbound .local-record strong, .arcade-home .game-ashbound .game-start-button { color: #e0d2a8; }

@@ -7,8 +7,8 @@ import { SITE_NAMES } from './locale'
 import { CHINESE_HOME_HEADING, CHINESE_HOME_INTRO } from './seo'
 import './home.css'
 
-const GAME_CATEGORIES = { lengthSense: '憑感覺', secondSense: '憑感覺', fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險' } as const
-const FILTERS = ['全部遊戲', '憑感覺', '動動腦', '慢慢養', '去冒險'] as const
+const GAME_CATEGORIES = { lengthSense: '憑感覺', secondSense: '憑感覺', fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險', tissueRoll: '廢廢發洩研究所' } as const
+const FILTERS = ['全部遊戲', '憑感覺', '動動腦', '慢慢養', '去冒險', '廢廢發洩研究所'] as const
 const HERO_FRUIT = [2, 4, 6, 3, 1, 5, 1, 3, 2, 7, 4, 8, 6, 2, 9, 3, 5, 1, 4, 6, 7, 2, 8, 3, 1]
 
 function ArcadePreview() {
@@ -73,10 +73,11 @@ function formatBestTime(seconds: number | undefined): string {
   return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
 }
 
-function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
+function GameCard({ game, highScore, bestTimeSeconds, paperSheets, onOpen }: {
   game: GameDefinition
   highScore: number
   bestTimeSeconds?: number
+  paperSheets?: number
   onOpen: () => void
 }) {
   const isFruit = game.id === 'fruitSum' || game.id === 'slideTen'
@@ -84,22 +85,23 @@ function GameCard({ game, highScore, bestTimeSeconds, onOpen }: {
   const isAshbound = game.id === 'ashbound'
   const isTiming = game.id === 'secondSense'
   const isLength = game.id === 'lengthSense'
-  const recordLabel = isTiming || isLength ? '本機最高精準分' : isAshbound ? '最深探索紀錄' : isSprout ? '最高精靈等級' : isFruit
+  const isTissue = game.id === 'tissueRoll'
+  const recordLabel = isTissue ? '累積抽出' : isTiming || isLength ? '本機最高精準分' : isAshbound ? '最深探索紀錄' : isSprout ? '最高精靈等級' : isFruit
     ? '本機最高分'
     : '最快清空 · 時限最高'
-  const recordValue = isTiming || isLength ? `${highScore} / 1000` : isAshbound ? `地下 ${highScore} 層` : isSprout ? `Lv. ${highScore || 1}` : isFruit
+  const recordValue = isTissue ? `${paperSheets ?? 0} 張` : isTiming || isLength ? `${highScore} / 1000` : isAshbound ? `地下 ${highScore} 層` : isSprout ? `Lv. ${highScore || 1}` : isFruit
     ? highScore
     : `${formatBestTime(bestTimeSeconds)} · ${highScore} 格`
   return (
     <article className={`game-choice-card game-${game.id}`} style={{ '--card-accent': game.accent } as React.CSSProperties}>
       <button type="button" className="game-card-hitbox" onClick={onOpen} aria-label={`開始 ${game.name}`} />
       <div className="game-card-copy">
-        <p className="eyebrow"><span>{GAME_CATEGORIES[game.id]}</span> / {isLength ? '長度直覺' : isTiming ? '直覺計時' : game.id === 'slideTen' ? '滑動配對 · 試玩版' : isAshbound ? '回合策略' : isSprout ? '合成養成' : isFruit ? '數字益智' : '色彩消除'}</p>
+        <p className="eyebrow"><span>{GAME_CATEGORIES[game.id]}</span> / {isTissue ? '3D 自由發洩' : isLength ? '長度直覺' : isTiming ? '直覺計時' : game.id === 'slideTen' ? '滑動配對 · 試玩版' : isAshbound ? '回合策略' : isSprout ? '合成養成' : isFruit ? '數字益智' : '色彩消除'}</p>
         <h2>{game.name}</h2>
         <p>{game.description}</p>
         <span className="local-record">{recordLabel} <strong>{recordValue}</strong></span>
       </div>
-      {isLength ? <div className="home-preview length-preview" aria-hidden="true"><span /><span /><small>JUST THIS LONG ↔</small></div> : isTiming ? <div className="home-preview timing-preview" aria-hidden="true"><span>3.000<small>JUST RIGHT ✦</small></span></div> : isAshbound ? <div className="home-preview ash-preview" aria-hidden="true"><span>†</span></div> : isSprout ? <div className="home-preview sprout-preview" aria-hidden="true"><span>✦</span><strong>🌱</strong><i>Lv. ∞</i></div> : isFruit ? <FruitPreview slide={game.id === 'slideTen'} /> : <ColorPreview />}
+      {isTissue ? <img className="home-preview tissue-preview" src={`${import.meta.env.BASE_URL}tissue-roll/preview.png`} width="300" height="240" alt="" loading="lazy" /> : isLength ? <div className="home-preview length-preview" aria-hidden="true"><span /><span /><small>JUST THIS LONG ↔</small></div> : isTiming ? <div className="home-preview timing-preview" aria-hidden="true"><span>3.000<small>JUST RIGHT ✦</small></span></div> : isAshbound ? <div className="home-preview ash-preview" aria-hidden="true"><span>†</span></div> : isSprout ? <div className="home-preview sprout-preview" aria-hidden="true"><span>✦</span><strong>🌱</strong><i>Lv. ∞</i></div> : isFruit ? <FruitPreview slide={game.id === 'slideTen'} /> : <ColorPreview />}
       <span className="game-start-button" aria-hidden="true">開始遊戲 <span>↗</span></span>
     </article>
   )
@@ -136,6 +138,7 @@ export function HomePage({ data, onNavigate, onSettings }: HomePageProps) {
             game={game}
             highScore={data.games[game.id].highScore}
             bestTimeSeconds={data.games[game.id].bestTimeSeconds}
+            paperSheets={data.games[game.id].paperSheets}
             onOpen={() => onNavigate(game.route)}
           />
         ))}

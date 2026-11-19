@@ -4,11 +4,12 @@ import { GAME_REGISTRY, type GameId } from './gameRegistry.ts'
 export const SITE_ORIGIN = 'https://games.haoping.tw'
 export const CHINESE_HOME_HEADING = ['免費網頁小遊戲，', '挑一款就開玩'] as const
 export const CHINESE_HOME_INTRO = ['估長度、猜秒數、湊十、養小島或闖地城。', '手機和電腦打開瀏覽器就能玩。'] as const
-export const SITE_DESCRIPTION = `${SITE_NAMES['zh-Hant']}收錄七款免下載的免費網頁小遊戲。${CHINESE_HOME_INTRO.join('')}`
+export const SITE_DESCRIPTION = `${SITE_NAMES['zh-Hant']}收錄 ${GAME_REGISTRY.length} 款免下載的免費網頁小遊戲。${CHINESE_HOME_INTRO.join('')}`
 
 const HOME_TITLES = { 'zh-Hant': '免費網頁小遊戲，免下載直接玩', en: 'Free Browser Games' }
 
 const CHINESE_GAME_SUBTITLES: Record<GameId, string> = {
+  tissueRoll: '擬真 3D 盒裝面紙',
   lengthSense: '目測長度挑戰',
   secondSense: '直覺計時挑戰',
   slideTen: '滑動數字湊十',

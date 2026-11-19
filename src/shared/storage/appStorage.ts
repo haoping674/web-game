@@ -14,6 +14,8 @@ export type GlobalSettings = {
 }
 
 export type GameProgress = {
+  paperMillimeters?: number
+  paperSheets?: number
   lengthBestErrorBp?: number
   timingBestMs?: Partial<Record<1 | 3 | 5, number>>
   timingRandomBestMs?: number
@@ -48,6 +50,7 @@ export const DEFAULT_APP_STORAGE: AppStorage = {
     slideTen: { ...DEFAULT_PROGRESS, scoreRule: 'fruit-count' },
     secondSense: { ...DEFAULT_PROGRESS },
     lengthSense: { ...DEFAULT_PROGRESS },
+    tissueRoll: { ...DEFAULT_PROGRESS },
   },
 }
 
@@ -218,6 +221,11 @@ export function readAppStorage(storage?: Storage): AppStorage {
         slideTen: normalizeSlideProgress(games.slideTen),
         secondSense: normalizeTimingProgress(games.secondSense),
         lengthSense: normalizeLengthProgress(games.lengthSense),
+        tissueRoll: {
+          ...normalizeProgress(games.tissueRoll),
+          paperMillimeters: isRecord(games.tissueRoll) ? finiteNumber(games.tissueRoll.paperMillimeters) : 0,
+          paperSheets: isRecord(games.tissueRoll) ? finiteNumber(games.tissueRoll.paperSheets) : 0,
+        },
       },
     }
   } catch {
@@ -352,4 +360,20 @@ export function resetGameProgress(gameId: GameId, storage?: Storage): AppStorage
     ...current,
     games: { ...current.games, [gameId]: { ...DEFAULT_PROGRESS } },
   }, storage)
+}
+
+export function addPaperProgress(millimeters: number, sheets: number): AppStorage {
+  const data = readAppStorage()
+  const current = data.games.tissueRoll
+  return saveAppStorage({
+    ...data,
+    games: {
+      ...data.games,
+      tissueRoll: {
+        ...current,
+        paperMillimeters: (current.paperMillimeters ?? 0) + millimeters,
+        paperSheets: (current.paperSheets ?? 0) + sheets,
+      },
+    },
+  })
 }

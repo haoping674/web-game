@@ -1,0 +1,90 @@
+.tissue-game {
+  width: min(calc(100% - 32px), 1080px);
+  margin: 30px auto 0;
+  color: #293d30;
+}
+
+.tissue-heading, .tissue-console, .tissue-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tissue-heading { margin-block-end: 14px; }
+.tissue-heading .eyebrow { margin: 0 0 5px; }
+.tissue-heading h1 { margin: 0; font-size: clamp(1.65rem, 4.8vw, 2.8rem); line-height: 1.15; }
+
+.tissue-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #8f8978;
+  border-radius: 17px;
+  background: #a3a092;
+  box-shadow: 0 14px 32px #30422d19;
+}
+
+.tissue-stage {
+  height: clamp(365px, 62svh, 680px);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.tissue-stage.is-holding { cursor: grabbing; }
+.tissue-stage canvas { display: block; width: 100%; height: 100%; }
+.tissue-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+  color: #fffdf5;
+  background: #282e26d9;
+}
+
+.tissue-console {
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+
+.tissue-console p { margin: 0; line-height: 1.6; }
+.tissue-console .tissue-record { margin-top: 2px; color: #536454; font-size: 0.83rem; font-variant-numeric: tabular-nums; }
+.tissue-tools { flex-wrap: wrap; justify-content: flex-start; gap: 7px; }
+
+.tissue-button {
+  min-block-size: 44px;
+  padding: 7px 13px;
+  border: 1px solid #bec9b3;
+  border-radius: 9px;
+  background: #fbfaf1;
+  color: #293d30;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tissue-button:hover:not(:disabled) { background: #e9eddf; }
+.tissue-button:disabled { opacity: 0.55; cursor: default; }
+.tissue-button:focus-visible { outline: 3px solid #557044; outline-offset: 3px; }
+.tissue-flick, .tissue-flick:hover:not(:disabled) { background: #435d3c; color: #fffdf5; border-color: #435d3c; }
+.tissue-flick:hover:not(:disabled) { background: #354d30; }
+
+.tissue-notice {
+  color: #536454;
+  min-height: 1.5em;
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 600px) {
+  .tissue-game { margin-top: 17px; }
+  .tissue-stage { height: clamp(340px, 55svh, 580px); }
+  .tissue-frame { border-radius: 12px; }
+  .tissue-console { gap: 8px; }
+}

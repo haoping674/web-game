@@ -2,6 +2,13 @@ import type { GameId } from './gameRegistry.ts'
 
 export type GameGuide = { goal: string; controls: string; rules: string; scoring: string; tip: string }
 export const GAME_GUIDES: Record<GameId, GameGuide> = {
+  tissueRoll: {
+    goal: '從桌上的紙盒一張一張抽面紙。沒有時間限制，也沒有輸贏。',
+    controls: '用滑鼠或手指捏住盒口露出來的面紙，往上拉。也可點按「輕抽」或「快抽」，或以 Tab 選擇後用 Enter 或空白鍵操作。',
+    rules: '這一張快要離開盒口時，交疊的紙邊會帶出下一張。斜抽會讓紙在盒口收皺，紙盒也會受力移動。',
+    scoring: '會記錄這台裝置累積抽出的張數和拉出的長度。',
+    tip: '試試只拉一半就放手，再從另一側捏住繼續抽。',
+  },
   fruitSum: {
     goal: '在倒數結束前，從水果棋盤找出總和剛好為 10 的矩形組合。',
     controls: '按住滑鼠或手指拖曳矩形，放開後確認選取。框內所有水果的數字都會一起計算。',

@@ -50,6 +50,19 @@ export default defineConfig(({ mode }) => {
           navigateFallback: `${base}index.html`,
           navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/_/, /\/[^/?]+\.[^/]+$/],
           globPatterns: ['**/*.{html,js,css,svg,png,ico,webmanifest,woff2}'],
+          globIgnores: ['**/node_modules/**/*', '**/TissueRollGame-*.js'],
+          runtimeCaching: [{
+            urlPattern: ({ sameOrigin, url }) => sameOrigin && (
+              /\/assets\/TissueRollGame-[\w-]+\.js$/.test(url.pathname)
+              || /\/tissue-roll\/(slide|draw|fibers)\.mp3$/.test(url.pathname)
+            ),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'orchard-tissue-roll',
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 8, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            },
+          }],
         },
         devOptions: { enabled: false },
       }),

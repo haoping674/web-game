@@ -1,4 +1,4 @@
-export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen' | 'secondSense' | 'lengthSense'
+export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen' | 'secondSense' | 'lengthSense' | 'tissueRoll'
 
 export type GameDefinition = {
   id: GameId
@@ -11,6 +11,15 @@ export type GameDefinition = {
 }
 
 export const GAME_REGISTRY = [
+  {
+    id: 'tissueRoll',
+    name: '無限抽衛生紙',
+    eyebrow: 'TISSUE BOX',
+    description: '桌上放了一盒五月花。捏住面紙往上拉，抽完一張，下一張會跟著冒出來。',
+    route: '/games/tissue-roll',
+    status: 'available',
+    accent: '#776047',
+  },
   {
     id: 'lengthSense',
     name: '長感挑戰',
