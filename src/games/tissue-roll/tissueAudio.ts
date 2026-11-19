@@ -116,7 +116,7 @@ export function createTissueAudio() {
       enabled = sound
       stopped = paused
     },
-    tick(speed: number, tension: number, pan: number) {
+    tick(speed: number, tension: number, pan: number, film: number) {
       if (!context) return
       const now = context.currentTime
       if (speed > 0.2 && now >= nextSlide) {
@@ -125,7 +125,8 @@ export function createTissueAudio() {
       }
       if (tension > 0.24 && now >= nextFiber) {
         nextFiber = now + 0.24 / (0.9 + tension)
-        play('fibers', Math.min(0.12, tension * 0.047), pan, 0.81 + Math.random() * 0.26, 0.10)
+        play('fibers', Math.min(0.16, tension * 0.042 + Math.abs(film) * 1.2), pan,
+          0.81 + Math.random() * 0.26 + Math.abs(film) * 2.1, 0.10)
       }
     },
     draw(strength: number, pan: number) { play('draw', Math.min(0.65, 0.26 + strength * 0.085), pan, 0.88 + Math.random() * 0.18 + strength * 0.045, 0.27) },

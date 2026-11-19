@@ -3,7 +3,7 @@ import {
   MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, SRGBColorSpace,
 } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
-import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, SLOT_HALF_DEPTH, SLOT_HALF_LENGTH } from './paperPhysics'
+import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, LIP_HALF_DEPTH, LIP_HALF_LENGTH, SLOT_HALF_DEPTH, SLOT_HALF_LENGTH } from './tissueDimensions'
 
 export const TISSUE_BRANDS = { mayflower: '五月花', kleenex: '舒潔' } as const
 export type TissueBrand = keyof typeof TISSUE_BRANDS
@@ -228,12 +228,30 @@ export function createTissueBox(brand: TissueBrand) {
   lid.castShadow = lid.receiveShadow = true
   root.add(under, lid)
 
-  const filmMaterial = new MeshPhysicalMaterial({ color: '#cbcbad', transparent: true, opacity: 0.71,
-    clearcoat: 1, clearcoatRoughness: 0.23, roughness: 0.42, side: DoubleSide,
+  const filmMaterial = new MeshPhysicalMaterial({ color: '#d4d0bc', transparent: true, opacity: 0.62,
+    clearcoat: 1, clearcoatRoughness: 0.19, roughness: 0.36, side: DoubleSide, depthWrite: false,
   })
-  const film = new Mesh(panelWithHole(1.72, 0.402, SLOT_HALF_LENGTH - 0.058, SLOT_HALF_DEPTH * 0.44, 0.18), filmMaterial)
+  const film = new Mesh(panelWithHole(1.72, 0.402, LIP_HALF_LENGTH, LIP_HALF_DEPTH, 0.18), filmMaterial)
   film.position.y = BOX_HEIGHT - 0.016
   root.add(film)
+  const filmPositions = film.geometry.getAttribute('position')
+  const restFilm = Float32Array.from(filmPositions.array)
+  let lastDeflection = Number.NaN
+  let lastTension = Number.NaN
+  function flexFilm(deflection: number, tension: number) {
+    if (Math.abs(deflection - lastDeflection) < 0.00045 && Math.abs(tension - lastTension) < 0.06) return
+    lastDeflection = deflection
+    lastTension = tension
+    for (let i = 0; i < filmPositions.count; i++) {
+      const x = restFilm[i * 3]
+      const z = restFilm[i * 3 + 2]
+      const grip = Math.max(0, 1 - Math.abs(z) / 0.19) * Math.max(0, 1 - Math.pow(Math.abs(x) / 0.83, 5))
+      const bias = Math.sign(z) * deflection
+      filmPositions.setXYZ(i, x, Math.min(0.026, (Math.max(0, bias) * 0.52 + tension * 0.0019) * grip), z + deflection * grip * 0.39)
+    }
+    filmPositions.needsUpdate = true
+    film.geometry.computeVertexNormals()
+  }
   const stack = new Mesh(new RoundedBoxGeometry(1.98, 0.12, 0.90, 2, 0.025),
     new MeshStandardMaterial({ color: '#c9bd9f', roughness: 0.98 }))
   stack.position.y = BOX_HEIGHT - 0.25
@@ -250,5 +268,5 @@ export function createTissueBox(brand: TissueBrand) {
       root.add(seam)
     }
   }
-  return { root, film, maps }
+  return { root, flexFilm, maps }
 }

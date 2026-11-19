@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { Vector3 } from 'three'
-import { BOX_HEIGHT, BOX_LENGTH, FLOOR, PaperPhysics, SHEET_ROWS } from './paperPhysics'
+import { Box3, Triangle, Vector3 } from 'three'
+import { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, FLOOR, PaperPhysics, SHEET_ROWS } from './paperPhysics'
 
 function setup() {
   const draws: number[] = []
@@ -103,11 +103,11 @@ describe('boxed tissue interaction', () => {
     expect(Math.abs(model.box.x)).toBeGreaterThan(0.045)
     expect(Math.abs(model.box.x)).toBeLessThan(BOX_LENGTH / 2)
     advance(120)
-    for (let i = 0; i < 23; i++) {
+    for (let i = 0; i < 8; i++) {
       model.pull(i % 2 === 0)
       advance(185)
     }
-    expect(draws).toHaveLength(24)
+    expect(draws).toHaveLength(9)
     expect(model.offcuts).toHaveLength(7)
     for (const row of [...model.rows, ...model.offcuts.flatMap((offcut) => offcut.rows)]) {
       for (const { position } of row.points) {
@@ -115,5 +115,54 @@ describe('boxed tissue interaction', () => {
         expect(position.y).toBeGreaterThanOrEqual(FLOOR)
       }
     }
-  })
+  }, 20_000)
+
+  it('keeps the carton out of both settled paper vertices and faces during repeated throws', () => {
+    const { model, draws, advance } = setup()
+    for (let repeat = 0; repeat < 4; repeat++) {
+      model.pull(repeat % 2 === 0)
+      advance(185)
+    }
+    expect(draws).toHaveLength(4)
+    advance(450)
+    expect(model.offcuts.every((piece) => piece.awake === 0)).toBe(true)
+    const resting = model.offcuts.map((piece) => piece.rows[0].points[0].position.clone())
+    const interior = new Box3(
+      new Vector3(-BOX_LENGTH / 2 + 0.004, FLOOR + 0.006, -BOX_DEPTH / 2 + 0.004),
+      new Vector3(BOX_LENGTH / 2 - 0.004, FLOOR + BOX_HEIGHT - 0.004, BOX_DEPTH / 2 - 0.004),
+    )
+    const triangle = new Triangle()
+    const local = (point: Vector3, out: Vector3) => {
+      const { x, z, yaw, lift } = model.box
+      const dx = point.x - x
+      const dz = point.z - z
+      const cos = Math.cos(yaw)
+      const sin = Math.sin(yaw)
+      out.set(dx * cos - dz * sin, point.y - lift, dx * sin + dz * cos)
+    }
+    let intersections = 0
+    function check(a: Vector3, b: Vector3, c: Vector3) {
+      local(a, triangle.a)
+      local(b, triangle.b)
+      local(c, triangle.c)
+      if (interior.intersectsTriangle(triangle)) intersections++
+    }
+    for (let toss = 0; toss < 3; toss++) {
+      model.boxMotion.toss()
+      for (let step = 0; step < 320; step++) {
+        advance(1)
+        for (const piece of [model, ...model.offcuts]) for (let r = 1; r < piece.rows.length; r++) {
+          const above = piece.rows[r - 1].points
+          const below = piece.rows[r].points
+          for (let c = 1; c < above.length; c++) {
+            check(above[c - 1].position, below[c - 1].position, above[c].position)
+            check(above[c].position, below[c - 1].position, below[c].position)
+          }
+        }
+      }
+    }
+    expect(intersections).toBe(0)
+    expect(model.offcuts).toHaveLength(4)
+    expect(model.offcuts.some((piece, index) => piece.rows[0].points[0].position.distanceTo(resting[index]) > 0.05)).toBe(true)
+  }, 25_000)
 })

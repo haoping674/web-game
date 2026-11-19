@@ -1,24 +1,18 @@
-import { Vector3 } from 'three'
+import { Box3, Vector3 } from 'three'
 import { BoxMotion } from './boxMotion'
+import { CartonContacts, projectTable } from './cartonContacts'
+import { PaperLayerContacts, paperBounds, type ContactLayer } from './paperLayerContacts'
+import { COLUMNS, LIP_HALF_DEPTH, LIP_HALF_LENGTH, PITCH, SHEET_ROWS, TOP, WIDTH, type CartonPose, type PaperPoint, type PaperRow } from './tissueDimensions'
 
-export const COLUMNS = 15
-export const WIDTH = 1.94
-export const PITCH = 0.112
-export const SHEET_ROWS = 19
-export const FLOOR = -0.78
-export const BOX_LENGTH = 2.33
-export const BOX_DEPTH = 1.18
-export const BOX_HEIGHT = 0.73
-export const SLOT_HALF_LENGTH = 0.79
-export const SLOT_HALF_DEPTH = 0.155
-const TOP = FLOOR + BOX_HEIGHT
+export { BOX_DEPTH, BOX_HEIGHT, BOX_LENGTH, COLUMNS, FLOOR, PITCH, SHEET_ROWS, SLOT_HALF_DEPTH, SLOT_HALF_LENGTH, WIDTH } from './tissueDimensions'
+export type { PaperRow } from './tissueDimensions'
+
 const COUPLING_DISTANCE = 0.58
 const EXPOSED = 0.52
 const TOTAL = (SHEET_ROWS - 1) * PITCH
 
-type Point = { position: Vector3; previous: Vector3 }
-export type PaperRow = { id: number; points: Point[] }
-export type Offcut = { rows: PaperRow[]; age: number }
+type Point = PaperPoint
+export type Offcut = { rows: PaperRow[]; age: number; awake: number; version: number; bounds: Box3 }
 type Grip = { point: Point; target: Vector3; offset: Vector3; piece?: Offcut }
 export type PaperEvents = { draw: (strength: number, pan: number) => void; impact?: (strength: number, pan: number) => void }
 
@@ -31,6 +25,7 @@ export class PaperPhysics {
   offcuts: Offcut[] = []
   speed = 0
   tension = 0
+  lipDeflection = 0
   produced = 0
   grip: Grip | null = null
   readonly boxMotion = new BoxMotion()
@@ -43,9 +38,15 @@ export class PaperPhysics {
   private serial = 0
   private difference = new Vector3()
   private profile = new Vector3()
-  private local = new Vector3()
   private load = new Vector3()
   private heldPosition = new Vector3()
+  private readonly carton = new CartonContacts()
+  private readonly paperContacts = new PaperLayerContacts()
+  private readonly activeBounds = new Box3()
+  private readonly upcomingBounds = new Box3()
+  private readonly previousBox: CartonPose = { x: 0, z: 0, lift: 0, yaw: 0 }
+  private contactTick = 0
+  private priorLip = 0
 
   constructor(events: PaperEvents) {
     this.events = events
@@ -62,11 +63,13 @@ export class PaperPhysics {
     const u = column / (COLUMNS - 1) * 2 - 1
     const distance = row === 0 ? 0 : (row - 1) * PITCH + this.leadingGap(exposed)
     const spread = 1 - Math.exp(-distance * 4.8)
-    const edge = u * (0.700 + spread * 0.25)
+    const edge = u * (LIP_HALF_LENGTH - 0.025 + spread * 0.26)
     const folds = Math.sin(u * 9.2 + this.serial * 1.57) * 0.047 + Math.sin(u * 17 + distance * 4.2) * 0.021
     const drape = distance * 0.98 / (1 + distance * distance * 0.50)
-    const y = TOP + 0.012 + drape - Math.abs(u) ** 2 * 0.13 * spread
-    const z = (pending ? -0.071 : 0.004) + folds * (0.38 + spread) + distance * distance * 0.14
+    const y = TOP + 0.010 + drape - Math.abs(u) ** 2 * 0.13 * spread
+    const slitCenter = pending ? -LIP_HALF_DEPTH * 0.53 : LIP_HALF_DEPTH * 0.36
+    const exit = clamp(slitCenter + (pending ? 0 : this.lipDeflection * 0.6) + folds * 0.21, -LIP_HALF_DEPTH + 0.010, LIP_HALF_DEPTH - 0.010)
+    const z = exit + folds * spread + distance * distance * 0.14
     return this.world(edge, y, z, out)
   }
 
@@ -152,33 +155,6 @@ export class PaperPhysics {
     }
   }
 
-  private collide(sample: Point) {
-    const p = sample.position
-    if (p.y < FLOOR + 0.012) {
-      p.y = FLOOR + 0.012
-      sample.previous.x += (p.x - sample.previous.x) * 0.51
-      sample.previous.z += (p.z - sample.previous.z) * 0.51
-      sample.previous.y = p.y
-    }
-    const dx = p.x - this.box.x
-    const dz = p.z - this.box.z
-    const cos = Math.cos(this.box.yaw)
-    const sin = Math.sin(this.box.yaw)
-    const x = dx * cos - dz * sin
-    const z = dx * sin + dz * cos
-    const y = p.y - this.box.lift
-    if (y > TOP + 0.014 || y < FLOOR || Math.abs(x) >= BOX_LENGTH / 2 || Math.abs(z) >= BOX_DEPTH / 2) return
-    const nearTop = TOP + 0.014 - y
-    const sideX = BOX_LENGTH / 2 - Math.abs(x)
-    const sideZ = BOX_DEPTH / 2 - Math.abs(z)
-    this.local.set(x, y, z)
-    if (nearTop < Math.min(sideX, sideZ)) this.local.y = TOP + 0.014
-    else if (sideX < sideZ) this.local.x = Math.sign(x || 1) * (BOX_LENGTH / 2 + 0.014)
-    else this.local.z = Math.sign(z || 1) * (BOX_DEPTH / 2 + 0.014)
-    this.world(this.local.x, this.local.y, this.local.z, p)
-    sample.previous.lerp(p, 0.38)
-  }
-
   private integrate(rows: PaperRow[], attached: boolean, dt: number) {
     for (let r = attached ? 1 : 0; r < rows.length; r++) {
       for (let c = 0; c < COLUMNS; c++) {
@@ -201,8 +177,12 @@ export class PaperPhysics {
   replaceBox() {
     this.release()
     this.boxMotion.reset()
+    this.carton.begin(this.box, this.box)
+    for (const piece of this.offcuts) this.wake(piece)
     this.speed = 0
     this.tension = 0
+    this.lipDeflection = 0
+    this.priorLip = 0
     this.exposed = EXPOSED
     this.rows = []
     this.upcoming = []
@@ -210,9 +190,11 @@ export class PaperPhysics {
   }
 
   private advanceBox(dt: number, grip: Grip | null) {
+    Object.assign(this.previousBox, this.box)
     const { x, z, yaw, lift } = this.box
     const followsBox = this.boxMotion.grabbed || this.boxMotion.moving
     const impact = this.boxMotion.update(dt, this.load, grip ? grip.point.position.x - x : 0)
+    this.carton.begin(this.previousBox, this.box)
     if (impact > 0.95) this.events.impact?.(impact, this.box.x)
     if (!followsBox || (x === this.box.x && z === this.box.z && yaw === this.box.yaw && lift === this.box.lift)) return
     const c = Math.cos(this.box.yaw - yaw)
@@ -236,7 +218,13 @@ export class PaperPhysics {
     this.advanceBox(dt, grip)
     const upward = Math.max(0, this.load.y)
     const sideways = Math.hypot(this.load.x, this.load.z)
-    const resistance = 0.53 + sideways * 0.12 + Math.sin(this.exposed * 24 + this.serial) * 0.095
+    const lipNormal = Math.sin(this.box.yaw) * this.load.x + Math.cos(this.box.yaw) * this.load.z
+    const lipTarget = clamp(lipNormal * 0.009, -0.036, 0.036)
+    this.priorLip += (lipTarget - this.priorLip) * dt * 20
+    this.lipDeflection += (this.priorLip - this.lipDeflection) * dt * 28
+    const lipFriction = Math.abs(lipNormal) * 0.085 + Math.abs(this.lipDeflection) * 3
+    const resistance = (this.speed < 0.16 ? 0.61 : 0.45) + sideways * 0.13 + lipFriction
+      + Math.sin(this.exposed * 24 + this.serial) * 0.084
     const effort = upward + sideways * 0.48
     this.tension += (effort - this.tension) * 0.32
     this.speed = this.boxMotion.grabbed ? 0 : clamp(this.speed + (Math.max(0, effort - resistance) * 11 - this.speed * 7.1) * dt, 0, 6.5)
@@ -273,8 +261,16 @@ export class PaperPhysics {
     this.integrate(this.rows, true, dt)
     for (const offcut of this.offcuts) {
       if (this.grip?.piece !== offcut) offcut.age += dt
-      if (offcut.age < 3.5) this.integrate(offcut.rows, false, dt)
+      if (offcut.awake <= 0 && this.carton.reaches(offcut.bounds)) {
+        const touched = this.enforce(offcut.rows, false, true)
+        if (touched || this.carton.projectSurface(offcut.rows, false)) this.wake(offcut)
+      }
+      if (offcut.awake > 0) {
+        this.integrate(offcut.rows, false, dt)
+        this.enforce(offcut.rows, false, true)
+      }
     }
+    this.enforce(this.rows, true, true)
     const held = this.grip?.piece ? this.grip : null
     if (held) {
       const delta = this.difference.subVectors(held.target, held.point.position).clampLength(0, 0.25)
@@ -284,13 +280,27 @@ export class PaperPhysics {
       this.relax(this.rows, true)
       const grip = this.grip
       if (grip && !grip.piece) this.applyGrip(grip)
-      for (let r = 1; r < this.rows.length; r++) for (const sample of this.rows[r].points) this.collide(sample)
+      this.enforce(this.rows, true, false)
       for (const offcut of this.offcuts) {
-        if (offcut.age >= 3.5) continue
+        if (offcut.awake <= 0) continue
         this.relax(offcut.rows, false)
         if (held?.piece === offcut) held.point.position.copy(this.heldPosition)
-        for (const row of offcut.rows) for (const sample of row.points) this.collide(sample)
+        this.enforce(offcut.rows, false, false)
       }
+    }
+
+    if (this.contactTick++ % 3 === 0 || this.upcoming.length > 1 && this.contactTick % 2 === 0) this.solveLayers()
+    this.finishSurface(this.rows, true)
+    if (this.upcoming.length) this.finishSurface(this.upcoming, true)
+    for (const piece of this.offcuts) {
+      if (piece.awake <= 0) continue
+      this.finishSurface(piece.rows, false)
+      if (held?.piece !== piece) piece.awake = Math.max(0, piece.awake - dt)
+      if (piece.awake === 0) for (const { points } of piece.rows) {
+        for (const point of points) point.previous.copy(point.position)
+      }
+      piece.version++
+      paperBounds(piece.rows, piece.bounds)
     }
 
     if (this.exposed >= TOTAL - 1e-6) {
@@ -302,7 +312,7 @@ export class PaperPhysics {
         const weight = 0.92 - r / this.rows.length * 0.75
         for (const sample of this.rows[r].points) sample.previous.addScaledVector(impulse, -weight)
       }
-      const piece = { rows: this.rows, age: 0 }
+      const piece: Offcut = { rows: this.rows, age: 0, awake: 3.0, version: 0, bounds: paperBounds(this.rows, new Box3()) }
       this.offcuts.push(piece)
       if (this.offcuts.length > 7) this.offcuts.shift()
       this.rows = this.upcoming
@@ -318,6 +328,57 @@ export class PaperPhysics {
       this.releaseTime -= dt
       if (this.releaseTime <= 0) this.release()
     }
+  }
+
+  private wake(piece: Offcut) {
+    piece.awake = Math.max(piece.awake, 0.82)
+  }
+
+  private enforce(rows: PaperRow[], anchored: boolean, swept: boolean): boolean {
+    let touched = false
+    for (let r = anchored ? 1 : 0; r < rows.length; r++) {
+      for (const point of rows[r].points) {
+        projectTable(point)
+        if (this.carton.projectPoint(point, swept, anchored)) touched = true
+        projectTable(point)
+      }
+    }
+    return touched
+  }
+
+  private finishSurface(rows: PaperRow[], anchored: boolean) {
+    this.enforce(rows, anchored, false)
+    // An edge can enter a corner even when all its vertices are outside the carton.
+    for (let pass = 0; pass < 3; pass++) {
+      if (!this.carton.projectSurface(rows, anchored)) break
+    }
+  }
+
+  private solveLayers() {
+    const activeFold = (this.grip !== null && !this.grip.piece || this.speed > 0.12) && this.rows.length > 8
+    if (!activeFold && !this.upcoming.length && this.offcuts.every((piece) => piece.awake <= 0)) return
+    const layers: ContactLayer[] = [{
+      rows: this.rows,
+      bounds: paperBounds(this.rows, this.activeBounds),
+      anchored: true,
+      sleeping: false,
+      folding: activeFold,
+    }]
+    if (this.upcoming.length) layers.push({
+      rows: this.upcoming,
+      bounds: paperBounds(this.upcoming, this.upcomingBounds),
+      anchored: true,
+      sleeping: false,
+    })
+    for (const piece of this.offcuts) layers.push({
+      rows: piece.rows,
+      bounds: piece.awake > 0 ? paperBounds(piece.rows, piece.bounds) : piece.bounds,
+      anchored: false,
+      sleeping: piece.awake <= 0,
+      folding: this.grip?.piece === piece || piece.age < 0.82,
+      wake: piece.awake <= 0 ? () => this.wake(piece) : undefined,
+    })
+    this.paperContacts.solve(layers)
   }
 
   private applyGrip(grip: Grip) {

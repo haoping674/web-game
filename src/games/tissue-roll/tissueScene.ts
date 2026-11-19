@@ -8,6 +8,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { adaptiveResolution } from '../../shared/immersive/adaptiveResolution'
 import { COLUMNS, FLOOR, PaperPhysics, SHEET_ROWS, type PaperRow } from './paperPhysics'
+import { REAR_WALL } from './tissueDimensions'
 import { createTissueBox, type TissueBrand } from './tissueBox'
 
 const PAPER_COLOR = '#ece3d3'
@@ -66,7 +67,7 @@ function tissueTexture(): CanvasTexture {
 
 function paperMaterial(map: CanvasTexture): MeshPhysicalMaterial {
   const material = new MeshPhysicalMaterial({
-    color: PAPER_COLOR, roughness: 0.89, bumpMap: map, bumpScale: 0.023,
+    color: PAPER_COLOR, roughness: 0.91, bumpMap: map, bumpScale: 0.017,
     side: DoubleSide, sheen: 0.23, sheenColor: new Color('#d3c8ae'), sheenRoughness: 0.85,
   })
   material.onBeforeCompile = (shader) => {
@@ -75,7 +76,18 @@ function paperMaterial(map: CanvasTexture): MeshPhysicalMaterial {
       vec2 tissueUV = vBumpMapUv;
       float grain = fract(sin(dot(floor(tissueUV * 620.0), vec2(13.13, 57.7))) * 43758.5);
       float pressed = texture2D(bumpMap, tissueUV).r;
-      diffuseColor.rgb *= (0.49 + 0.74 * pressed + 0.028 * grain);
+      diffuseColor.rgb *= (0.56 + 0.63 * pressed + 0.031 * grain);
+    `)
+    shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
+      #if NUM_DIR_LIGHTS > 0
+        float backlight = smoothstep(0.06, 0.85, -dot(normal, directionalLights[0].direction));
+        float rim = pow(1.0 - abs(dot(normal, geometryViewDir)), 2.3);
+        float crease = clamp(length(fwidth(normal)) * 0.35, 0.0, 0.07);
+        outgoingLight *= 1.0 - crease;
+        outgoingLight += diffuseColor.rgb * vec3(1.00, 0.84, 0.64)
+          * (0.095 * backlight + 0.037 * backlight * rim) * (0.69 + 0.46 * pressed);
+      #endif
+      #include <opaque_fragment>
     `)
   }
   return material
@@ -111,9 +123,10 @@ function deskTexture(): CanvasTexture {
 
 class PaperMesh {
   readonly mesh: Mesh<BufferGeometry, MeshPhysicalMaterial>
-  private readonly positions = new Float32BufferAttribute(new Float32Array(80 * COLUMNS * 3), 3)
-  private readonly uv = new Float32BufferAttribute(new Float32Array(80 * COLUMNS * 2), 2)
-  private readonly indices = new BufferAttribute(new Uint16Array(79 * (COLUMNS - 1) * 6), 1)
+  version = -1
+  private readonly positions = new Float32BufferAttribute(new Float32Array(SHEET_ROWS * COLUMNS * 3), 3)
+  private readonly uv = new Float32BufferAttribute(new Float32Array(SHEET_ROWS * COLUMNS * 2), 2)
+  private readonly indices = new BufferAttribute(new Uint16Array((SHEET_ROWS - 1) * (COLUMNS - 1) * 6), 1)
   private topology = ''
 
   constructor(material: MeshPhysicalMaterial) {
@@ -143,7 +156,7 @@ class PaperMesh {
         const i = r * COLUMNS + column
         const p = row.points[column].position
         const cutEdge = r === rows.length - 1 || r === 0
-        const fiber = cutEdge ? Math.sin(column * 7.1 + row.id * 1.2) * 0.009 : 0
+        const fiber = cutEdge ? Math.sin(column * 7.1 + row.id * 1.2) * 0.0009 : 0
         this.positions.setXYZ(i, p.x, p.y + fiber, p.z)
         if (!rebuild) continue
         this.uv.setXY(i, column / (COLUMNS - 1), row.id / SHEET_ROWS)
@@ -197,7 +210,7 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
   scene.add(key)
 
   const wall = new Mesh(new PlaneGeometry(40, 40), new MeshStandardMaterial({ color: WALL, roughness: 0.94 }))
-  wall.position.z = -2.46
+  wall.position.z = REAR_WALL
   wall.receiveShadow = true
   scene.add(wall)
 
@@ -318,7 +331,7 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
     const { box } = physics
     packaging.root.position.set(box.x, FLOOR + box.lift, box.z)
     packaging.root.rotation.y = box.yaw
-    packaging.film.scale.z = 1 + Math.min(0.085, physics.tension * 0.009)
+    packaging.flexFilm(physics.lipDeflection, physics.tension)
     for (const [rows, scrap] of scraps) {
       if (!physics.offcuts.some((entry) => entry.rows === rows)) {
         scene.remove(scrap.mesh)
@@ -326,14 +339,17 @@ export function createTissueScene(host: HTMLElement, physics: PaperPhysics, bran
         scraps.delete(rows)
       }
     }
-    for (const { rows, age } of physics.offcuts) {
+    for (const { rows, version } of physics.offcuts) {
       let scrap = scraps.get(rows)
       if (!scrap) {
         scrap = new PaperMesh(paper)
         scraps.set(rows, scrap)
         scene.add(scrap.mesh)
       }
-      if (age < 4 || !scrap.mesh.geometry.drawRange.count) scrap.update(rows)
+      if (version !== scrap.version) {
+        scrap.update(rows)
+        scrap.version = version
+      }
     }
     const newest = physics.offcuts.at(-1)
     if (newest && newest.rows !== lastDrawn) {

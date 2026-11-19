@@ -26,6 +26,8 @@
 
 .tissue-stage {
   height: clamp(365px, 62svh, 680px);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 460px;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;

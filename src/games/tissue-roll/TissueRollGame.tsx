@@ -90,6 +90,7 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     let frame = 0
     let pointer: number | null = null
     let hidden = document.hidden
+    let offscreen = false
     let failed = false
     let needsDraw = true
     let isActive = false
@@ -164,15 +165,28 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
       const dt = previous ? (now - previous) / 1000 : 0
       previous = now
       const settings = config()
-      if (hidden || settings.blocked || failed) return
+      const skipped = offscreen && pointer === null && now - lastInput > 2400
+      if (hidden || settings.blocked || failed || skipped) {
+        if (skipped) {
+          clock.reset()
+          if (isActive) {
+            isActive = false
+            setActive(false)
+          }
+        }
+        audio.configure(settings.sound, true)
+        return
+      }
+      audio.configure(settings.sound, false)
       clock.advance(dt)
       if (pointer !== null && !physics.grip && !physics.boxMotion.grabbed) release()
-      const interacting = pointer !== null || now - lastInput < 2400 || physics.speed > 0.12 || physics.boxMotion.moving
+      const interacting = pointer !== null || now - lastInput < 2400 || physics.speed > 0.12
+        || physics.boxMotion.moving || physics.offcuts.some((piece) => piece.awake > 0)
       if (interacting !== isActive) {
         isActive = interacting
         setActive(interacting)
       }
-      audio.tick(physics.speed, physics.tension, (physics.grip?.point.position.x ?? 0) * 0.9)
+      audio.tick(physics.speed, physics.tension, (physics.grip?.point.position.x ?? 0) * 0.9, physics.lipDeflection)
       if (interacting || needsDraw || now - lastDraw >= 250) {
         scene.render(interacting ? Math.min(0.075, dt) : 0, settings.rumble)
         lastDraw = now
@@ -238,6 +252,18 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
     host.addEventListener('lostpointercapture', up)
     scene.canvas.addEventListener('webglcontextlost', contextLost)
     document.addEventListener('visibilitychange', visibility)
+    function visibilitySkipped(event: Event) {
+      if ('skipped' in event) offscreen = event.skipped === true
+    }
+    let viewportObserver: IntersectionObserver | undefined
+    if ('ContentVisibilityAutoStateChangeEvent' in window) {
+      host.addEventListener('contentvisibilityautostatechange', visibilitySkipped)
+    } else if (typeof IntersectionObserver === 'function') {
+      viewportObserver = new IntersectionObserver(([entry]) => {
+        offscreen = !entry?.isIntersecting
+      }, { rootMargin: '120px' })
+      viewportObserver.observe(host)
+    }
     frame = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(frame)
@@ -249,6 +275,8 @@ export default function TissueRollGame({ globalSettings, platformSettingsOpen, p
       host.removeEventListener('lostpointercapture', up)
       scene.canvas.removeEventListener('webglcontextlost', contextLost)
       document.removeEventListener('visibilitychange', visibility)
+      host.removeEventListener('contentvisibilityautostatechange', visibilitySkipped)
+      viewportObserver?.disconnect()
       controls.current = null
       audio.dispose()
       scene.dispose()
