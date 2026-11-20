@@ -237,11 +237,15 @@ export function makeColaScene(canvas: HTMLCanvasElement) {
   const dummy = new T.Object3D()
   const color = new T.Color()
   const foamTint = new T.Color()
+  const mouthFromCenter = new T.Vector3()
+  const capProjection = new T.Vector3()
+  const capCenter = { x: 0, y: 0 }
   const resolution = adaptiveResolution(Math.min(2, window.devicePixelRatio || 1))
   let width = 1
   let height = 1
   let framed = .35
   let launch = 0
+  let lift = 0
   let observedImpacts = 0
   let splashes: Splash[] = []
   let needsRender = true
@@ -265,7 +269,9 @@ export function makeColaScene(canvas: HTMLCanvasElement) {
   resize()
 
   function draw(round: ColaRound, dt: number, reduce: boolean, effect: EffectIntensity): void {
-    const idle = (round.phase === 'shake' && round.pressure === 0 && round.foam < .001 && Math.abs(round.swing) < .001)
+    const { pose } = round
+    const moving = round.held || lift > .001 || Math.hypot(pose.x, pose.y, pose.vx, pose.vy, pose.kickX, pose.kickY) > .001
+    const idle = (round.phase === 'shake' && round.pressure === 0 && round.foam < .001 && !moving)
       || (round.phase === 'result' && round.age > round.finishedAt + 1.4 && round.foam < .001)
     if (idle && !needsRender && lastIdleRound === round && lastEffect === effect && lastReducedMotion === reduce) return
     if (resolution.observe(dt)) resize()
@@ -277,13 +283,32 @@ export function makeColaScene(canvas: HTMLCanvasElement) {
     const settle = 1 - Math.exp(-dt * 9)
     const aim = T.MathUtils.smoothstep(round.opening, .84, 1)
     launch = spraying ? 1 : reduce ? 0 : aim
-    const swing = reduce ? 0 : round.swing
-    pivot.position.set(swing * .055 * (1 - launch), T.MathUtils.lerp(MOUTH, NOZZLE_HEIGHT, launch), 0)
-    pivot.rotation.z = -swing * .23 * (1 - launch) - (Math.PI / 2 - JET_ANGLE) * launch
-    pivot.rotation.y = -.21 * (1 - launch)
+    lift = T.MathUtils.lerp(lift, round.held ? .026 : 0, 1 - Math.exp(-dt * 22))
+    const looseness = (reduce ? .14 : 1) * (1 - launch)
+    const tipX = T.MathUtils.clamp(pose.vy * -.19 + pose.kickY * -.41, -.57, .57) * looseness
+    const tipZ = T.MathUtils.clamp(pose.vx * -.17 - pose.kickX * .32, -.62, .62) * looseness
+    const grabHeight = (lift + pose.y * .4 + pose.kickY * .022) * looseness
+    pivot.rotation.set(
+      tipX,
+      -.21 * (1 - launch) + tipX * .25 - tipZ * .34,
+      tipZ - (Math.PI / 2 - JET_ANGLE) * launch,
+    )
+    pivot.position.set(
+      (pose.x * .4 + pose.kickX * .025) * looseness,
+      T.MathUtils.lerp(MOUTH, NOZZLE_HEIGHT, launch) + T.MathUtils.clamp(grabHeight, 0, .064),
+      tipX * .042 - Math.min(0, grabHeight) * 2.7,
+    )
+    // The bottle rotates around the grip near its center and the nozzle aligns for the launch.
+    mouthFromCenter.set(0, .117, 0).applyQuaternion(pivot.quaternion)
+    pivot.position.x += mouthFromCenter.x * (1 - launch)
+    pivot.position.y += (mouthFromCenter.y - .117) * (1 - launch)
+    pivot.position.z += mouthFromCenter.z * (1 - launch)
     shadow.position.x = pivot.position.x - .13 * launch
+    shadow.position.z = pivot.position.z
+    shadow.material.opacity = 1 - T.MathUtils.clamp((lift + Math.max(0, pose.y) * .4) * 5, 0, .36) * looseness
     liquid.scale.y = spraying ? Math.max(.35, 1 - round.age * 1.8 * round.launchPressure) : 1
-    liquid.rotation.z = reduce ? 0 : round.slosh * .042
+    liquid.rotation.x = -T.MathUtils.clamp(pose.sloshY, -1, 1) * .10 * looseness
+    liquid.rotation.z = T.MathUtils.clamp(pose.sloshX, -1, 1) * .11 * looseness
     cap.rotation.set(0, round.opening * TAU * 1.65, 0)
     cap.position.set(0, MOUTH + .003 + round.opening * .009, 0)
     if (spraying) {
@@ -402,11 +427,18 @@ export function makeColaScene(canvas: HTMLCanvasElement) {
     camera.position.set(targetX + .17 * (1 - launch), targetY + 1.05 + launch * .37, 3.3 + launch)
     camera.lookAt(targetX, targetY, 0)
     camera.updateProjectionMatrix()
+    if (round.phase === 'shake') {
+      camera.updateMatrixWorld()
+      cap.localToWorld(capProjection.set(0, .004, 0)).project(camera)
+      capCenter.x = Math.round(T.MathUtils.clamp(capProjection.x * width / 2, 27 - width / 2, width / 2 - 27))
+      capCenter.y = Math.round(T.MathUtils.clamp((.5 - capProjection.y * .5) * height, 27, height - 27) - height * .2)
+    }
     renderer.render(scene, camera)
   }
 
   return {
     draw,
+    capCenter,
     dispose() {
       observer.disconnect()
       const materials = new Set<T.Material>()

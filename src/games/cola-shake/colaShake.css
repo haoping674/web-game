@@ -34,16 +34,18 @@
 .cola-readout small, .cola-result-distance small { font-size: .46em; letter-spacing: 0; }
 .cola-cap-target {
   position: absolute;
-  inset: 19% auto auto 50%;
-  translate: -50% -24%;
-  width: max(48px, 12%);
-  height: 17%;
+  inset: 20% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: 50px;
+  height: 50px;
   background: transparent;
   border: 0;
   border-radius: 12px;
   cursor: pointer;
   touch-action: none;
 }
+.cola-cap-target:hover { background: #fff1da2b; }
+.cola-cap-target:active { background: #fff1da48; }
 .cola-cap-target:focus-visible { outline: 3px solid #622211; outline-offset: 3px; }
 .cola-scene-error { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; color: #fff2d8; background: #392219e8; }
 .cola-console { display: grid; grid-template-columns: minmax(160px, 1fr) auto; align-items: center; gap: 10px 24px; padding: 16px 0 7px; }

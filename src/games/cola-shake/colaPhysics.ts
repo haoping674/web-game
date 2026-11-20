@@ -42,8 +42,8 @@ export class ColaRound {
   opening = 0
   age = 0
   elapsed = 0
-  swing = 0
-  slosh = 0
+  held = false
+  pose = { x: 0, y: 0, vx: 0, vy: 0, kickX: 0, kickY: 0, sloshX: 0, sloshY: 0 }
   foam = 0
   distance = 0
   launchPressure = 0
@@ -52,35 +52,73 @@ export class ColaRound {
   lastImpact = 0
   impacts = 0
   private lastBeat = -Infinity
-  private direction = 0
+  private direction = { x: 0, y: 0, z: 0 }
+  private target = { x: 0, y: 0 }
   private emitted = 0
 
-  shake(direction: number): boolean {
-    if (this.phase !== 'shake' || direction === this.direction) return false
+  grab(): void {
+    this.held = true
+    this.target = { x: this.pose.x, y: this.pose.y }
+  }
+
+  moveGrip(x: number, y: number): void {
+    this.target.x = x
+    this.target.y = y
+  }
+
+  release(): void {
+    this.held = false
+    this.target.x = 0
+    this.target.y = 0
+  }
+
+  shake(dx: number, dy = 0, dz = 0): boolean {
+    const length = Math.hypot(dx, dy, dz)
+    if (this.phase !== 'shake' || !length) return false
     const interval = this.elapsed - this.lastBeat
     if (interval < 0.11) return false
+    const direction = { x: dx / length, y: dy / length, z: dz / length }
+    const alignment = direction.x * this.direction.x + direction.y * this.direction.y + direction.z * this.direction.z
+    if (alignment > 0.70) return false
     this.direction = direction
     this.lastBeat = this.elapsed
     const rhythm = Number.isFinite(interval) ? Math.max(0.25, 1 - Math.abs(interval - 0.26) * 2.7) : 0.65
     this.pressure += (1 - this.pressure) * 0.185 * rhythm
-    this.swing = direction
+    this.pose.kickX = direction.x
+    this.pose.kickY = direction.y + direction.z * .58
     return true
   }
 
-  beginOpening(): void {
-    if (this.phase === 'shake') this.phase = 'opening'
+  tapShake(): boolean {
+    return this.shake(this.direction.x > 0 ? -1 : 1)
   }
 
-  step(dt: number, held: boolean): void {
+  beginOpening(): void {
+    if (this.phase !== 'shake') return
+    this.release()
+    this.phase = 'opening'
+  }
+
+  step(dt: number): void {
     this.elapsed += dt
-    this.swing *= Math.exp(-dt * 7)
-    this.slosh += (this.swing - this.slosh) * (1 - Math.exp(-dt * 11))
+    const pose = this.pose
+    const spring = this.held ? 490 : 112
+    const damping = Math.exp(-dt * (this.held ? 25 : 13))
+    pose.vx = (pose.vx + (this.target.x - pose.x) * spring * dt) * damping
+    pose.vy = (pose.vy + (this.target.y - pose.y) * spring * dt) * damping
+    pose.x += pose.vx * dt
+    pose.y += pose.vy * dt
+    pose.kickX *= Math.exp(-dt * 7)
+    pose.kickY *= Math.exp(-dt * 7)
+    const liquid = 1 - Math.exp(-dt * 11)
+    pose.sloshX += (pose.vx * .20 + pose.kickX - pose.sloshX) * liquid
+    pose.sloshY += (pose.vy * .20 + pose.kickY - pose.sloshY) * liquid
     if (this.phase === 'shake') {
       if (this.elapsed - this.lastBeat > 0.48) this.pressure = Math.max(0, this.pressure - dt * 0.14)
     } else if (this.phase === 'opening') {
-      if (held) this.opening = Math.min(1, this.opening + dt / OPEN_TIME)
+      this.opening = Math.min(1, this.opening + dt / OPEN_TIME)
       if (this.opening < SEAL_BREAK) this.pressure = Math.max(0, this.pressure - dt * 0.035)
-      else this.pressure *= Math.exp(-dt * (held ? 0.15 : 0.78))
+      else this.pressure *= Math.exp(-dt * 0.15)
       if (this.opening >= 1) {
         this.phase = 'spray'
         this.launchPressure = this.pressure

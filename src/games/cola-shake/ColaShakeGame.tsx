@@ -12,6 +12,7 @@ import './colaShake.css'
 
 type MotionMode = 'off' | 'pending' | 'active' | 'unavailable'
 type Reading = { pressure: number; lid: number; distance: number; phase: Phase }
+type Grip = { id: number; startX: number; startY: number; anchorX: number; anchorY: number; height: number; maxX: number; offsetX: number; offsetY: number }
 const INITIAL: Reading = { pressure: 0, lid: 0, distance: 0, phase: 'shake' }
 type Props = {
   globalSettings: GlobalSettings
@@ -22,12 +23,11 @@ type Props = {
 
 export default function ColaShakeGame({ globalSettings, highScore, onProgressChange, platformSettingsOpen }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
+  const capTarget = useRef<HTMLButtonElement>(null)
   const round = useRef(new ColaRound())
   const audio = useRef<ReturnType<typeof makeColaAudio> | null>(null)
-  const capHeld = useRef(false)
-  const gesture = useRef<{ id: number; anchor: number; width: number } | null>(null)
+  const gesture = useRef<Grip | null>(null)
   const stageVisible = useRef(true)
-  const motionStamp = useRef(0)
   const [motion, setMotion] = useState<MotionMode>('off')
   const [touchDevice] = useState(() => window.matchMedia('(any-pointer: coarse)').matches)
   const [reading, setReading] = useState(INITIAL)
@@ -68,7 +68,7 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
       const oldPhase = current.phase
       const oldOpening = current.opening
       const oldHits = current.impacts
-      current.step(dt, capHeld.current)
+      current.step(dt)
       if (oldOpening === 0 && current.opening > 0) audio.current?.play('thread', .56)
       if (oldOpening < .66 && current.opening >= .66) audio.current?.play('thread', .38, 1.17)
       if (oldOpening < SEAL_BREAK && current.opening >= SEAL_BREAK) audio.current?.play('hiss', .32 + current.pressure * .48)
@@ -106,6 +106,11 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
         lastPublish = now
       }
       scene.draw(current, Math.min(dt, .05), state.globalSettings.reducedMotion || preference.matches, state.globalSettings.effectIntensity)
+      if (capTarget.current && current.phase === 'shake') {
+        const { x, y } = scene.capCenter
+        const position = `${x}px ${y}px`
+        if (capTarget.current.style.translate !== position) capTarget.current.style.translate = position
+      }
       frame = requestAnimationFrame(tick)
     }
     const syncLoop = () => {
@@ -113,8 +118,7 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
         cancelAnimationFrame(frame)
         frame = 0
         previous = 0
-        capHeld.current = false
-        gesture.current = null
+        releaseGrip()
         audio.current?.stop()
       } else if (!frame) frame = requestAnimationFrame(tick)
     }
@@ -135,20 +139,18 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
 
   useEffect(() => {
     if (!pause) return
-    capHeld.current = false
-    gesture.current = null
+    releaseGrip()
     audio.current?.stop()
   }, [pause])
 
-  function shake(direction: number): void {
-    if (live.current.pause || document.hidden || !stageVisible.current || !round.current.shake(direction)) return
-    audio.current?.play('shake', .49 + round.current.pressure * .30, 1.06 - round.current.pressure * .18, direction * .16)
+  function playShake(): void {
+    const { pose, pressure } = round.current
+    audio.current?.play('shake', .49 + pressure * .30, 1.06 - pressure * .18, pose.kickX * .22)
   }
 
   useEffect(() => {
     if (motion !== 'pending' && motion !== 'active') return
     let gravity: number[] | undefined
-    let axis = 0
     let lastLive = 0
     const timeout = window.setTimeout(() => {
       if (!lastLive && motion === 'pending') setMotion('unavailable')
@@ -162,7 +164,7 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
       const now = performance.now()
       lastLive = now
       if (motion === 'pending') setMotion('active')
-      if (gesture.current || live.current.pause || document.hidden || round.current.phase !== 'shake') return
+      if (gesture.current || live.current.pause || document.hidden || !stageVisible.current || round.current.phase !== 'shake') return
       let vector = [source?.x ?? 0, source?.y ?? 0, source?.z ?? 0]
       if (!canUse && raw) {
         const sample = [raw.x ?? 0, raw.y ?? 0, raw.z ?? 0]
@@ -173,13 +175,8 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
           return value - baseline
         })
       }
-      if (now - motionStamp.current > 450) {
-        axis = vector.reduce((strongest, value, index) => Math.abs(value) > Math.abs(vector[strongest]) ? index : strongest, 0)
-      }
-      if (Math.abs(vector[axis]) >= 3.2) {
-        motionStamp.current = now
-        shake(Math.sign(vector[axis]))
-      }
+      const [x, y, z] = vector
+      if (Math.hypot(x, y, z) >= 3.2 && round.current.shake(x, y, z)) playShake()
     }
     window.addEventListener('devicemotion', receive)
     return () => { clearTimeout(timeout); window.removeEventListener('devicemotion', receive) }
@@ -199,68 +196,63 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
   function dragStart(event: PointerEvent<HTMLCanvasElement>): void {
     if (event.button !== 0 || !event.isPrimary || round.current.phase !== 'shake' || pause) return
     audio.current?.unlock()
-    gesture.current = { id: event.pointerId, anchor: event.clientX, width: event.currentTarget.clientWidth }
+    const { clientWidth, clientHeight } = event.currentTarget
+    if (!clientHeight) return
+    const { pose } = round.current
+    gesture.current = {
+      id: event.pointerId, startX: event.clientX, startY: event.clientY,
+      anchorX: event.clientX, anchorY: event.clientY, height: clientHeight,
+      maxX: Math.min(.69, Math.max(.1, clientWidth / clientHeight / 2 - .18)),
+      offsetX: pose.x, offsetY: pose.y,
+    }
+    round.current.grab()
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   function dragMove(event: PointerEvent<HTMLCanvasElement>): void {
     const grip = gesture.current
     if (!grip || grip.id !== event.pointerId || round.current.phase !== 'shake') return
-    const movement = event.clientX - grip.anchor
-    if (Math.abs(movement) < Math.max(24, Math.min(grip.width * .085, 53))) return
-    grip.anchor = event.clientX
-    shake(Math.sign(movement))
+    const x = grip.offsetX + (event.clientX - grip.startX) / grip.height
+    const y = grip.offsetY - (event.clientY - grip.startY) / grip.height
+    round.current.moveGrip(Math.max(-grip.maxX, Math.min(grip.maxX, x)), Math.max(-.13, Math.min(.105, y)))
+    const dx = event.clientX - grip.anchorX
+    const dy = grip.anchorY - event.clientY
+    if (Math.hypot(dx, dy) < Math.max(15, grip.height * .064)) return
+    grip.anchorX = event.clientX
+    grip.anchorY = event.clientY
+    if (round.current.shake(dx, dy)) playShake()
+  }
+
+  function releaseGrip(pointerId?: number): void {
+    const grip = gesture.current
+    if (!grip || (pointerId !== undefined && pointerId !== grip.id)) return
+    gesture.current = null
+    round.current.release()
+    if (canvas.current?.hasPointerCapture(grip.id)) canvas.current.releasePointerCapture(grip.id)
   }
 
   function beginOpen(): void {
-    if (live.current.pause || sceneError || round.current.phase === 'spray' || round.current.phase === 'result') return
+    if (live.current.pause || sceneError || round.current.phase !== 'shake') return
     audio.current?.unlock()
-    gesture.current = null
-    capHeld.current = true
+    releaseGrip()
     round.current.beginOpening()
   }
 
-  function releaseOpen(): void { capHeld.current = false }
-
   function reset(): void {
     audio.current?.stop()
+    releaseGrip()
     round.current = new ColaRound()
-    releaseOpen()
-    gesture.current = null
     setReading(INITIAL)
     setResult(false)
   }
 
-  const pressProps = {
-    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
-      if (!event.isPrimary || event.button !== 0) return
-      event.currentTarget.setPointerCapture(event.pointerId)
-      beginOpen()
-    },
-    onPointerUp: releaseOpen,
-    onPointerCancel: releaseOpen,
-    onLostPointerCapture: releaseOpen,
-    onBlur: releaseOpen,
-    onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => {
-      if (event.key !== ' ' && event.key !== 'Enter') return
-      event.preventDefault()
-      if (!event.repeat) beginOpen()
-    },
-    onKeyUp: (event: React.KeyboardEvent<HTMLButtonElement>) => {
-      if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); releaseOpen() }
-    },
-    onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
-      // Assistive technology can invoke a button without holding a pointer/key.
-      if (event.detail === 0) beginOpen()
-    },
-  }
   const preLaunch = reading.phase === 'shake' || reading.phase === 'opening'
   const active = reading.phase === 'shake'
   const hint = reading.phase === 'opening'
-    ? reading.lid >= SEAL_BREAK * 100 ? '泡沫正從瓶蓋邊緣溢出。繼續按住開蓋。' : '繼續按住，瓶蓋正在鬆開。'
+    ? reading.lid >= SEAL_BREAK * 100 ? '泡沫正從瓶蓋邊緣溢出。' : '瓶蓋正在鬆開。'
     : reading.phase === 'spray' ? '以液滴最遠落點計分。'
       : reading.phase === 'result' ? '本局噴射完畢。'
-        : motion === 'active' ? '輕握手機，左右來回搖。' : '按住瓶身左右來回拖曳。'
+        : motion === 'active' ? '握住手機，往任意方向搖。' : '按住瓶身，往任意方向甩。'
 
   return (
     <section className="cola-game" aria-labelledby="cola-title">
@@ -270,10 +262,10 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
       </header>
       <div className="cola-stage" data-phase={reading.phase}>
         <canvas key={sceneVersion} ref={canvas} aria-hidden="true" onPointerDown={dragStart} onPointerMove={dragMove}
-          onPointerUp={() => { gesture.current = null }} onPointerCancel={() => { gesture.current = null }}
-          onLostPointerCapture={() => { gesture.current = null }} />
+          onPointerUp={event => releaseGrip(event.pointerId)} onPointerCancel={event => releaseGrip(event.pointerId)}
+          onLostPointerCapture={event => releaseGrip(event.pointerId)} />
         <div className="cola-readout"><span>最遠落點</span><strong>{reading.distance} <small>cm</small></strong></div>
-        {preLaunch && !sceneError && <button type="button" className="cola-cap-target" aria-label="按住瓶蓋" {...pressProps} />}
+        {active && !sceneError && <button ref={capTarget} type="button" className="cola-cap-target" aria-label="打開瓶蓋" onClick={beginOpen} />}
         {sceneError && <div className="cola-scene-error" role="status">3D 畫面暫時無法顯示。<button type="button" className="cola-secondary" onClick={() => { reset(); setSceneError(false); setSceneVersion(version => version + 1) }}>重試</button></div>}
       </div>
       <div className="cola-console">
@@ -283,8 +275,8 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
           <p aria-live="polite">{hint}</p>
         </div>
         <div className="cola-actions">
-          {preLaunch && <button className="cola-open" type="button" {...pressProps} disabled={sceneError}>
-            <span style={{ inlineSize: `${reading.lid}%` }} aria-hidden="true" />按住開蓋
+          {preLaunch && <button className="cola-open" type="button" onClick={beginOpen} disabled={sceneError || !active}>
+            <span style={{ inlineSize: `${reading.lid}%` }} aria-hidden="true" />{active ? '開蓋' : '開蓋中…'}
           </button>}
           {reading.phase === 'result' && <button className="cola-open" type="button" onClick={reset}>再搖一瓶</button>}
           {reading.phase === 'opening' && <button className="cola-secondary" type="button" onClick={reset}>換一瓶</button>}
@@ -294,7 +286,7 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
           </button>}
           {active && <button className="cola-secondary" type="button" disabled={sceneError} onClick={() => {
             audio.current?.unlock()
-            shake(round.current.swing > 0 ? -1 : 1)
+            if (round.current.tapShake()) playShake()
           }}>點按搖晃</button>}
           <button className="cola-secondary" type="button" disabled={!globalSettings.soundEnabled} aria-pressed={globalSettings.soundEnabled && heard}
             onClick={() => { audio.current?.setEnabled(!heard && globalSettings.soundEnabled); setHeard(!heard); if (!heard) audio.current?.unlock() }}>音效</button>
