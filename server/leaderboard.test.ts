@@ -26,6 +26,18 @@ beforeEach(async () => { await db.exec('TRUNCATE arcade_scores RESTART IDENTITY'
 afterAll(async () => { await db.close() })
 
 describe('leaderboard API and actual PostgreSQL schema', () => {
+  it('records cola distances in descending order and enforces the same limit in SQL and the API', async () => {
+    for (const score of [142, 575, 315]) {
+      expect(await (await handleLeaderboard(post(input(score, 'cola-distance')), store)).json()).toMatchObject({ accepted: true })
+    }
+    const response = await handleLeaderboard(get('cola-distance', '400'), store)
+    expect(await response.json()).toMatchObject({ rank: 2, entries: [{ score: 575 }, { score: 315 }, { score: 142 }] })
+    for (const invalid of [0, 576]) {
+      expect((await handleLeaderboard(post(input(invalid, 'cola-distance')), store)).status).toBe(400)
+      await expect(store.submit(input(invalid, 'cola-distance'))).rejects.toThrow('Invalid leaderboard submission')
+    }
+    expect(await store.list('fruit-classic')).toEqual([])
+  })
   it('preserves multiplier scores as history and retires their API and submission function', async () => {
     await db.query("INSERT INTO arcade_scores (board, submission_id, player_name, score) VALUES ('slide-score', $1, '舊玩家', 950)", [randomUUID()])
     await db.exec(await readFile('database/001_leaderboards.sql', 'utf8'))

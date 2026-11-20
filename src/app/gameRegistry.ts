@@ -1,4 +1,4 @@
-export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen' | 'secondSense' | 'lengthSense' | 'tissueRoll'
+export type GameId = 'fruitSum' | 'colorLinks' | 'sproutIsland' | 'ashbound' | 'slideTen' | 'secondSense' | 'lengthSense' | 'tissueRoll' | 'colaShake'
 
 export type GameDefinition = {
   id: GameId
@@ -11,6 +11,15 @@ export type GameDefinition = {
 }
 
 export const GAME_REGISTRY = [
+  {
+    id: 'colaShake',
+    name: '可樂噴多遠',
+    eyebrow: 'COLA SHAKE',
+    description: '把泡沫搖到瓶頸，再慢慢扭開。看可樂噴出幾公分，挑戰線上前十名。',
+    route: '/games/cola-shake',
+    status: 'available',
+    accent: '#a53b26',
+  },
   {
     id: 'tissueRoll',
     name: '無限抽衛生紙',

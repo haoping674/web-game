@@ -9,6 +9,7 @@ export const SITE_DESCRIPTION = `${SITE_NAMES['zh-Hant']}收錄 ${GAME_REGISTRY.
 const HOME_TITLES = { 'zh-Hant': '免費網頁小遊戲，免下載直接玩', en: 'Free Browser Games' }
 
 const CHINESE_GAME_SUBTITLES: Record<GameId, string> = {
+  colaShake: '3D 搖可樂噴射挑戰',
   tissueRoll: '擬真 3D 盒裝面紙',
   lengthSense: '目測長度挑戰',
   secondSense: '直覺計時挑戰',

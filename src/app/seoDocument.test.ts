@@ -19,7 +19,7 @@ describe('SEO metadata during client navigation', () => {
     updatePageMetadata('/')
     expect(document.title).toBe('免費網頁小遊戲，免下載直接玩｜有空再來玩')
     expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://games.haoping.tw/')
-    expect(document.querySelector('meta[name="twitter:description"]')?.getAttribute('content')).toContain('8 款')
+    expect(document.querySelector('meta[name="twitter:description"]')?.getAttribute('content')).toContain('9 款')
   })
 })
 

@@ -13,13 +13,14 @@ CREATE TABLE IF NOT EXISTS arcade_scores (
 ALTER TABLE arcade_scores DROP CONSTRAINT IF EXISTS arcade_scores_board_check;
 -- statement-breakpoint
 ALTER TABLE arcade_scores ADD CONSTRAINT arcade_scores_board_check
-  CHECK (board IN ('fruit-classic', 'color-time', 'color-removed', 'ashbound-souls', 'slide-score', 'slide-cleared'));
+  CHECK (board IN ('fruit-classic', 'color-time', 'color-removed', 'ashbound-souls', 'slide-score', 'slide-cleared', 'cola-distance'));
 -- statement-breakpoint
 -- Replace the original ten-floor cap on existing databases as well as fresh ones.
 ALTER TABLE arcade_scores DROP CONSTRAINT IF EXISTS arcade_scores_check;
 -- statement-breakpoint
 ALTER TABLE arcade_scores ADD CONSTRAINT arcade_scores_check
   CHECK (CASE WHEN board = 'color-time' THEN score BETWEEN 0 AND 30
+    WHEN board = 'cola-distance' THEN score BETWEEN 1 AND 575
     WHEN board IN ('slide-score', 'slide-cleared') THEN score BETWEEN 0 AND 2147483647
     WHEN board = 'ashbound-souls' THEN score BETWEEN 1 AND 2147483647 ELSE score BETWEEN 0 AND 170 END);
 -- statement-breakpoint
@@ -36,10 +37,11 @@ DECLARE
   v_entries jsonb;
 BEGIN
   -- Retired Ashbound and Slide Ten multiplier scores remain as historical records.
-  IF p_board NOT IN ('fruit-classic', 'color-time', 'color-removed', 'slide-cleared') OR p_board IS NULL
+  IF p_board NOT IN ('fruit-classic', 'color-time', 'color-removed', 'slide-cleared', 'cola-distance') OR p_board IS NULL
     OR p_score IS NULL OR p_name IS NULL OR p_submission IS NULL
     OR char_length(btrim(p_name)) NOT BETWEEN 1 AND 20 OR p_name ~ '[[:cntrl:]<>]'
     OR NOT (CASE WHEN p_board = 'color-time' THEN p_score BETWEEN 0 AND 30
+      WHEN p_board = 'cola-distance' THEN p_score BETWEEN 1 AND 575
       WHEN p_board = 'slide-cleared' THEN p_score BETWEEN 0 AND 2147483647 ELSE p_score BETWEEN 0 AND 170 END)
   THEN RAISE EXCEPTION 'Invalid leaderboard submission'; END IF;
 

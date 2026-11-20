@@ -7,7 +7,7 @@ import { SITE_NAMES } from './locale'
 import { CHINESE_HOME_HEADING, CHINESE_HOME_INTRO } from './seo'
 import './home.css'
 
-const GAME_CATEGORIES = { lengthSense: '憑感覺', secondSense: '憑感覺', fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險', tissueRoll: '解解壓' } as const
+const GAME_CATEGORIES = { lengthSense: '憑感覺', secondSense: '憑感覺', fruitSum: '動動腦', colorLinks: '動動腦', slideTen: '動動腦', sproutIsland: '慢慢養', ashbound: '去冒險', tissueRoll: '解解壓', colaShake: '解解壓' } as const
 const FILTERS = ['全部遊戲', '憑感覺', '動動腦', '慢慢養', '去冒險', '解解壓'] as const
 const HERO_FRUIT = [2, 4, 6, 3, 1, 5, 1, 3, 2, 7, 4, 8, 6, 2, 9, 3, 5, 1, 4, 6, 7, 2, 8, 3, 1]
 
@@ -86,22 +86,23 @@ function GameCard({ game, highScore, bestTimeSeconds, paperSheets, onOpen }: {
   const isTiming = game.id === 'secondSense'
   const isLength = game.id === 'lengthSense'
   const isTissue = game.id === 'tissueRoll'
-  const recordLabel = isTissue ? '累積抽出' : isTiming || isLength ? '本機最高精準分' : isAshbound ? '最深探索紀錄' : isSprout ? '最高精靈等級' : isFruit
+  const isCola = game.id === 'colaShake'
+  const recordLabel = isCola ? '最遠落點' : isTissue ? '累積抽出' : isTiming || isLength ? '本機最高精準分' : isAshbound ? '最深探索紀錄' : isSprout ? '最高精靈等級' : isFruit
     ? '本機最高分'
     : '最快清空 · 時限最高'
-  const recordValue = isTissue ? `${paperSheets ?? 0} 張` : isTiming || isLength ? `${highScore} / 1000` : isAshbound ? `地下 ${highScore} 層` : isSprout ? `Lv. ${highScore || 1}` : isFruit
+  const recordValue = isCola ? `${highScore} cm` : isTissue ? `${paperSheets ?? 0} 張` : isTiming || isLength ? `${highScore} / 1000` : isAshbound ? `地下 ${highScore} 層` : isSprout ? `Lv. ${highScore || 1}` : isFruit
     ? highScore
     : `${formatBestTime(bestTimeSeconds)} · ${highScore} 格`
   return (
     <article className={`game-choice-card game-${game.id}`} style={{ '--card-accent': game.accent } as React.CSSProperties}>
       <button type="button" className="game-card-hitbox" onClick={onOpen} aria-label={`開始 ${game.name}`} />
       <div className="game-card-copy">
-        <p className="eyebrow"><span>{GAME_CATEGORIES[game.id]}</span> / {isTissue ? '3D 自由發洩' : isLength ? '長度直覺' : isTiming ? '直覺計時' : game.id === 'slideTen' ? '滑動配對 · 試玩版' : isAshbound ? '回合策略' : isSprout ? '合成養成' : isFruit ? '數字益智' : '色彩消除'}</p>
+        <p className="eyebrow"><span>{GAME_CATEGORIES[game.id]}</span> / {isCola ? '3D 噴射挑戰' : isTissue ? '3D 自由發洩' : isLength ? '長度直覺' : isTiming ? '直覺計時' : game.id === 'slideTen' ? '滑動配對 · 試玩版' : isAshbound ? '回合策略' : isSprout ? '合成養成' : isFruit ? '數字益智' : '色彩消除'}</p>
         <h2>{game.name}</h2>
         <p>{game.description}</p>
         <span className="local-record">{recordLabel} <strong>{recordValue}</strong></span>
       </div>
-      {isTissue ? <img className="home-preview tissue-preview" src={`${import.meta.env.BASE_URL}tissue-roll/preview.png`} width="300" height="240" alt="" loading="lazy" /> : isLength ? <div className="home-preview length-preview" aria-hidden="true"><span /><span /><small>JUST THIS LONG ↔</small></div> : isTiming ? <div className="home-preview timing-preview" aria-hidden="true"><span>3.000<small>JUST RIGHT ✦</small></span></div> : isAshbound ? <div className="home-preview ash-preview" aria-hidden="true"><span>†</span></div> : isSprout ? <div className="home-preview sprout-preview" aria-hidden="true"><span>✦</span><strong>🌱</strong><i>Lv. ∞</i></div> : isFruit ? <FruitPreview slide={game.id === 'slideTen'} /> : <ColorPreview />}
+      {isCola ? <img className="home-preview cola-preview" src={`${import.meta.env.BASE_URL}cola-shake/preview.webp`} width="300" height="240" alt="" loading="lazy" /> : isTissue ? <img className="home-preview tissue-preview" src={`${import.meta.env.BASE_URL}tissue-roll/preview.png`} width="300" height="240" alt="" loading="lazy" /> : isLength ? <div className="home-preview length-preview" aria-hidden="true"><span /><span /><small>JUST THIS LONG ↔</small></div> : isTiming ? <div className="home-preview timing-preview" aria-hidden="true"><span>3.000<small>JUST RIGHT ✦</small></span></div> : isAshbound ? <div className="home-preview ash-preview" aria-hidden="true"><span>†</span></div> : isSprout ? <div className="home-preview sprout-preview" aria-hidden="true"><span>✦</span><strong>🌱</strong><i>Lv. ∞</i></div> : isFruit ? <FruitPreview slide={game.id === 'slideTen'} /> : <ColorPreview />}
       <span className="game-start-button" aria-hidden="true">開始遊戲 <span>↗</span></span>
     </article>
   )

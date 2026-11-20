@@ -6,8 +6,9 @@ const origin = 'https://games.haoping.tw'
 const read = (path) => readFile(new URL(`../dist/${path}`, import.meta.url), 'utf8')
 const sitemap = new JSDOM(await read('sitemap.xml'), { contentType: 'application/xml' }).window.document
 const urls = [...sitemap.querySelectorAll('url > loc')].map((node) => node.textContent)
-assert.equal(urls.length, 15, 'Sitemap must contain nine Chinese pages and six English pages')
+assert.equal(urls.length, 16, 'Sitemap must contain ten Chinese pages and six English pages')
 assert.ok(urls.includes(`${origin}/games/tissue-roll`), 'Tissue Roll must have a Chinese index entry')
+assert.ok(urls.includes(`${origin}/games/cola-shake`), 'Cola Shake must have a Chinese index entry')
 assert.equal(new Set(urls).size, urls.length, 'Sitemap URLs must be unique')
 const titles = new Set()
 for (const url of urls) {
@@ -22,7 +23,7 @@ for (const url of urls) {
   assert.ok(document.querySelector('#root h1')?.textContent, `Missing non-JS content: ${file}`)
   const english = pathname === '/en' || pathname.startsWith('/en/')
   assert.equal(document.documentElement.lang, english ? 'en' : 'zh-Hant', file)
-  assert.equal(document.querySelectorAll(english ? '#root a[href^="/en/games/"]' : '#root a[href^="/games/"]').length, english ? 5 : 8, file)
+  assert.equal(document.querySelectorAll(english ? '#root a[href^="/en/games/"]' : '#root a[href^="/games/"]').length, english ? 5 : 9, file)
   if (english) {
     assert.ok(!/[\u3400-\u9fff]/.test(document.querySelector('#root').textContent), file)
     const alternates = [...document.querySelectorAll('link[hreflang]')]

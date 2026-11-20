@@ -51,6 +51,7 @@ export const DEFAULT_APP_STORAGE: AppStorage = {
     secondSense: { ...DEFAULT_PROGRESS },
     lengthSense: { ...DEFAULT_PROGRESS },
     tissueRoll: { ...DEFAULT_PROGRESS },
+    colaShake: { ...DEFAULT_PROGRESS },
   },
 }
 
@@ -221,6 +222,7 @@ export function readAppStorage(storage?: Storage): AppStorage {
         slideTen: normalizeSlideProgress(games.slideTen),
         secondSense: normalizeTimingProgress(games.secondSense),
         lengthSense: normalizeLengthProgress(games.lengthSense),
+        colaShake: normalizeProgress(games.colaShake),
         tissueRoll: {
           ...normalizeProgress(games.tissueRoll),
           paperMillimeters: isRecord(games.tissueRoll) ? finiteNumber(games.tissueRoll.paperMillimeters) : 0,

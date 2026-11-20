@@ -2,6 +2,13 @@ import type { GameId } from './gameRegistry.ts'
 
 export type GameGuide = { goal: string; controls: string; rules: string; scoring: string; tip: string }
 export const GAME_GUIDES: Record<GameId, GameGuide> = {
+  colaShake: {
+    goal: '搖晃可樂，挑戰開蓋後液滴的最遠落點。',
+    controls: '用滑鼠或手指把瓶身左右來回拖，也能點按搖晃。手機可啟用動作感測後左右搖。搖完按住瓶蓋，或長按「按住開蓋」。',
+    rules: '有節奏地左右搖可以積累壓力。放著太久或瓶蓋鬆開後停手，瓶內會逐漸洩壓。每局採用相同噴射角度。',
+    scoring: '液滴落地時即時更新最遠距離，單位為 cm。記錄本機最佳，符合資格可自選暱稱登錄全站前十名。',
+    tip: '試著用穩定的節奏搖到壓力接近滿格，再一口氣按住開蓋。',
+  },
   tissueRoll: {
     goal: '從桌上的紙盒一張一張抽面紙。沒有時間限制，也沒有輸贏。',
     controls: '捏住盒口的面紙往上抽。抓盒身可以提起來，甩動放手就能丟。也可點按「輕抽」、「快抽」或「丟紙盒」，或用鍵盤操作。',

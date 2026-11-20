@@ -138,6 +138,8 @@ Orchard Ten、Color Links 與滑滑湊十遊戲結束後自動檢查榜單，暫
 
 灰燼墓誌已移除線上排行榜，魂燼結算與本機進度照常保留。API 不再接受該榜單的查詢與登錄；既有資料庫可重新執行 `npm run db:migrate`，同步停用資料庫函式的登錄入口，歷史紀錄仍保留。
 
+可樂噴多遠使用 `cola-distance`，手機和桌機共用整數公分榜。發布前需在對應的 Neon 資料庫執行 `npm run db:migrate`，加入新榜與分數範圍驗證。
+
 資料庫連線只存在後端，使用 [Neon serverless driver](https://github.com/neondatabase/serverless)。`DATABASE_URL` 未設定或連線失敗時，畫面顯示重試提示，原本遊戲與本機紀錄仍可使用。離線結算不會偷偷排隊上傳；需在結算畫面恢復連線後重試。
 
 ### 部署（預設 Vercel）

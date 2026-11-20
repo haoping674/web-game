@@ -24,6 +24,7 @@ const SlideTenGame = lazy(() => import('./games/slide-ten/SlideTenGame'))
 const SecondSenseGame = lazy(() => import('./games/second-sense/SecondSenseGame'))
 const LengthSenseGame = lazy(() => import('./games/length-sense/LengthSenseGame'))
 const TissueRollGame = lazy(() => import('./games/tissue-roll/TissueRollGame'))
+const ColaShakeGame = lazy(() => import('./games/cola-shake/ColaShakeGame'))
 
 type RouteErrorBoundaryProps = { children: ReactNode; onHome: () => void }
 type RouteErrorBoundaryState = { failed: boolean }
@@ -121,7 +122,9 @@ function App() {
           <AppHeader compact onHome={returnHome} onSettings={openSettings} />
           <RouteErrorBoundary key={fullPathname} onHome={returnHome}>
             <Suspense fallback={<RouteLoading />}>
-              {pathname === '/games/tissue-roll' ? (
+              {pathname === '/games/cola-shake' ? (
+                <ColaShakeGame globalSettings={storage.globalSettings} highScore={storage.games.colaShake.highScore} onProgressChange={refreshStorage} platformSettingsOpen={settingsOpen} />
+              ) : pathname === '/games/tissue-roll' ? (
                 <TissueRollGame globalSettings={storage.globalSettings} progress={storage.games.tissueRoll} onProgressChange={refreshStorage} platformSettingsOpen={settingsOpen} />
               ) : pathname === '/games/length-sense' ? (
                 <LengthSenseGame globalSettings={storage.globalSettings} onProgressChange={refreshStorage} platformSettingsOpen={settingsOpen} />

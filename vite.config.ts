@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           navigateFallback: `${base}index.html`,
           navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/_/, /\/[^/?]+\.[^/]+$/],
-          globPatterns: ['**/*.{html,js,css,svg,png,ico,webmanifest,woff2}'],
+          globPatterns: ['**/*.{html,js,css,svg,png,ico,webmanifest,woff2}', 'cola-shake/*.{mp3,webp,md}'],
           globIgnores: ['**/node_modules/**/*', '**/TissueRollGame-*.js'],
           runtimeCaching: [{
             urlPattern: ({ sameOrigin, url }) => sameOrigin && (

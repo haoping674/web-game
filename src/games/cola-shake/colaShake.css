@@ -1,0 +1,85 @@
+.cola-game { width: min(100%, 980px); margin-inline: auto; color: #51392d; }
+.cola-header { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-block: 16px 14px; }
+.cola-header .eyebrow { color: #805e46; margin: 0 0 5px; }
+.cola-header h1 { font-size: clamp(1.85rem, 4.8vw, 3rem); line-height: 1.08; margin: 0; color: #4b3021; }
+.cola-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  block-size: clamp(320px, 51svh, 590px);
+  border: 1px solid #9f7964;
+  border-radius: 24px;
+  background: radial-gradient(ellipse at 50% 27%, #e8c9ae, #886050);
+  box-shadow: 0 16px 40px #6c3c271e;
+}
+.cola-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; -webkit-user-select: none; user-select: none; }
+.cola-stage[data-phase="shake"] canvas { cursor: grab; }
+.cola-stage[data-phase="shake"] canvas:active { cursor: grabbing; }
+.cola-readout {
+  position: absolute;
+  inset: 17px auto auto 17px;
+  display: grid;
+  gap: 2px;
+  min-inline-size: 105px;
+  padding: 10px 14px 12px;
+  color: #fff2d8;
+  background: #392219;
+  border: 1px solid #e8ba895e;
+  border-radius: 14px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.cola-readout span { font-size: .77rem; font-weight: 700; color: #f4cda8; }
+.cola-readout strong { font-size: clamp(1.6rem, 4.9vw, 2.8rem); line-height: 1; letter-spacing: -.025em; }
+.cola-readout small, .cola-result-distance small { font-size: .46em; letter-spacing: 0; }
+.cola-cap-target {
+  position: absolute;
+  inset: 19% auto auto 50%;
+  translate: -50% -24%;
+  width: max(48px, 12%);
+  height: 17%;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: none;
+}
+.cola-cap-target:focus-visible { outline: 3px solid #622211; outline-offset: 3px; }
+.cola-scene-error { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; color: #fff2d8; background: #392219e8; }
+.cola-console { display: grid; grid-template-columns: minmax(160px, 1fr) auto; align-items: center; gap: 10px 24px; padding: 16px 0 7px; }
+.cola-pressure-label { display: flex; justify-content: space-between; gap: 10px; font-weight: 750; font-size: .78rem; }
+.cola-pressure-label span { font-variant-numeric: tabular-nums; }
+.cola-feedback progress { display: block; width: 100%; height: 11px; margin-block: 6px; accent-color: #a23925; }
+.cola-feedback p, .cola-motion-note, .cola-best { margin: 0; font-size: .85rem; line-height: 1.55; }
+.cola-motion-note { grid-column: 1 / -1; }
+.cola-footer { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cola-footer a { color: inherit; font-size: .78rem; }
+.cola-best { text-align: end; padding-block: 5px 12px; font-variant-numeric: tabular-nums; }
+.cola-actions { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
+.cola-secondary, .cola-open {
+  min-height: 44px;
+  padding-inline: 13px;
+  border: 1px solid #a17a63;
+  border-radius: 10px;
+  font: inherit;
+  font-size: .835rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.cola-secondary { color: #513328; background: #fff6eb; }
+.cola-secondary[aria-pressed="true"] { background: #f0d3bb; }
+.cola-secondary:hover:not(:disabled) { background: #f6dfcb; }
+.cola-secondary:disabled, .cola-open:disabled { cursor: default; opacity: .55; }
+.cola-open { position: relative; isolation: isolate; overflow: hidden; min-width: 110px; background: #892b20; border-color: #732419; color: #fff7e8; touch-action: none; -webkit-user-select: none; user-select: none; }
+.cola-open > span { position: absolute; z-index: -1; inset: 0 auto 0 0; background: #ac4530; pointer-events: none; }
+.cola-open:hover:not(:disabled), .cola-open:active:not(:disabled) { background-color: #76271e; }
+.cola-secondary:focus-visible, .cola-open:focus-visible { outline: 3px solid #773121; outline-offset: 3px; }
+.cola-result-distance { font-variant-numeric: tabular-nums; }
+@media (max-width: 680px) {
+  .cola-game { width: calc(100% - 24px); }
+  .cola-console { grid-template-columns: 1fr; }
+  .cola-actions { justify-content: flex-start; }
+  .cola-readout { inset: 10px auto auto 10px; padding: 8px 9px; min-inline-size: 77px; border-radius: 10px; }
+  .cola-stage { border-radius: 16px; block-size: clamp(265px, 44svh, 420px); }
+  .cola-best { text-align: start; }
+}

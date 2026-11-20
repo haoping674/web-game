@@ -174,3 +174,5 @@
 @media(max-width:480px) { .timing-preview>span { width:85px; height:85px; font-size:20px; }.timing-preview small { font-size:6px; } }
 .arcade-home .length-preview { display:flex; flex-direction:column; justify-content:center; gap:22px; padding:15px; }
 .length-preview>span { position:relative; height:7px; width:90%; background:#337a78; border-radius:2px; transform:rotate(-7deg); }.length-preview>span:nth-child(2) { width:78%; background:#99bdb0; }.length-preview>span::before,.length-preview>span::after { content:''; position:absolute; width:3px; height:19px; top:-6px; background:inherit; }.length-preview>span::before { left:0; }.length-preview>span::after { right:0; }.length-preview>small { color:#337a78; font:8px 'DM Mono',monospace; letter-spacing:.03em; }
+
+.arcade-home .cola-preview { display: block; object-fit: cover; height: auto; background: #9d6650; }
