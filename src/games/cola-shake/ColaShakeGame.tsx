@@ -12,7 +12,7 @@ import './colaShake.css'
 
 type MotionMode = 'off' | 'pending' | 'active' | 'unavailable'
 type Reading = { pressure: number; lid: number; distance: number; phase: Phase }
-type Grip = { id: number; startX: number; startY: number; anchorX: number; anchorY: number; height: number; maxX: number; offsetX: number; offsetY: number }
+type Grip = { id: number; startX: number; startY: number; anchorX: number; anchorY: number; anchorAt: number; height: number; maxX: number; offsetX: number; offsetY: number }
 const INITIAL: Reading = { pressure: 0, lid: 0, distance: 0, phase: 'shake' }
 type Props = {
   globalSettings: GlobalSettings
@@ -143,9 +143,9 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
     audio.current?.stop()
   }, [pause])
 
-  function playShake(): void {
+  function playShake(force: number): void {
     const { pose, pressure } = round.current
-    audio.current?.play('shake', .49 + pressure * .30, 1.06 - pressure * .18, pose.kickX * .22)
+    audio.current?.shake(force, pressure, pose.kickX)
   }
 
   useEffect(() => {
@@ -176,7 +176,8 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
         })
       }
       const [x, y, z] = vector
-      if (Math.hypot(x, y, z) >= 3.2 && round.current.shake(x, y, z)) playShake()
+      const acceleration = Math.hypot(x, y, z)
+      if (acceleration >= 3.2 && round.current.shake(x, y, z)) playShake(acceleration / 12)
     }
     window.addEventListener('devicemotion', receive)
     return () => { clearTimeout(timeout); window.removeEventListener('devicemotion', receive) }
@@ -201,7 +202,7 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
     const { pose } = round.current
     gesture.current = {
       id: event.pointerId, startX: event.clientX, startY: event.clientY,
-      anchorX: event.clientX, anchorY: event.clientY, height: clientHeight,
+      anchorX: event.clientX, anchorY: event.clientY, anchorAt: event.timeStamp, height: clientHeight,
       maxX: Math.min(.69, Math.max(.1, clientWidth / clientHeight / 2 - .18)),
       offsetX: pose.x, offsetY: pose.y,
     }
@@ -217,10 +218,14 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
     round.current.moveGrip(Math.max(-grip.maxX, Math.min(grip.maxX, x)), Math.max(-.13, Math.min(.105, y)))
     const dx = event.clientX - grip.anchorX
     const dy = grip.anchorY - event.clientY
-    if (Math.hypot(dx, dy) < Math.max(15, grip.height * .064)) return
+    const travel = Math.hypot(dx, dy)
+    if (travel < Math.max(15, grip.height * .064)) return
+    const seconds = Math.max(.025, (event.timeStamp - grip.anchorAt) / 1000)
+    const force = travel / (grip.height * seconds * 5)
     grip.anchorX = event.clientX
     grip.anchorY = event.clientY
-    if (round.current.shake(dx, dy)) playShake()
+    grip.anchorAt = event.timeStamp
+    if (round.current.shake(dx, dy)) playShake(force)
   }
 
   function releaseGrip(pointerId?: number): void {
@@ -286,7 +291,7 @@ export default function ColaShakeGame({ globalSettings, highScore, onProgressCha
           </button>}
           {active && <button className="cola-secondary" type="button" disabled={sceneError} onClick={() => {
             audio.current?.unlock()
-            if (round.current.tapShake()) playShake()
+            if (round.current.tapShake()) playShake(.57)
           }}>點按搖晃</button>}
           <button className="cola-secondary" type="button" disabled={!globalSettings.soundEnabled} aria-pressed={globalSettings.soundEnabled && heard}
             onClick={() => { audio.current?.setEnabled(!heard && globalSettings.soundEnabled); setHeard(!heard); if (!heard) audio.current?.unlock() }}>音效</button>
